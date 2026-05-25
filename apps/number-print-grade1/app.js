@@ -103,6 +103,12 @@ function setStatus(message) {
   }, 2800);
 }
 
+function markProblemsStale() {
+  sheetProblemSets = [];
+  sheetSetSignature = "";
+  setStatus("設定を変えました。問題を変えるには「作り直す」を押してください。");
+}
+
 function dotVisual(count) {
   const rows = [];
   for (let start = 0; start < count; start += 5) {
@@ -381,17 +387,18 @@ async function copyShareUrl() {
 function bindEvents() {
   els.includeAnswers.disabled = false;
   [els.studentName, els.worksheetDate, els.worksheetTitle].forEach((control) => control.addEventListener("input", render));
-  [els.problemType, els.range, els.problemCount, els.columns].forEach((control) => control.addEventListener("change", generateProblems));
+  [els.problemType, els.range, els.problemCount].forEach((control) => control.addEventListener("change", markProblemsStale));
+  els.columns.addEventListener("change", render);
   [els.problemScale, els.problemSpacing, els.includeAnswers].forEach((control) => control.addEventListener("change", render));
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") return;
     els.problemCountPreset.value = "";
-    generateProblems({ normalizeCount: false });
+    markProblemsStale();
   });
   els.problemCountPreset.addEventListener("change", () => {
     if (!els.problemCountPreset.value) return;
     els.problemCount.value = els.problemCountPreset.value;
-    generateProblems();
+    markProblemsStale();
     els.problemCountPreset.value = "";
   });
   els.printBtn.addEventListener("click", () => {

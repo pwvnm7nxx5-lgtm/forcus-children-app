@@ -183,19 +183,22 @@
       }
 
       const scale = settings.scalePct / 100;
+      const appOwnsProblemScale = Boolean(window.GRADE3_APP_CONFIG);
 
-      document.querySelectorAll(".problem-grid").forEach((grid) => {
-        const hasVisual = Boolean(grid.querySelector(".visual"));
-        const baseProblemMin = hasVisual ? 42 : 30;
-        grid.style.setProperty("--problem-font", `${Math.round(18 * scale)}px`);
-        grid.style.setProperty("--problem-min", `${(baseProblemMin * scale).toFixed(1)}mm`);
-        grid.style.setProperty("--visual-min", `${(24 * scale).toFixed(1)}mm`);
-        grid.style.setProperty("--visual-width", `${Math.round(132 * scale)}px`);
-        grid.style.setProperty("--clock-width", `${Math.round(132 * scale)}px`);
-        grid.style.setProperty("--dot-size", `${Math.round(10 * scale)}px`);
-        grid.style.setProperty("--blank-width", `${(28 * scale).toFixed(1)}mm`);
-        grid.style.setProperty("--blank-height", `${(8 * scale).toFixed(1)}mm`);
-      });
+      if (!appOwnsProblemScale) {
+        document.querySelectorAll(".problem-grid").forEach((grid) => {
+          const hasVisual = Boolean(grid.querySelector(".visual"));
+          const baseProblemMin = hasVisual ? 42 : 30;
+          grid.style.setProperty("--problem-font", `${Math.round(18 * scale)}px`);
+          grid.style.setProperty("--problem-min", `${(baseProblemMin * scale).toFixed(1)}mm`);
+          grid.style.setProperty("--visual-min", `${(24 * scale).toFixed(1)}mm`);
+          grid.style.setProperty("--visual-width", `${Math.round(132 * scale)}px`);
+          grid.style.setProperty("--clock-width", `${Math.round(132 * scale)}px`);
+          grid.style.setProperty("--dot-size", `${Math.round(10 * scale)}px`);
+          grid.style.setProperty("--blank-width", `${(28 * scale).toFixed(1)}mm`);
+          grid.style.setProperty("--blank-height", `${(8 * scale).toFixed(1)}mm`);
+        });
+      }
 
       answerPages().forEach((page) => {
         const hideAnswer = !settings.includeAnswers;

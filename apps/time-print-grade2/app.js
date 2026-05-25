@@ -286,6 +286,13 @@ function generateProblems(options = {}) {
   render();
   setStatus("もんだいをつくりなおしました。");
 }
+
+function markProblemsStale() {
+  sheetProblemSets = [];
+  sheetSetSignature = "";
+  setStatus("設定を変えました。問題を変えるには「作り直す」を押してください。");
+}
+
 function renderProblem(problem, showAnswer) {
   const card = document.createElement("div");
   card.className = "problem-card";
@@ -411,9 +418,10 @@ async function copyShareUrl() {
 }
 function bindEvents() {
   [els.studentName, els.worksheetDate, els.worksheetTitle].forEach((control) => control.addEventListener("input", render));
-  [els.problemType, els.difficulty, els.minuteNumberMode, els.problemCount].forEach((control) => control.addEventListener("change", generateProblems));
-  els.problemCount.addEventListener("input", () => { if (els.problemCount.value === "") return; els.problemCountPreset.value = ""; generateProblems(); });
-  els.problemCountPreset.addEventListener("change", () => { if (!els.problemCountPreset.value) return; els.problemCount.value = els.problemCountPreset.value; generateProblems(); els.problemCountPreset.value = ""; });
+  [els.problemType, els.difficulty, els.problemCount].forEach((control) => control.addEventListener("change", markProblemsStale));
+  els.minuteNumberMode.addEventListener("change", render);
+  els.problemCount.addEventListener("input", () => { if (els.problemCount.value === "") return; els.problemCountPreset.value = ""; markProblemsStale(); });
+  els.problemCountPreset.addEventListener("change", () => { if (!els.problemCountPreset.value) return; els.problemCount.value = els.problemCountPreset.value; markProblemsStale(); els.problemCountPreset.value = ""; });
   els.printBtn.addEventListener("click", () => { render(); window.print(); });
   els.regenerateBtn.addEventListener("click", generateProblems);
   els.copyLinkBtn.addEventListener("click", copyShareUrl);
