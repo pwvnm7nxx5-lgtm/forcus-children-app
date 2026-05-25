@@ -2,11 +2,13 @@
   const storageKey = `print-adjustments:${location.pathname}`;
   const defaults = {
     scalePct: 100,
+    sheetCount: 1,
     includeAnswers: true,
   };
   const legacyScale = { compact: 88, normal: 100, large: 118 };
   let applying = false;
   let observerFrame = 0;
+  let skipNextObserver = false;
 
   function clampNumber(value, min, max, fallback) {
     const parsed = Number(value);
@@ -20,6 +22,7 @@
     } catch {}
     return {
       scalePct: clampNumber(saved.scalePct ?? legacyScale[saved.scale], 70, 150, defaults.scalePct),
+      sheetCount: clampNumber(saved.sheetCount, 1, 30, defaults.sheetCount),
       includeAnswers: saved.includeAnswers !== false,
     };
   }
@@ -115,6 +118,38 @@
     }
   }
 
+  function createSheetCountControl(value) {
+    const field = document.createElement("label");
+    field.className = "field print-adjust-field";
+
+    const text = document.createElement("span");
+    text.textContent = "作成する枚数";
+
+    const input = document.createElement("input");
+    input.id = "printSheetCount";
+    input.type = "number";
+    input.min = "1";
+    input.max = "30";
+    input.step = "1";
+    input.value = String(value);
+    input.inputMode = "numeric";
+    input.ariaLabel = "作成する枚数";
+
+    field.append(text, input);
+    return field;
+  }
+
+  function upsertSheetCountControl(settings) {
+    if (typeof window.__printAdjustmentsGenerateSheets !== "function") return null;
+    let input = document.querySelector("#printSheetCount");
+    if (!input) {
+      document.querySelector(".settings-grid")?.append(createSheetCountControl(settings.sheetCount));
+      input = document.querySelector("#printSheetCount");
+    }
+    if (input) input.value = String(settings.sheetCount);
+    return input;
+  }
+
   function ensureControls(settings) {
     injectStyles();
     upsertRangeNumberControl({
@@ -126,6 +161,7 @@
       value: settings.scalePct,
       unit: "%",
     });
+    upsertSheetCountControl(settings);
   }
 
   function answerPages() {
@@ -138,6 +174,14 @@
     if (applying) return;
     applying = true;
     try {
+      if (typeof window.__printAdjustmentsGenerateSheets === "function") {
+        const handled = window.__printAdjustmentsGenerateSheets({
+          sheetCount: settings.sheetCount,
+          includeAnswers: settings.includeAnswers,
+        });
+        if (handled) skipNextObserver = true;
+      }
+
       const scale = settings.scalePct / 100;
 
       document.querySelectorAll(".problem-grid").forEach((grid) => {
@@ -195,6 +239,20 @@
     if (!appOwnsProblemScale) {
       ensureControls(settings);
       bindRangeNumber("printProblemScale", "scalePct", settings);
+    } else {
+      upsertSheetCountControl(settings);
+    }
+
+    const sheetCount = document.querySelector("#printSheetCount");
+    if (sheetCount) {
+      const updateSheetCount = () => {
+        settings.sheetCount = clampNumber(sheetCount.value, 1, 30, defaults.sheetCount);
+        sheetCount.value = String(settings.sheetCount);
+        saveSettings(settings);
+        applySettings(settings);
+      };
+      sheetCount.addEventListener("input", updateSheetCount);
+      sheetCount.addEventListener("change", updateSheetCount);
     }
 
     const includeAnswers = document.querySelector("#includeAnswers");
@@ -213,12 +271,26 @@
     const pages = document.querySelector("#pages");
     if (pages) {
       new MutationObserver(() => {
+        if (skipNextObserver) {
+          skipNextObserver = false;
+          return;
+        }
         if (observerFrame) return;
         observerFrame = window.requestAnimationFrame(() => {
           observerFrame = 0;
           applySettings(settings);
         });
       }).observe(pages, { childList: true });
+    }
+
+    if (!window.__printAdjustmentsPatched) {
+      window.__printAdjustmentsPatched = true;
+      const nativePrint = window.print.bind(window);
+      window.print = () => {
+        applySettings(settings);
+        nativePrint();
+      };
+      window.addEventListener("beforeprint", () => applySettings(settings));
     }
   }
 
