@@ -31,6 +31,8 @@ const typeLabels = {
 const ns = "http://www.w3.org/2000/svg";
 let statusTimer;
 let problems = [];
+let sheetProblemSets = [];
+let sheetSetSignature = "";
 
 function clampChoice(value, allowed, fallback) {
   return allowed.includes(String(value)) ? String(value) : fallback;
@@ -239,12 +241,48 @@ function makeProblem(settings) {
   return makeRulerProblem(settings.difficulty);
 }
 
+function problemKey(problem) {
+  return JSON.stringify(problem);
+}
+
+function sheetSignature(settings) {
+  return JSON.stringify(settings);
+}
+
+function selectProblemSet(settings, usedKeys = new Set()) {
+  const selected = [];
+  const seen = new Set();
+  let attempts = 0;
+  while (selected.length < settings.count && attempts < settings.count * 30) {
+    const problem = makeProblem(settings);
+    const key = problemKey(problem);
+    if (!seen.has(key) && !usedKeys.has(key)) {
+      selected.push(problem);
+      seen.add(key);
+      usedKeys.add(key);
+    }
+    attempts += 1;
+  }
+  while (selected.length < settings.count && attempts < settings.count * 60) {
+    const problem = makeProblem(settings);
+    const key = problemKey(problem);
+    if (!seen.has(key)) {
+      selected.push(problem);
+      seen.add(key);
+    }
+    attempts += 1;
+  }
+  return selected;
+}
+
 function generateProblems(options = {}) {
   if (options.normalizeCount !== false) {
     els.problemCount.value = String(getProblemCount());
   }
   const settings = getSettings();
-  problems = Array.from({ length: settings.count }, () => makeProblem(settings));
+  problems = selectProblemSet(settings);
+  sheetProblemSets = [];
+  sheetSetSignature = "";
   render();
   setStatus("もんだいをつくりなおしました。");
 }
@@ -376,7 +414,7 @@ function applyGridDensity(list, settings) {
   list.style.setProperty("--problem-font", `${fontSize}px`);
 }
 
-function renderPage(kind, showAnswer) {
+function renderPage(kind, showAnswer, pageProblems = problems) {
   const settings = getSettings();
   const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
   page.querySelector("[data-name]").textContent = settings.name;
@@ -405,7 +443,7 @@ function renderPage(kind, showAnswer) {
   }
   const list = page.querySelector("[data-problems]");
   applyGridDensity(list, settings);
-  problems.forEach((problem) => {
+  pageProblems.forEach((problem) => {
     const item = document.createElement("li");
     item.className = "problem";
     item.append(makeProblemNode(problem, showAnswer));
@@ -414,9 +452,48 @@ function renderPage(kind, showAnswer) {
   return page;
 }
 
+function ensureSheetProblemSets(sheetCount) {
+  const settings = getSettings();
+  const signature = sheetSignature(settings);
+  if (sheetSetSignature !== signature) {
+    sheetProblemSets = [];
+    sheetSetSignature = signature;
+  }
+  if (!sheetProblemSets.length) {
+    sheetProblemSets.push(problems.length ? problems.slice(0, settings.count) : selectProblemSet(settings));
+  }
+  const usedKeys = new Set(sheetProblemSets.flat().map(problemKey));
+  while (sheetProblemSets.length < sheetCount) {
+    sheetProblemSets.push(selectProblemSet(settings, usedKeys));
+  }
+  if (sheetProblemSets.length > sheetCount) {
+    sheetProblemSets = sheetProblemSets.slice(0, sheetCount);
+  }
+  problems = sheetProblemSets[0] || problems;
+  return sheetProblemSets;
+}
+
+function renderSheetPages(sheetCount, includeAnswers) {
+  const count = clampNumber(sheetCount, 1, 30, 1);
+  const sets = ensureSheetProblemSets(count);
+  const settings = getSettings();
+  const label = typeLabels[settings.type] || "もんだい";
+  const pages = [];
+  sets.forEach((set, index) => {
+    const suffix = count > 1 ? ` ${index + 1}` : "";
+    pages.push(renderPage(`${label}${suffix}`, false, set));
+    if (includeAnswers) {
+      pages.push(renderPage(`こたえ${suffix}`, true, set));
+    }
+  });
+  els.pages.replaceChildren(...pages);
+  els.pageCount.textContent = `${pages.length}枚`;
+  saveState();
+}
+
 function render() {
   if (!problems.length) {
-    problems = Array.from({ length: getSettings().count }, () => makeProblem(getSettings()));
+    problems = selectProblemSet(getSettings());
   }
   const settings = getSettings();
   const label = typeLabels[settings.type] || "もんだい";
@@ -536,6 +613,10 @@ function bindEvents() {
 
 loadInitialState();
 bindEvents();
+window.__printAdjustmentsGenerateSheets = ({ sheetCount, includeAnswers }) => {
+  renderSheetPages(sheetCount, includeAnswers);
+  return true;
+};
 if (!problems.length) {
   generateProblems();
 } else {

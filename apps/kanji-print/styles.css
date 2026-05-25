@@ -521,8 +521,12 @@ button:hover {
   font-size: var(--punctuation-size);
 }
 
-.vertical-mark .trace-char {
-  transform: translate(-50%, -50%) rotate(90deg);
+.vertical-line-mark .trace-char {
+  transform: translate(-50%, -50%);
+  width: 0.12em;
+  height: 0.82em;
+  border-radius: 999px;
+  background: currentColor;
 }
 
 @media (max-width: 980px) {

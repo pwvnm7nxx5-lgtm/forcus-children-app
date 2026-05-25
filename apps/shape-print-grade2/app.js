@@ -30,6 +30,8 @@ const problemCountMin = 1;
 const problemCountMax = 15;
 let statusTimer;
 let problems = [];
+let sheetProblemSets = [];
+let sheetSetSignature = "";
 
 function clampChoice(value, allowed, fallback) {
   return allowed.includes(String(value)) ? String(value) : fallback;
@@ -138,10 +140,42 @@ function makeProblem(variant) {
   };
 }
 
+function problemKey(problem) {
+  return JSON.stringify(problem);
+}
+
+function sheetSignature(settings) {
+  return JSON.stringify(settings);
+}
+
+function selectProblemSet(settings, usedKeys = new Set()) {
+  const selected = [];
+  const seen = new Set();
+  const pool = shuffle(shapeVariants).map(makeProblem);
+  pool.forEach((problem) => {
+    if (selected.length >= settings.count) return;
+    const key = problemKey(problem);
+    if (seen.has(key) || usedKeys.has(key)) return;
+    selected.push(problem);
+    seen.add(key);
+    usedKeys.add(key);
+  });
+  pool.forEach((problem) => {
+    if (selected.length >= settings.count) return;
+    const key = problemKey(problem);
+    if (seen.has(key)) return;
+    selected.push(problem);
+    seen.add(key);
+  });
+  return selected;
+}
+
 function generateProblems(options = {}) {
   if (options.normalizeCount !== false) els.problemCount.value = String(getProblemCount());
   const settings = getSettings();
-  problems = shuffle(shapeVariants).slice(0, settings.count).map(makeProblem);
+  problems = selectProblemSet(settings);
+  sheetProblemSets = [];
+  sheetSetSignature = "";
   render();
   setStatus("もんだいをつくりなおしました。");
 }
@@ -164,7 +198,7 @@ function renderProblem(problem, showAnswer) {
   return card;
 }
 
-function renderPage(kind, showAnswer) {
+function renderPage(kind, showAnswer, pageProblems = problems) {
   const settings = getSettings();
   const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
   page.querySelector("[data-name]").textContent = settings.name;
@@ -177,7 +211,7 @@ function renderPage(kind, showAnswer) {
   list.style.setProperty("--cols", settings.columns);
   list.style.setProperty("--row-gap", "7mm");
   list.style.setProperty("--problem-min", "36mm");
-  problems.forEach((problem) => {
+  pageProblems.forEach((problem) => {
     const item = document.createElement("li");
     item.className = "problem";
     item.append(renderProblem(problem, showAnswer));
@@ -186,10 +220,47 @@ function renderPage(kind, showAnswer) {
   return page;
 }
 
+function ensureSheetProblemSets(sheetCount) {
+  const settings = getSettings();
+  const signature = sheetSignature(settings);
+  if (sheetSetSignature !== signature) {
+    sheetProblemSets = [];
+    sheetSetSignature = signature;
+  }
+  if (!sheetProblemSets.length) {
+    sheetProblemSets.push(problems.length ? problems.slice(0, settings.count) : selectProblemSet(settings));
+  }
+  const usedKeys = new Set(sheetProblemSets.flat().map(problemKey));
+  while (sheetProblemSets.length < sheetCount) {
+    sheetProblemSets.push(selectProblemSet(settings, usedKeys));
+  }
+  if (sheetProblemSets.length > sheetCount) {
+    sheetProblemSets = sheetProblemSets.slice(0, sheetCount);
+  }
+  problems = sheetProblemSets[0] || problems;
+  return sheetProblemSets;
+}
+
+function renderSheetPages(sheetCount, includeAnswers) {
+  const count = clampNumber(sheetCount, 1, 30, 1);
+  const sets = ensureSheetProblemSets(count);
+  const pages = [];
+  sets.forEach((set, index) => {
+    const suffix = count > 1 ? ` ${index + 1}` : "";
+    pages.push(renderPage(`もんだい${suffix}`, false, set));
+    if (includeAnswers) {
+      pages.push(renderPage(`こたえ${suffix}`, true, set));
+    }
+  });
+  els.pages.replaceChildren(...pages);
+  els.pageCount.textContent = `${pages.length}枚`;
+  saveState();
+}
+
 function render() {
   if (!problems.length) {
     const settings = getSettings();
-    problems = shuffle(shapeVariants).slice(0, settings.count).map(makeProblem);
+    problems = selectProblemSet(settings);
   }
   els.pages.replaceChildren(renderPage("もんだい", false), renderPage("こたえ", true));
   els.pageCount.textContent = "2枚";
@@ -282,5 +353,9 @@ function bindEvents() {
 
 loadInitialState();
 bindEvents();
+window.__printAdjustmentsGenerateSheets = ({ sheetCount, includeAnswers }) => {
+  renderSheetPages(sheetCount, includeAnswers);
+  return true;
+};
 if (!problems.length) generateProblems();
 else render();

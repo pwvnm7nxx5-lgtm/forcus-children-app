@@ -11,6 +11,7 @@ const els = {
   worksheetDate: document.querySelector("#worksheetDate"),
   cols: document.querySelector("#cols"),
   rows: document.querySelector("#rows"),
+  sheetCount: document.querySelector("#sheetCount"),
   fontSize: document.querySelector("#fontSize"),
   smallFontSize: document.querySelector("#smallFontSize"),
   punctuationScale: document.querySelector("#punctuationScale"),
@@ -37,7 +38,7 @@ const els = {
 };
 
 const punctuation = new Set(["。", "、", "，", "．", ".", ",", "」", "』", "）", ")", "】", "〕"]);
-const verticalMarks = new Set(["ー", "－", "−", "―", "～", "〜"]);
+const verticalLineMarks = new Set(["ー", "－", "−", "―"]);
 const smallKana = new Set([
   "ぁ", "ぃ", "ぅ", "ぇ", "ぉ", "っ", "ゃ", "ゅ", "ょ", "ゎ", "ゕ", "ゖ",
   "ァ", "ィ", "ゥ", "ェ", "ォ", "ッ", "ャ", "ュ", "ョ", "ヮ", "ヵ", "ヶ",
@@ -345,6 +346,7 @@ function render() {
   const rubyFontSize = clampNumber(els.rubyFontSize.value, 5, 14, 7);
   const rubyOpacity = clampNumber(els.rubyOpacity.value, 20, 100, 80) / 100;
   const rubySpacing = clampNumber(els.rubySpacing.value, 0, 4, 0);
+  const sheetCount = clampNumber(els.sheetCount.value, 1, 30, 1);
   const direction = getDirection();
   const pageData = normalizeText(els.sourceText.value, cols, rows);
   const resolveReading = els.addReadings.checked ? makeReadingResolver() : () => "";
@@ -370,7 +372,8 @@ function render() {
   document.documentElement.style.setProperty("--ruby-spacing", `${rubySpacing}px`);
 
   els.pages.textContent = "";
-  pageData.forEach((chars, pageIndex) => {
+  for (let sheetIndex = 0; sheetIndex < sheetCount; sheetIndex += 1) {
+    pageData.forEach((chars, pageIndex) => {
     const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
     page.querySelector("[data-name]").textContent = els.studentName.value;
     page.querySelector("[data-date]").textContent = els.worksheetDate.value;
@@ -407,9 +410,10 @@ function render() {
     }
 
     els.pages.append(page);
-  });
+    });
+  }
 
-  els.pageCount.textContent = `${pageTotal}枚`;
+  els.pageCount.textContent = `${pageTotal * sheetCount}枚`;
   saveState();
 }
 
@@ -443,15 +447,15 @@ function createTextCell(char) {
   cell.className = "cell text-cell";
   if (punctuation.has(char)) {
     cell.classList.add("punctuation-mark");
-  } else if (verticalMarks.has(char)) {
-    cell.classList.add("vertical-mark");
+  } else if (verticalLineMarks.has(char)) {
+    cell.classList.add("vertical-line-mark");
   } else if (smallKana.has(char)) {
     cell.classList.add("small-kana");
   }
   if (char) {
     const span = document.createElement("span");
     span.className = "trace-char";
-    span.textContent = char;
+    span.textContent = verticalLineMarks.has(char) ? "" : char;
     cell.append(span);
   }
   return cell;
@@ -500,6 +504,7 @@ function getState() {
     date: els.worksheetDate.value,
     cols: els.cols.value,
     rows: els.rows.value,
+    sheetCount: els.sheetCount.value,
     fontSize: els.fontSize.value,
     smallFontSize: els.smallFontSize.value,
     punctuationScale: els.punctuationScale.value,
@@ -522,6 +527,7 @@ function getTemplateSettings() {
   return {
     cols: els.cols.value,
     rows: els.rows.value,
+    sheetCount: els.sheetCount.value,
     fontSize: els.fontSize.value,
     smallFontSize: els.smallFontSize.value,
     punctuationScale: els.punctuationScale.value,
@@ -552,6 +558,7 @@ function applyState(state) {
     ["worksheetDate", "date"],
     ["cols", "cols"],
     ["rows", "rows"],
+    ["sheetCount", "sheetCount"],
     ["fontSize", "fontSize"],
     ["smallFontSize", "smallFontSize"],
     ["punctuationScale", "punctuationScale"],
@@ -742,6 +749,20 @@ async function copyShareUrl() {
   }
 }
 
+function waitForPrintReady() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const fontsReady = document.fonts?.ready || Promise.resolve();
+        Promise.race([
+          fontsReady,
+          new Promise((timeoutResolve) => setTimeout(timeoutResolve, 250)),
+        ]).finally(resolve);
+      });
+    });
+  });
+}
+
 function bindEvents() {
   const controls = [
     els.sourceText,
@@ -751,6 +772,7 @@ function bindEvents() {
     els.worksheetDate,
     els.cols,
     els.rows,
+    els.sheetCount,
     els.fontSize,
     els.smallFontSize,
     els.punctuationScale,
@@ -773,8 +795,9 @@ function bindEvents() {
     control.addEventListener("change", render);
   });
 
-  els.printBtn.addEventListener("click", () => {
+  els.printBtn.addEventListener("click", async () => {
     render();
+    await waitForPrintReady();
     window.print();
   });
 

@@ -15,7 +15,7 @@ const els = {
   worksheetTitle: document.querySelector("#worksheetTitle"),
   problemType: document.querySelector("#problemType"),
   range: document.querySelector("#range"),
-  minuteLabels: document.querySelector("#minuteLabels"),
+  minuteLabelMode: document.querySelector("#minuteLabelMode"),
   problemCount: document.querySelector("#problemCount"),
   problemCountPreset: document.querySelector("#problemCountPreset"),
   columns: document.querySelector("#columns"),
@@ -33,6 +33,8 @@ const problemCountMin = 1;
 const problemCountMax = 24;
 let statusTimer;
 let problems = [];
+let sheetProblemSets = [];
+let sheetSetSignature = "";
 
 function clampChoice(value, allowed, fallback) {
   return allowed.includes(String(value)) ? String(value) : fallback;
@@ -62,7 +64,7 @@ function getSettings() {
     title: els.worksheetTitle.value || APP.title,
     type: clampChoice(els.problemType.value, ["read", "draw", "mix"], "read"),
     range: clampChoice(els.range.value, ["hour", "half"], "hour"),
-    minuteLabels: els.minuteLabels.checked,
+    minuteLabelMode: clampChoice(els.minuteLabelMode.value, ["none", "five", "ten", "thirty"], "none"),
     count: getProblemCount(),
     columns: Number.parseInt(clampChoice(els.columns.value, ["1", "2"], String(APP.defaultCols)), 10),
   };
@@ -75,7 +77,11 @@ function applySettings(settings) {
   els.worksheetTitle.value = settings.title || APP.title;
   els.problemType.value = clampChoice(settings.type, ["read", "draw", "mix"], "read");
   els.range.value = clampChoice(settings.range, ["hour", "half"], "hour");
-  els.minuteLabels.checked = settings.minuteLabels === true;
+  els.minuteLabelMode.value = clampChoice(
+    settings.minuteLabelMode ?? (settings.minuteLabels === true ? "thirty" : "none"),
+    ["none", "five", "ten", "thirty"],
+    "none"
+  );
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, APP.defaultCount));
   els.problemCountPreset.value = "";
   els.columns.value = clampChoice(settings.columns, ["1", "2"], String(APP.defaultCols));
@@ -93,12 +99,30 @@ function timeText(hour, minute) {
   return minute === 30 ? `${hour}じはん` : `${hour}じ`;
 }
 
+function minuteLabelEntries(mode) {
+  if (mode === "five") {
+    return [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 0].map((minute) => ({
+      minute,
+      label: minute === 0 ? "0" : String(minute),
+    }));
+  }
+  if (mode === "ten") {
+    return [10, 20, 30, 40, 50, 0].map((minute) => ({
+      minute,
+      label: minute === 0 ? "0" : String(minute),
+    }));
+  }
+  if (mode === "thirty") {
+    return [
+      { minute: 0, label: "0" },
+      { minute: 30, label: "30" },
+    ];
+  }
+  return [];
+}
+
 function minuteLabelMarks(mode) {
-  if (mode !== "half") return "";
-  return [
-    { minute: 0, label: "0" },
-    { minute: 30, label: "30" },
-  ].map(({ minute: labelMinute, label }) => {
+  return minuteLabelEntries(mode).map(({ minute: labelMinute, label }) => {
     const angle = (labelMinute * 6 - 90) * Math.PI / 180;
     const x = 64 + Math.cos(angle) * 70;
     const y = 67 + Math.sin(angle) * 70;
@@ -139,7 +163,7 @@ function makeProblem(settings) {
   const hour = rand(1, 12);
   const minute = settings.range === "half" ? pick([0, 30]) : 0;
   const type = settings.type === "mix" ? pick(["read", "draw"]) : settings.type;
-  const minuteLabelMode = settings.minuteLabels ? "half" : "none";
+  const minuteLabelMode = settings.minuteLabelMode;
   if (type === "draw") {
     return {
       prompt: `${timeText(hour, minute)} の ながいはりをかきましょう。`,
@@ -155,10 +179,46 @@ function makeProblem(settings) {
   };
 }
 
+function problemKey(problem) {
+  return JSON.stringify(problem);
+}
+
+function sheetSignature(settings) {
+  return JSON.stringify(settings);
+}
+
+function selectProblemSet(settings, usedKeys = new Set()) {
+  const selected = [];
+  const seen = new Set();
+  let attempts = 0;
+  while (selected.length < settings.count && attempts < settings.count * 30) {
+    const problem = makeProblem(settings);
+    const key = problemKey(problem);
+    if (!seen.has(key) && !usedKeys.has(key)) {
+      selected.push(problem);
+      seen.add(key);
+      usedKeys.add(key);
+    }
+    attempts += 1;
+  }
+  while (selected.length < settings.count && attempts < settings.count * 60) {
+    const problem = makeProblem(settings);
+    const key = problemKey(problem);
+    if (!seen.has(key)) {
+      selected.push(problem);
+      seen.add(key);
+    }
+    attempts += 1;
+  }
+  return selected;
+}
+
 function generateProblems(options = {}) {
   if (options.normalizeCount !== false) els.problemCount.value = String(getProblemCount());
   const settings = getSettings();
-  problems = Array.from({ length: settings.count }, () => makeProblem(settings));
+  problems = selectProblemSet(settings);
+  sheetProblemSets = [];
+  sheetSetSignature = "";
   render();
   setStatus("もんだいをつくりなおしました。");
 }
@@ -179,7 +239,7 @@ function renderProblem(problem, showAnswer) {
   return card;
 }
 
-function renderPage(kind, showAnswer) {
+function renderPage(kind, showAnswer, pageProblems = problems) {
   const settings = getSettings();
   const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
   page.querySelector("[data-name]").textContent = settings.name;
@@ -194,7 +254,7 @@ function renderPage(kind, showAnswer) {
   list.style.setProperty("--problem-min", settings.count <= 6 ? "57mm" : settings.count > 12 ? "30mm" : "39mm");
   list.style.setProperty("--visual-min", settings.count <= 6 ? "38mm" : "24mm");
   list.style.setProperty("--clock-width", settings.count <= 6 ? "150px" : "132px");
-  problems.forEach((problem) => {
+  pageProblems.forEach((problem) => {
     const item = document.createElement("li");
     item.className = "problem";
     item.append(renderProblem(problem, showAnswer));
@@ -203,10 +263,47 @@ function renderPage(kind, showAnswer) {
   return page;
 }
 
+function ensureSheetProblemSets(sheetCount) {
+  const settings = getSettings();
+  const signature = sheetSignature(settings);
+  if (sheetSetSignature !== signature) {
+    sheetProblemSets = [];
+    sheetSetSignature = signature;
+  }
+  if (!sheetProblemSets.length) {
+    sheetProblemSets.push(problems.length ? problems.slice(0, settings.count) : selectProblemSet(settings));
+  }
+  const usedKeys = new Set(sheetProblemSets.flat().map(problemKey));
+  while (sheetProblemSets.length < sheetCount) {
+    sheetProblemSets.push(selectProblemSet(settings, usedKeys));
+  }
+  if (sheetProblemSets.length > sheetCount) {
+    sheetProblemSets = sheetProblemSets.slice(0, sheetCount);
+  }
+  problems = sheetProblemSets[0] || problems;
+  return sheetProblemSets;
+}
+
+function renderSheetPages(sheetCount, includeAnswers) {
+  const count = clampNumber(sheetCount, 1, 30, 1);
+  const sets = ensureSheetProblemSets(count);
+  const pages = [];
+  sets.forEach((set, index) => {
+    const suffix = count > 1 ? ` ${index + 1}` : "";
+    pages.push(renderPage(`もんだい${suffix}`, false, set));
+    if (includeAnswers) {
+      pages.push(renderPage(`こたえ${suffix}`, true, set));
+    }
+  });
+  els.pages.replaceChildren(...pages);
+  els.pageCount.textContent = `${pages.length}枚`;
+  saveState();
+}
+
 function render() {
   if (!problems.length) {
     const settings = getSettings();
-    problems = Array.from({ length: settings.count }, () => makeProblem(settings));
+    problems = selectProblemSet(settings);
   }
   els.pages.replaceChildren(renderPage("もんだい", false), renderPage("こたえ", true));
   els.pageCount.textContent = "2枚";
@@ -277,7 +374,7 @@ async function copyShareUrl() {
 
 function bindEvents() {
   [els.studentName, els.worksheetDate, els.worksheetTitle].forEach((control) => control.addEventListener("input", render));
-  [els.problemType, els.range, els.minuteLabels, els.problemCount, els.columns].forEach((control) => control.addEventListener("change", generateProblems));
+  [els.problemType, els.range, els.minuteLabelMode, els.problemCount, els.columns].forEach((control) => control.addEventListener("change", generateProblems));
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") return;
     els.problemCountPreset.value = "";
@@ -299,5 +396,9 @@ function bindEvents() {
 
 loadInitialState();
 bindEvents();
+window.__printAdjustmentsGenerateSheets = ({ sheetCount, includeAnswers }) => {
+  renderSheetPages(sheetCount, includeAnswers);
+  return true;
+};
 if (!problems.length) generateProblems();
 else render();
