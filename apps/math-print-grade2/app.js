@@ -80,6 +80,13 @@ function setStatus(message) {
   }, 2800);
 }
 
+function markProblemsStale() {
+  updateLayoutAvailability();
+  sheetProblemSets = [];
+  sheetSetSignature = "";
+  setStatus("設定を変えました。問題を変えるには「作り直す」を押してください。");
+}
+
 function updateLayoutAvailability() {
   const isTimes = els.problemType.value === "times";
   els.layoutMode.disabled = isTimes;
@@ -469,7 +476,7 @@ function bindEvents() {
   });
 
   [els.problemType, els.problemCount].forEach((control) => {
-    control.addEventListener("change", generateProblems);
+    control.addEventListener("change", markProblemsStale);
   });
   [els.layoutMode, els.columns].forEach((control) => {
     control.addEventListener("change", render);
@@ -479,14 +486,14 @@ function bindEvents() {
       return;
     }
     els.problemCountPreset.value = "";
-    generateProblems({ normalizeCount: false });
+    markProblemsStale();
   });
   els.problemCountPreset.addEventListener("change", () => {
     if (!els.problemCountPreset.value) {
       return;
     }
     els.problemCount.value = els.problemCountPreset.value;
-    generateProblems();
+    markProblemsStale();
     els.problemCountPreset.value = "";
   });
 
