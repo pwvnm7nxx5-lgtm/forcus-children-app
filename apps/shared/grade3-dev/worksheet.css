@@ -449,13 +449,8 @@ button {
   max-width: 100%;
   height: auto;
   width: var(--visual-width, 132px);
-<<<<<<< HEAD:apps/shared/grade3-dev/worksheet.css
-=======
-}
-
 .visual .clock {
   width: var(--visual-width, 132px);
->>>>>>> codex/三年生本体:apps/grade3-dev-common.css
 }
 
 .answer-line {

@@ -183,10 +183,16 @@
   }
 
   function setup() {
+    const appOwnsProblemScale = Boolean(window.GRADE3_WORKSHEET_CONFIG);
     const settings = loadSettings();
-    ensureControls(settings);
+    if (!appOwnsProblemScale) {
+      ensureControls(settings);
+      bindRangeNumber("printProblemScale", "scalePct", settings);
+    }
 
-    bindRangeNumber("printProblemScale", "scalePct", settings);
+    if (appOwnsProblemScale) {
+      settings.scalePct = 100;
+    }
 
     const includeAnswers = document.querySelector("#includeAnswers");
     if (includeAnswers) {
