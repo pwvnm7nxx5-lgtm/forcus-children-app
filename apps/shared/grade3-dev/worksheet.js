@@ -25,6 +25,8 @@ const problemCountMin = 1;
 const problemCountMax = 36;
 let statusTimer;
 let problems = [];
+let sheetProblemSets = [];
+let sheetSetSignature = "";
 
 function clampChoice(value, allowed, fallback) {
   return allowed.includes(String(value)) ? String(value) : fallback;
@@ -45,6 +47,23 @@ function rand(min, max) {
 
 function pick(items) {
   return items[rand(0, items.length - 1)];
+}
+
+function problemKey(problem) {
+  return [
+    problem.prompt,
+    problem.answer,
+    problem.clockTotal ?? "",
+    problem.visual ?? "",
+  ].join("|");
+}
+
+function sheetSignature(settings) {
+  return JSON.stringify({
+    kind: config.kind,
+    type: settings.type,
+    count: settings.count,
+  });
 }
 
 function getProblemCount() {
@@ -290,12 +309,34 @@ function makeProblem(settings) {
   return makeWeightProblem(settings);
 }
 
+function selectProblemSet(settings, usedKeys = new Set()) {
+  const selected = [];
+  const seen = new Set(usedKeys);
+  const maxAttempts = settings.count * 80 + 120;
+  let attempts = 0;
+  while (selected.length < settings.count && attempts < maxAttempts) {
+    const problem = makeProblem(settings);
+    const key = problemKey(problem);
+    if (!seen.has(key)) {
+      selected.push(problem);
+      seen.add(key);
+    }
+    attempts += 1;
+  }
+  while (selected.length < settings.count) {
+    selected.push(makeProblem(settings));
+  }
+  return selected;
+}
+
 function generateProblems(options = {}) {
   if (options.normalizeCount !== false) {
     els.problemCount.value = String(getProblemCount());
   }
   const settings = getSettings();
-  problems = Array.from({ length: settings.count }, () => makeProblem(settings));
+  problems = selectProblemSet(settings);
+  sheetProblemSets = [];
+  sheetSetSignature = "";
   render();
   setStatus("問題を作り直しました。");
 }
@@ -368,7 +409,7 @@ function problemHasVisual() {
   return config.kind === "clock" || config.kind === "time" || config.kind === "weight";
 }
 
-function renderPage(kind, showAnswer) {
+function renderPage(kind, showAnswer, pageProblems = problems) {
   const settings = getSettings();
   const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
   page.style.setProperty("--page-margin-y", `${settings.pageMarginY}mm`);
@@ -381,7 +422,7 @@ function renderPage(kind, showAnswer) {
   if (showAnswer) kindLabel.classList.add("answer");
   const list = page.querySelector("[data-problems]");
   applyGridDensity(list, settings);
-  problems.forEach((problem) => {
+  pageProblems.forEach((problem) => {
     const item = document.createElement("li");
     item.className = "problem";
     item.append(renderProblem(problem, showAnswer, settings));
@@ -398,6 +439,47 @@ function normalizeProblems() {
   while (problems.length < settings.count) {
     problems.push(makeProblem(settings));
   }
+}
+
+function ensureSheetProblemSets(sheetCount) {
+  const settings = getSettings();
+  const signature = sheetSignature(settings);
+  if (sheetSetSignature !== signature) {
+    sheetProblemSets = [];
+    sheetSetSignature = signature;
+  }
+  if (!sheetProblemSets.length) {
+    sheetProblemSets.push(problems.length ? problems.slice(0, settings.count) : selectProblemSet(settings));
+  }
+  const usedKeys = new Set(sheetProblemSets.flat().map(problemKey));
+  while (sheetProblemSets.length < sheetCount) {
+    const set = selectProblemSet(settings, usedKeys);
+    set.forEach((problem) => usedKeys.add(problemKey(problem)));
+    sheetProblemSets.push(set);
+  }
+  if (sheetProblemSets.length > sheetCount) {
+    sheetProblemSets = sheetProblemSets.slice(0, sheetCount);
+  }
+  problems = sheetProblemSets[0] || problems;
+  return sheetProblemSets;
+}
+
+function renderSheetPages(sheetCount, includeAnswers) {
+  normalizeProblems();
+  const count = clampNumber(sheetCount, 1, 30, 1);
+  const sets = ensureSheetProblemSets(count);
+  const pages = [];
+  sets.forEach((set, index) => {
+    const suffix = count > 1 ? ` ${index + 1}` : "";
+    pages.push(renderPage(`もんだい${suffix}`, false, set));
+    if (includeAnswers) {
+      pages.push(renderPage(`こたえ${suffix}`, true, set));
+    }
+  });
+  els.pages.replaceChildren(...pages);
+  els.pageCount.textContent = `${pages.length}枚`;
+  updateLayoutWarning(getSettings());
+  saveState();
 }
 
 function render() {
@@ -686,6 +768,10 @@ function setup() {
 setup();
 loadInitialState();
 bindEvents();
+window.__printAdjustmentsGenerateSheets = ({ sheetCount, includeAnswers }) => {
+  renderSheetPages(sheetCount, includeAnswers);
+  return true;
+};
 if (!problems.length) {
   generateProblems();
 } else {
