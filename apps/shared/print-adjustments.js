@@ -197,10 +197,6 @@
       bindRangeNumber("printProblemScale", "scalePct", settings);
     }
 
-    if (appOwnsProblemScale) {
-      settings.scalePct = 100;
-    }
-
     const includeAnswers = document.querySelector("#includeAnswers");
     if (includeAnswers) {
       includeAnswers.disabled = false;
