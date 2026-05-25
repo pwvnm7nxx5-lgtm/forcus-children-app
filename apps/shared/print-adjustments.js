@@ -190,7 +190,7 @@
   }
 
   function setup() {
-    const appOwnsProblemScale = Boolean(window.GRADE3_WORKSHEET_CONFIG);
+    const appOwnsProblemScale = Boolean(window.GRADE3_APP_CONFIG);
     const settings = loadSettings();
     if (!appOwnsProblemScale) {
       ensureControls(settings);
