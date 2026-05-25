@@ -23,6 +23,8 @@ const problemCountMin = 1;
 const problemCountMax = 60;
 let statusTimer;
 let problems = [];
+let sheetProblemSets = [];
+let sheetSetSignature = "";
 
 function clampChoice(value, allowed, fallback) {
   return allowed.includes(String(value)) ? String(value) : fallback;
@@ -150,11 +152,20 @@ function shuffle(items) {
   return copy;
 }
 
-function generateProblems(options = {}) {
-  if (options.normalizeCount !== false) {
-    els.problemCount.value = String(getProblemCount());
-  }
-  const settings = getSettings();
+function problemKey(problem) {
+  return `${problem.a}${problem.op}${problem.b}`;
+}
+
+function sheetSignature(settings) {
+  return JSON.stringify({
+    type: settings.type,
+    difficulty: settings.difficulty,
+    count: settings.count,
+    includeZero: settings.includeZero,
+  });
+}
+
+function selectProblems(settings, usedKeys = new Set()) {
   const pool = shuffle(makeCandidatePool(settings));
   const selected = [];
   const seen = new Set();
@@ -163,7 +174,19 @@ function generateProblems(options = {}) {
     if (selected.length >= settings.count) {
       return;
     }
-    const key = `${problem.a}${problem.op}${problem.b}`;
+    const key = problemKey(problem);
+    if (!seen.has(key) && !usedKeys.has(key)) {
+      selected.push(problem);
+      seen.add(key);
+      usedKeys.add(key);
+    }
+  });
+
+  pool.forEach((problem) => {
+    if (selected.length >= settings.count) {
+      return;
+    }
+    const key = problemKey(problem);
     if (!seen.has(key)) {
       selected.push(problem);
       seen.add(key);
@@ -174,7 +197,17 @@ function generateProblems(options = {}) {
     selected.push(pool[selected.length % pool.length]);
   }
 
-  problems = selected;
+  return selected;
+}
+
+function generateProblems(options = {}) {
+  if (options.normalizeCount !== false) {
+    els.problemCount.value = String(getProblemCount());
+  }
+  const settings = getSettings();
+  problems = selectProblems(settings);
+  sheetProblemSets = [];
+  sheetSetSignature = "";
   render();
   setStatus("もんだいをつくりなおしました。");
 }
@@ -187,7 +220,7 @@ function makeFormula(problem, showAnswer) {
   return span;
 }
 
-function renderPage(kind, showAnswer) {
+function renderPage(kind, showAnswer, pageProblems = problems) {
   const settings = getSettings();
   const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
   page.querySelector("[data-name]").textContent = settings.name;
@@ -204,7 +237,7 @@ function renderPage(kind, showAnswer) {
   list.style.setProperty("--cols", settings.columns);
   applyGridDensity(list, settings);
 
-  problems.forEach((problem) => {
+  pageProblems.forEach((problem) => {
     const item = document.createElement("li");
     item.className = "problem";
     item.append(makeFormula(problem, showAnswer));
@@ -212,6 +245,43 @@ function renderPage(kind, showAnswer) {
   });
 
   return page;
+}
+
+function ensureSheetProblemSets(sheetCount) {
+  const settings = getSettings();
+  const signature = sheetSignature(settings);
+  if (sheetSetSignature !== signature) {
+    sheetProblemSets = [];
+    sheetSetSignature = signature;
+  }
+  if (!sheetProblemSets.length) {
+    sheetProblemSets.push(problems.length ? problems.slice(0, settings.count) : selectProblems(settings));
+  }
+  const usedKeys = new Set(sheetProblemSets.flat().map(problemKey));
+  while (sheetProblemSets.length < sheetCount) {
+    sheetProblemSets.push(selectProblems(settings, usedKeys));
+  }
+  if (sheetProblemSets.length > sheetCount) {
+    sheetProblemSets = sheetProblemSets.slice(0, sheetCount);
+  }
+  problems = sheetProblemSets[0] || problems;
+  return sheetProblemSets;
+}
+
+function renderSheetPages(sheetCount, includeAnswers) {
+  const count = clampNumber(sheetCount, 1, 30, 1);
+  const sets = ensureSheetProblemSets(count);
+  const pages = [];
+  sets.forEach((set, index) => {
+    const suffix = count > 1 ? ` ${index + 1}` : "";
+    pages.push(renderPage(`もんだい${suffix}`, false, set));
+    if (includeAnswers) {
+      pages.push(renderPage(`こたえ${suffix}`, true, set));
+    }
+  });
+  els.pages.replaceChildren(...pages);
+  els.pageCount.textContent = `${pages.length}枚`;
+  saveState();
 }
 
 function applyGridDensity(list, settings) {
@@ -368,6 +438,10 @@ function bindEvents() {
 
 loadInitialState();
 bindEvents();
+window.__printAdjustmentsGenerateSheets = ({ sheetCount, includeAnswers }) => {
+  renderSheetPages(sheetCount, includeAnswers);
+  return true;
+};
 if (!problems.length) {
   generateProblems();
 } else {

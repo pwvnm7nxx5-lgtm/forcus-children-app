@@ -252,6 +252,14 @@
   }
 
   function syncCopies() {
+    if (typeof window.__printAdjustmentsGenerateSheets === "function") {
+      const handled = window.__printAdjustmentsGenerateSheets({
+        sheetCount: settings.sheetCount,
+        includeAnswers: settings.includeAnswers,
+      });
+      if (handled) return;
+    }
+
     const originals = visibleOriginalPages();
     const copies = Array.from(document.querySelectorAll('[data-print-adjust-copy="true"]'));
     if (!originals.length || settings.sheetCount <= 1) {
