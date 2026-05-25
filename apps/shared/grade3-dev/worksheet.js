@@ -10,9 +10,6 @@ const els = {
   problemCount: document.querySelector("#problemCount"),
   problemCountPreset: document.querySelector("#problemCountPreset"),
   columns: document.querySelector("#columns"),
-  problemScale: document.querySelector("#problemScale"),
-  problemSpacing: document.querySelector("#problemSpacing"),
-  minuteNumberMode: document.querySelector("#minuteNumberMode"),
   includeAnswers: document.querySelector("#includeAnswers"),
   printBtn: document.querySelector("#printButton"),
   regenerateBtn: document.querySelector("#regenerateButton"),
@@ -28,16 +25,18 @@ const problemCountMin = 1;
 const problemCountMax = 36;
 let statusTimer;
 let problems = [];
-let sheetProblemSets = [];
-let sheetSetSignature = "";
 
 function clampChoice(value, allowed, fallback) {
   return allowed.includes(String(value)) ? String(value) : fallback;
 }
 
 function clampNumber(value, min, max, fallback) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isNaN(parsed) ? fallback : Math.min(max, Math.max(min, parsed));
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
+}
+
+function clampInt(value, min, max, fallback) {
+  return Math.round(clampNumber(value, min, max, fallback));
 }
 
 function rand(min, max) {
@@ -48,17 +47,8 @@ function pick(items) {
   return items[rand(0, items.length - 1)];
 }
 
-function shuffle(items) {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = rand(0, i);
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
 function getProblemCount() {
-  return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, config.defaultCount || 12);
+  return clampInt(els.problemCount.value, problemCountMin, problemCountMax, config.defaultCount || 12);
 }
 
 function typeValues() {
@@ -72,29 +62,45 @@ function getSettings() {
     title: els.worksheetTitle.value || config.title,
     type: clampChoice(els.problemType.value, typeValues(), config.types[0].value),
     count: getProblemCount(),
-    columns: Number.parseInt(clampChoice(els.columns.value, ["1", "2", "3"], String(config.defaultColumns || 2)), 10),
+    columns: clampInt(els.columns.value, 1, 3, config.defaultColumns || 2),
+    includeAnswers: els.includeAnswers?.checked !== false,
+    problemScale: clampInt(document.querySelector("#problemScale")?.value, 70, 150, 100),
+    problemSpacing: clampInt(document.querySelector("#problemSpacing")?.value, 2, 20, 7),
+    pageMarginY: clampInt(document.querySelector("#pageMarginY")?.value, 5, 28, 14),
+    pageMarginX: clampInt(document.querySelector("#pageMarginX")?.value, 5, 28, 13),
+    answerGap: clampInt(document.querySelector("#answerGap")?.value, 0, 12, 0),
     minuteNumberMode: config.kind === "clock"
-      ? clampChoice(els.minuteNumberMode?.value || "none", ["none", "five", "ten"], "none")
+      ? clampChoice(document.querySelector("#minuteNumberMode")?.value || "none", ["none", "five", "ten"], "none")
       : "none",
-    includeAnswers: els.includeAnswers.checked,
   };
 }
 
+function setRangeValue(id, value) {
+  const range = document.querySelector(`#${id}`);
+  const number = document.querySelector(`#${id}Number`);
+  if (range) range.value = String(value);
+  if (number) number.value = String(value);
+}
+
 function applySettings(settings) {
-  if (!settings || typeof settings !== "object") {
-    return;
-  }
+  if (!settings || typeof settings !== "object") return;
   els.studentName.value = settings.name || "";
   els.worksheetDate.value = settings.date || "";
   els.worksheetTitle.value = settings.title || config.title;
   els.problemType.value = clampChoice(settings.type, typeValues(), config.types[0].value);
-  els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, config.defaultCount || 12));
+  els.problemCount.value = String(clampInt(settings.count, problemCountMin, problemCountMax, config.defaultCount || 12));
   els.problemCountPreset.value = "";
-  els.columns.value = clampChoice(settings.columns, ["1", "2", "3"], String(config.defaultColumns || 2));
-  if (els.minuteNumberMode) {
-    els.minuteNumberMode.value = clampChoice(settings.minuteNumberMode, ["none", "five", "ten"], "none");
+  els.columns.value = String(clampInt(settings.columns, 1, 3, config.defaultColumns || 2));
+  if (els.includeAnswers) els.includeAnswers.checked = settings.includeAnswers !== false;
+  setRangeValue("problemScale", clampInt(settings.problemScale, 70, 150, 100));
+  setRangeValue("problemSpacing", clampInt(settings.problemSpacing, 2, 20, 7));
+  setRangeValue("pageMarginY", clampInt(settings.pageMarginY, 5, 28, 14));
+  setRangeValue("pageMarginX", clampInt(settings.pageMarginX, 5, 28, 13));
+  setRangeValue("answerGap", clampInt(settings.answerGap, 0, 12, 0));
+  const minuteNumberMode = document.querySelector("#minuteNumberMode");
+  if (minuteNumberMode) {
+    minuteNumberMode.value = clampChoice(settings.minuteNumberMode, ["none", "five", "ten"], "none");
   }
-  els.includeAnswers.checked = settings.includeAnswers !== false;
 }
 
 function setStatus(message) {
@@ -130,7 +136,7 @@ function clockSvg(totalMinutes, handMode = "both", minuteNumberMode = "none") {
     const y2 = 64 + Math.sin(angle) * inner;
     return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#344054" stroke-width="${i % 5 === 0 ? 2 : 1}"/>`;
   }).join("");
-  const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => {
+  const hourNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => {
     const angle = (n * 30 - 90) * Math.PI / 180;
     return `<text x="${(64 + Math.cos(angle) * 42).toFixed(1)}" y="${(68 + Math.sin(angle) * 42).toFixed(1)}" font-size="11" text-anchor="middle">${n}</text>`;
   }).join("");
@@ -150,8 +156,22 @@ function clockSvg(totalMinutes, handMode = "both", minuteNumberMode = "none") {
     hands.push(`<line x1="64" y1="64" x2="${(64 + Math.cos(minuteAngle) * 43).toFixed(1)}" y2="${(64 + Math.sin(minuteAngle) * 43).toFixed(1)}" stroke="#111827" stroke-width="3" stroke-linecap="round"/>`);
   }
   hands.push(`<circle cx="64" cy="64" r="3" fill="#111827"/>`);
-  return `<svg class="clock" viewBox="-24 -24 176 176" width="132" height="132" role="img" aria-label="clock"><circle cx="64" cy="64" r="59" fill="#fff" stroke="#344054" stroke-width="3"/>${marks}${nums}${minuteNumbers}${hands.join("")}</svg>`;
-  return `<svg class="clock" viewBox="-14 -14 156 156" width="132" height="132" role="img" aria-label="時計"><circle cx="64" cy="64" r="59" fill="#fff" stroke="#344054" stroke-width="3"/>${marks}${nums}${hands.join("")}</svg>`;
+  return `<svg class="clock" viewBox="-24 -24 176 176" width="132" height="132" role="img" aria-label="時計"><circle cx="64" cy="64" r="59" fill="#fff" stroke="#344054" stroke-width="3"/>${marks}${hourNumbers}${minuteNumbers}${hands.join("")}</svg>`;
+}
+
+function scaleSvg(grams) {
+  const max = 3000;
+  const angle = -120 + Math.min(grams, max) / max * 240;
+  const rad = (angle - 90) * Math.PI / 180;
+  const x = 70 + Math.cos(rad) * 43;
+  const y = 70 + Math.sin(rad) * 43;
+  const marks = [0, 500, 1000, 1500, 2000, 2500, 3000].map((value) => {
+    const a = (-120 + value / max * 240 - 90) * Math.PI / 180;
+    const mx = 70 + Math.cos(a) * 51;
+    const my = 70 + Math.sin(a) * 51;
+    return `<text x="${mx.toFixed(1)}" y="${my.toFixed(1)}" font-size="8" text-anchor="middle">${value / 1000}</text>`;
+  }).join("");
+  return `<svg class="scale" viewBox="0 0 140 120" width="150" height="126" role="img" aria-label="はかり"><circle cx="70" cy="70" r="58" fill="#fff" stroke="#344054" stroke-width="3"/><text x="70" y="24" font-size="10" text-anchor="middle">kg</text>${marks}<line x1="70" y1="70" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#111827" stroke-width="4" stroke-linecap="round"/><circle cx="70" cy="70" r="4" fill="#111827"/></svg>`;
 }
 
 function makeClockProblem(settings) {
@@ -159,7 +179,7 @@ function makeClockProblem(settings) {
   const total = rand(1, 11) * 60 + rand(0, Math.floor(59 / step)) * step;
   if (settings.type === "draw") {
     return {
-      prompt: `${timeText(total)} の針をかきましょう。`,
+      prompt: `${timeText(total)} の針を書きましょう。`,
       answer: timeText(total),
       clockTotal: total,
       handMode: "none",
@@ -197,179 +217,68 @@ function makeTimeProblem(settings) {
 }
 
 function makeDivisionProblem(settings) {
-  return pick(makeDivisionCandidates(settings));
-}
-
-function makeDivisionCandidates(settings) {
-  const candidates = [];
-  for (let divisor = 2; divisor <= 9; divisor += 1) {
-    for (let quotient = 1; quotient <= 9; quotient += 1) {
-      if (settings.type === "remainder") {
-        for (let remainder = 1; remainder < divisor; remainder += 1) {
-          const dividend = divisor * quotient + remainder;
-          candidates.push({
-            prompt: `${dividend} ÷ ${divisor} =`,
-            answer: `${quotient} あまり ${remainder}`,
-          });
-        }
-      } else {
-        candidates.push({
-          prompt: `${divisor * quotient} ÷ ${divisor} =`,
-          answer: `${quotient}`,
-        });
-      }
-    }
+  const divisor = rand(2, 9);
+  if (settings.type === "remainder") {
+    const quotient = rand(2, 9);
+    const remainder = rand(1, divisor - 1);
+    const dividend = divisor * quotient + remainder;
+    return { prompt: `${dividend} ÷ ${divisor} =`, answer: `${quotient} あまり ${remainder}` };
   }
-  return candidates;
+  const quotient = rand(2, 12);
+  return { prompt: `${divisor * quotient} ÷ ${divisor} =`, answer: `${quotient}` };
 }
 
 function makeBigNumberProblem(settings) {
-  return pick(makeBigNumberCandidates(settings));
-}
-
-function makeBigNumberCandidates(settings) {
-  const candidates = [];
-  const places = [
-    ["一万", 10000],
-    ["千", 1000],
-    ["百", 100],
-    ["十", 10],
-    ["一", 1],
-  ];
-  const seen = new Set();
-  while (candidates.length < 180 && seen.size < 600) {
-    const number = rand(1000, 99999);
-    if (settings.type === "compare") {
-      const other = rand(1000, 99999);
-      const key = `compare:${number}:${other}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      candidates.push({
-        prompt: `${number.toLocaleString("ja-JP")} □ ${other.toLocaleString("ja-JP")}`,
-        answer: number === other ? "=" : number > other ? ">" : "<",
-      });
-      continue;
-    }
-    const availablePlaces = places.filter(([, value]) => value <= number);
-    const place = pick(availablePlaces);
-    const key = `place:${number}:${place[1]}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    candidates.push({
+  const number = rand(1000, 99999);
+  const places = [["一万", 10000], ["千", 1000], ["百", 100], ["十", 10], ["一", 1]];
+  const place = pick(places);
+  if (settings.type === "place") {
+    return {
       prompt: `${number.toLocaleString("ja-JP")} の ${place[0]} の位の数字は何ですか。`,
       answer: `${Math.floor(number / place[1]) % 10}`,
-    });
+    };
   }
-  return candidates;
-}
-
-function formatDecimalTenths(value) {
-  return (value / 10).toFixed(1);
+  if (settings.type === "compare") {
+    const other = rand(1000, 99999);
+    const sign = number === other ? "=" : number > other ? ">" : "<";
+    return { prompt: `${number.toLocaleString("ja-JP")} □ ${other.toLocaleString("ja-JP")}`, answer: sign };
+  }
+  return { prompt: `${number.toLocaleString("ja-JP")} を数字で書きましょう。`, answer: String(number) };
 }
 
 function makeDecimalProblem(settings) {
-  return pick(makeDecimalCandidates(settings));
-}
-
-function makeDecimalCandidates(settings) {
-  const candidates = [];
+  const a = rand(1, 99) / 10;
+  const b = rand(1, 99) / 10;
+  if (settings.type === "compare") {
+    const sign = a === b ? "=" : a > b ? ">" : "<";
+    return { prompt: `${a.toFixed(1)} □ ${b.toFixed(1)}`, answer: sign };
+  }
   if (settings.type === "sub") {
-    for (let a = 2; a <= 100; a += 1) {
-      for (let b = 1; b < a; b += 1) {
-        candidates.push({
-          prompt: `${formatDecimalTenths(a)} - ${formatDecimalTenths(b)} =`,
-          answer: formatDecimalTenths(a - b),
-        });
-      }
-    }
-    return candidates;
+    const big = Math.max(a, b);
+    const small = Math.min(a, b);
+    return { prompt: `${big.toFixed(1)} - ${small.toFixed(1)} =`, answer: `${(big - small).toFixed(1)}` };
   }
-  for (let a = 1; a <= 99; a += 1) {
-    for (let b = 1; b <= 99; b += 1) {
-      if (a + b > 100) continue;
-      candidates.push({
-        prompt: `${formatDecimalTenths(a)} + ${formatDecimalTenths(b)} =`,
-        answer: formatDecimalTenths(a + b),
-      });
-    }
-  }
-  return candidates;
-}
-
-function formatWeight(grams) {
-  if (grams >= 1000) {
-    const kg = Math.floor(grams / 1000);
-    const rest = grams % 1000;
-    return rest ? `${kg}kg ${rest}g` : `${kg}kg`;
-  }
-  return `${grams}g`;
+  return { prompt: `${a.toFixed(1)} + ${b.toFixed(1)} =`, answer: `${(a + b).toFixed(1)}` };
 }
 
 function makeWeightProblem(settings) {
-  return pick(makeWeightCandidates(settings));
-}
-
-function makeWeightCandidates(settings) {
-  const candidates = [];
+  const grams = rand(1, 30) * 100;
+  if (settings.type === "read") {
+    return {
+      prompt: "はかりの重さを読みましょう。",
+      answer: grams >= 1000 ? `${Math.floor(grams / 1000)}kg${grams % 1000 ? ` ${grams % 1000}g` : ""}` : `${grams}g`,
+      visual: scaleSvg(grams),
+    };
+  }
   if (settings.type === "compare") {
-    for (let i = 0; i < 160; i += 1) {
-      const a = rand(2, 50) * 100;
-      const b = rand(2, 50) * 100;
-      candidates.push({
-        prompt: `${formatWeight(a)} □ ${formatWeight(b)}`,
-        answer: a === b ? "=" : a > b ? ">" : "<",
-      });
-    }
-    return candidates;
+    const a = rand(1, 30) * 100;
+    const b = rand(1, 30) * 100;
+    const sign = a === b ? "=" : a > b ? ">" : "<";
+    return { prompt: `${a}g □ ${b}g`, answer: sign };
   }
-  if (settings.type === "addSub") {
-    for (let i = 0; i < 180; i += 1) {
-      const a = rand(5, 35) * 100;
-      const b = rand(1, 20) * 100;
-      const op = pick(["+", "-"]);
-      const left = op === "-" ? Math.max(a, b) : a;
-      const right = op === "-" ? Math.min(a, b) : b;
-      candidates.push({
-        prompt: `${formatWeight(left)} ${op} ${formatWeight(right)} =`,
-        answer: formatWeight(op === "+" ? left + right : left - right),
-      });
-    }
-    return candidates;
-  }
-  for (let kg = 1; kg <= 5; kg += 1) {
-    for (let g = 0; g <= 900; g += 100) {
-      const total = kg * 1000 + g;
-      candidates.push({
-        prompt: `${formatWeight(total)} = □g`,
-        answer: `${total}g`,
-      });
-      if (g > 0) {
-        candidates.push({
-          prompt: `${total}g = □kg □g`,
-          answer: `${kg}kg ${g}g`,
-        });
-      }
-    }
-  }
-  return candidates;
-}
-
-function makeProblemPool(settings) {
-  if (config.kind === "division") return makeDivisionCandidates(settings);
-  if (config.kind === "bigNumber") return makeBigNumberCandidates(settings);
-  if (config.kind === "decimal") return makeDecimalCandidates(settings);
-  if (config.kind === "weight") return makeWeightCandidates(settings);
-  return [];
-}
-
-function problemKey(problem) {
-  return `${problem.prompt}|${problem.answer}`;
-}
-
-function isCompatibleProblem(problem) {
-  if (!problem || typeof problem.prompt !== "string" || typeof problem.answer !== "string") return false;
-  if (config.kind === "clock") return typeof problem.clockTotal === "number";
-  return true;
+  const kg = rand(1, 5);
+  const g = rand(1, 9) * 100;
+  return { prompt: `${kg}kg ${g}g =`, answer: `${kg * 1000 + g}g` };
 }
 
 function makeProblem(settings) {
@@ -381,70 +290,12 @@ function makeProblem(settings) {
   return makeWeightProblem(settings);
 }
 
-function sheetSignature(settings) {
-  return JSON.stringify({
-    kind: config.kind,
-    type: settings.type,
-    count: settings.count,
-    columns: settings.columns,
-    minuteNumberMode: settings.minuteNumberMode,
-  });
-}
-
-function selectProblemSet(settings, usedKeys = new Set()) {
-  const pool = shuffle(makeProblemPool(settings));
-  const selected = [];
-  const seen = new Set();
-  if (pool.length) {
-    pool.forEach((problem) => {
-      if (selected.length >= settings.count) return;
-      const key = problemKey(problem);
-      if (seen.has(key) || usedKeys.has(key)) return;
-      selected.push(problem);
-      seen.add(key);
-      usedKeys.add(key);
-    });
-    pool.forEach((problem) => {
-      if (selected.length >= settings.count) return;
-      const key = problemKey(problem);
-      if (seen.has(key)) return;
-      selected.push(problem);
-      seen.add(key);
-    });
-    return selected;
-  }
-
-  let attempts = 0;
-  while (selected.length < settings.count && attempts < settings.count * 20) {
-    const problem = makeProblem(settings);
-    const key = problemKey(problem);
-    if (!seen.has(key) && !usedKeys.has(key)) {
-      selected.push(problem);
-      seen.add(key);
-      usedKeys.add(key);
-    }
-    attempts += 1;
-  }
-  while (selected.length < settings.count && attempts < settings.count * 40) {
-    const problem = makeProblem(settings);
-    const key = problemKey(problem);
-    if (!seen.has(key)) {
-      selected.push(problem);
-      seen.add(key);
-    }
-    attempts += 1;
-  }
-  return selected;
-}
-
 function generateProblems(options = {}) {
   if (options.normalizeCount !== false) {
     els.problemCount.value = String(getProblemCount());
   }
   const settings = getSettings();
-  problems = selectProblemSet(settings);
-  sheetProblemSets = [];
-  sheetSetSignature = "";
+  problems = Array.from({ length: settings.count }, () => makeProblem(settings));
   render();
   setStatus("問題を作り直しました。");
 }
@@ -491,99 +342,52 @@ function renderProblem(problem, showAnswer, settings) {
 
 function applyGridDensity(list, settings) {
   const rows = Math.ceil(settings.count / settings.columns);
-  let rowGap = 7;
+  const scale = settings.problemScale / 100;
   let problemMin = problemHasVisual() ? 42 : 20;
   let fontSize = 18;
-
   if (rows > 12) {
-    rowGap = 3.5;
     problemMin = problemHasVisual() ? 25 : 12;
     fontSize = 15;
   } else if (rows > 8) {
-    rowGap = 5;
     problemMin = problemHasVisual() ? 32 : 16;
     fontSize = 16;
   }
-
-  const scaleMap = { compact: 0.88, normal: 1, large: 1.18 };
-  const spacingMap = { tight: 0.72, normal: 1, wide: 1.35 };
-  const scale = scaleMap[settings.problemScale] || 1;
-  const spacing = spacingMap[settings.problemSpacing] || 1;
-
   list.style.setProperty("--cols", settings.columns);
-  list.style.setProperty("--row-gap", `${(rowGap * spacing).toFixed(1)}mm`);
+  list.style.setProperty("--row-gap", `${settings.problemSpacing}mm`);
   list.style.setProperty("--problem-min", `${(problemMin * scale).toFixed(1)}mm`);
   list.style.setProperty("--problem-font", `${Math.round(fontSize * scale)}px`);
-  list.style.setProperty("--card-gap", `${(3 * spacing).toFixed(1)}mm`);
-  list.style.setProperty("--blank-width", `${(28 * scale).toFixed(1)}mm`);
-  list.style.setProperty("--blank-height", `${(8 * scale).toFixed(1)}mm`);
+  list.style.setProperty("--card-gap", `${Math.max(2, settings.problemSpacing / 2).toFixed(1)}mm`);
   list.style.setProperty("--visual-min", `${(22 * scale).toFixed(1)}mm`);
   list.style.setProperty("--visual-width", `${Math.round(132 * scale)}px`);
-  list.style.setProperty("--visual-scale", scale);
+  list.style.setProperty("--blank-width", `${(28 * scale).toFixed(1)}mm`);
+  list.style.setProperty("--blank-height", `${(8 * scale).toFixed(1)}mm`);
+  list.style.setProperty("--answer-gap", `${settings.answerGap}mm`);
 }
 
 function problemHasVisual() {
-  return config.kind === "clock" || config.kind === "time";
+  return config.kind === "clock" || config.kind === "time" || config.kind === "weight";
 }
 
-function renderPage(kind, showAnswer, pageProblems = problems) {
+function renderPage(kind, showAnswer) {
   const settings = getSettings();
   const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
+  page.style.setProperty("--page-margin-y", `${settings.pageMarginY}mm`);
+  page.style.setProperty("--page-margin-x", `${settings.pageMarginX}mm`);
   page.querySelector("[data-name]").textContent = settings.name;
   page.querySelector("[data-date]").textContent = settings.date;
   page.querySelector("[data-title]").textContent = settings.title;
   const kindLabel = page.querySelector("[data-kind]");
   kindLabel.textContent = kind;
-  if (showAnswer) {
-    kindLabel.classList.add("answer");
-  }
-
+  if (showAnswer) kindLabel.classList.add("answer");
   const list = page.querySelector("[data-problems]");
   applyGridDensity(list, settings);
-  pageProblems.forEach((problem) => {
+  problems.forEach((problem) => {
     const item = document.createElement("li");
     item.className = "problem";
     item.append(renderProblem(problem, showAnswer, settings));
     list.append(item);
   });
   return page;
-}
-
-function ensureSheetProblemSets(sheetCount) {
-  const settings = getSettings();
-  const signature = sheetSignature(settings);
-  if (sheetSetSignature !== signature) {
-    sheetProblemSets = [];
-    sheetSetSignature = signature;
-  }
-  if (!sheetProblemSets.length) {
-    sheetProblemSets.push(problems.length ? problems.slice(0, settings.count) : selectProblemSet(settings));
-  }
-  const usedKeys = new Set(sheetProblemSets.flat().map(problemKey));
-  while (sheetProblemSets.length < sheetCount) {
-    sheetProblemSets.push(selectProblemSet(settings, usedKeys));
-  }
-  if (sheetProblemSets.length > sheetCount) {
-    sheetProblemSets = sheetProblemSets.slice(0, sheetCount);
-  }
-  problems = sheetProblemSets[0] || problems;
-  return sheetProblemSets;
-}
-
-function renderSheetPages(sheetCount, includeAnswers) {
-  const count = clampNumber(sheetCount, 1, 30, 1);
-  const sets = ensureSheetProblemSets(count);
-  const pages = [];
-  sets.forEach((set, index) => {
-    const suffix = count > 1 ? ` ${index + 1}` : "";
-    pages.push(renderPage(`もんだい${suffix}`, false, set));
-    if (includeAnswers) {
-      pages.push(renderPage(`こたえ${suffix}`, true, set));
-    }
-  });
-  els.pages.replaceChildren(...pages);
-  els.pageCount.textContent = `${pages.length}枚`;
-  saveState();
 }
 
 function normalizeProblems() {
@@ -604,6 +408,7 @@ function render() {
   }
   els.pages.replaceChildren(...pages);
   els.pageCount.textContent = `${pages.length}枚`;
+  updateLayoutWarning(getSettings());
   saveState();
 }
 
@@ -614,9 +419,7 @@ function getShareState() {
 function encodeState(state) {
   const bytes = new TextEncoder().encode(JSON.stringify(state));
   let binary = "";
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
@@ -637,6 +440,12 @@ function saveState() {
   } catch {}
 }
 
+function isCompatibleProblem(problem) {
+  if (!problem || typeof problem.prompt !== "string" || typeof problem.answer !== "string") return false;
+  if (config.kind === "clock") return typeof problem.clockTotal === "number";
+  return true;
+}
+
 function loadInitialState() {
   const hash = window.location.hash.replace(/^#data=/, "");
   if (hash) {
@@ -647,7 +456,6 @@ function loadInitialState() {
       return;
     }
   }
-
   try {
     const saved = localStorage.getItem(stateStorageKey);
     if (saved) {
@@ -666,17 +474,129 @@ async function copyShareUrl() {
   const url = `${window.location.origin}${window.location.pathname}#data=${encoded}`;
   try {
     await navigator.clipboard.writeText(url);
-    setStatus("共有URLをコピーしました。");
+    setStatus("同じプリントを開くリンクをコピーしました。");
   } catch {
     window.location.hash = `data=${encoded}`;
-    setStatus("URL欄に共有用データを入れました。");
+    setStatus("リンク用のデータをURLに入れました。");
   }
+}
+
+function createRangeField(id, label, min, max, step, value) {
+  const field = document.createElement("label");
+  field.className = "field range-field";
+  field.innerHTML = `<span>${label}</span><span class="range-control"><input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${value}"><input id="${id}Number" type="number" min="${min}" max="${max}" step="${step}" value="${value}" inputmode="decimal"></span>`;
+  return field;
+}
+
+function createSelectField(id, label, options) {
+  const field = document.createElement("label");
+  field.className = "field";
+  const text = document.createElement("span");
+  text.textContent = label;
+  const select = document.createElement("select");
+  select.id = id;
+  options.forEach((option) => {
+    const item = document.createElement("option");
+    item.value = option.value;
+    item.textContent = option.label;
+    if (option.selected) item.selected = true;
+    select.append(item);
+  });
+  field.append(text, select);
+  return field;
+}
+
+function syncRange(id, callback = render) {
+  const range = document.querySelector(`#${id}`);
+  const number = document.querySelector(`#${id}Number`);
+  const sync = (source, target) => {
+    const value = clampNumber(source.value, Number(source.min), Number(source.max), Number(source.value));
+    source.value = String(value);
+    target.value = String(value);
+    callback();
+  };
+  range.addEventListener("input", () => sync(range, number));
+  number.addEventListener("input", () => sync(number, range));
+}
+
+function resetSettings() {
+  try {
+    localStorage.removeItem(stateStorageKey);
+  } catch {}
+  problems = [];
+  els.studentName.value = "";
+  els.worksheetDate.value = "";
+  els.worksheetTitle.value = config.title;
+  els.problemType.value = config.types[0].value;
+  els.problemCount.value = String(config.defaultCount || 12);
+  els.columns.value = String(config.defaultColumns || 2);
+  if (els.includeAnswers) els.includeAnswers.checked = true;
+  setRangeValue("problemScale", 100);
+  setRangeValue("problemSpacing", 7);
+  setRangeValue("pageMarginY", 14);
+  setRangeValue("pageMarginX", 13);
+  setRangeValue("answerGap", 0);
+  const minuteNumberMode = document.querySelector("#minuteNumberMode");
+  if (minuteNumberMode) minuteNumberMode.value = "none";
+  generateProblems();
+  setStatus("初期設定に戻しました。");
+}
+
+function setupControls() {
+  const firstLabel = document.querySelector(".settings-grid .field span");
+  if (firstLabel) firstLabel.textContent = "問題の種類";
+  els.includeAnswers.disabled = false;
+  document.querySelector(".settings-grid").append(
+    createRangeField("problemScale", "問題の大きさ（%）", 70, 150, 5, 100),
+    createRangeField("problemSpacing", "問題の間隔（mm）", 2, 20, 1, 7),
+    createRangeField("pageMarginY", "上下の余白（mm）", 5, 28, 1, 14),
+    createRangeField("pageMarginX", "左右の余白（mm）", 5, 28, 1, 13),
+    createRangeField("answerGap", "解答欄との間隔（mm）", 0, 12, 1, 0),
+  );
+  if (config.kind === "clock") {
+    document.querySelector(".settings-grid").append(createSelectField("minuteNumberMode", "分の数字", [
+      { value: "none", label: "表示しない", selected: true },
+      { value: "five", label: "5分ごと" },
+      { value: "ten", label: "10分ごと" },
+    ]));
+  }
+  const layoutWarning = document.createElement("p");
+  layoutWarning.id = "layoutWarning";
+  layoutWarning.className = "layout-warning";
+  layoutWarning.setAttribute("role", "status");
+  layoutWarning.hidden = true;
+  document.querySelector(".settings-grid").after(layoutWarning);
+  const resetButton = document.createElement("button");
+  resetButton.id = "resetSettingsButton";
+  resetButton.type = "button";
+  resetButton.textContent = "初期設定に戻す";
+  document.querySelector(".actions").append(resetButton);
+}
+
+function updateLayoutWarning(settings) {
+  const warning = document.querySelector("#layoutWarning");
+  if (!warning) return;
+  const hasManyProblems = settings.count >= 24;
+  const isLargeVisual = problemHasVisual() && settings.problemScale >= 125 && settings.count >= 12;
+  const isTight = settings.problemSpacing <= 3 || settings.pageMarginY <= 7 || settings.pageMarginX <= 7;
+  const mayOverflow = (settings.problemScale >= 130 && hasManyProblems) || isLargeVisual;
+  if (!mayOverflow && !isTight) {
+    warning.hidden = true;
+    warning.textContent = "";
+    return;
+  }
+  warning.hidden = false;
+  warning.textContent = mayOverflow
+    ? "大きめの設定です。印刷前に1枚に収まるか確認してください。"
+    : "余白や間隔が狭めです。書き込みやすさを確認してください。";
 }
 
 function bindEvents() {
   [els.studentName, els.worksheetDate, els.worksheetTitle].forEach((control) => control.addEventListener("input", render));
   [els.problemType, els.problemCount, els.columns].forEach((control) => control.addEventListener("change", generateProblems));
-  [els.includeAnswers, els.minuteNumberMode].filter(Boolean).forEach((control) => control.addEventListener("change", render));
+  els.includeAnswers.addEventListener("change", render);
+  ["problemScale", "problemSpacing", "pageMarginY", "pageMarginX", "answerGap"].forEach((id) => syncRange(id, render));
+  document.querySelector("#minuteNumberMode")?.addEventListener("change", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") return;
     els.problemCountPreset.value = "";
@@ -694,6 +614,7 @@ function bindEvents() {
   });
   els.regenerateBtn.addEventListener("click", generateProblems);
   els.copyLinkBtn.addEventListener("click", copyShareUrl);
+  document.querySelector("#resetSettingsButton").addEventListener("click", resetSettings);
 }
 
 function makeSelectControl(id, label, options) {
@@ -726,13 +647,32 @@ function setupPrintControls() {
   els.minuteNumberMode = document.querySelector("#minuteNumberMode");
   els.includeAnswers = document.querySelector("#includeAnswers");
   els.includeAnswers.disabled = false;
+  return;
+  if (!document.querySelector("#problemScale")) {
+    grid.append(makeSelectControl("problemScale", "問題の大きさ", [
+      { value: "compact", label: "小さめ" },
+      { value: "normal", label: "ふつう", selected: true },
+      { value: "large", label: "大きめ" },
+    ]));
+  }
+  if (!document.querySelector("#problemSpacing")) {
+    grid.append(makeSelectControl("problemSpacing", "問題の間隔", [
+      { value: "tight", label: "せまい" },
+      { value: "normal", label: "ふつう", selected: true },
+      { value: "wide", label: "広い" },
+    ]));
+  }
+  els.problemScale = document.querySelector("#problemScale");
+  els.problemSpacing = document.querySelector("#problemSpacing");
+  els.includeAnswers = document.querySelector("#includeAnswers");
+  els.includeAnswers.disabled = false;
 }
 
 function setup() {
   setupPrintControls();
   document.title = config.title;
   document.querySelector("[data-app-title]").textContent = config.title;
-  document.querySelector("[data-app-notice]").textContent = config.notice || `${config.title}は開発中です。プリント作成はできますが、内容や表示はあとで調整します。`;
+  document.querySelector("[data-app-notice]").textContent = config.notice || `${config.title}は開発中です。印刷はできますが、内容はあとで調整します。`;
   els.worksheetTitle.value = config.title;
   config.types.forEach((type) => {
     const option = document.createElement("option");
@@ -740,15 +680,12 @@ function setup() {
     option.textContent = type.label;
     els.problemType.append(option);
   });
+  setupControls();
 }
 
 setup();
 loadInitialState();
 bindEvents();
-window.__printAdjustmentsGenerateSheets = ({ sheetCount, includeAnswers }) => {
-  renderSheetPages(sheetCount, includeAnswers);
-  return true;
-};
 if (!problems.length) {
   generateProblems();
 } else {

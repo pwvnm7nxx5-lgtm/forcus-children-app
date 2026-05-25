@@ -449,8 +449,6 @@ button {
   max-width: 100%;
   height: auto;
   width: var(--visual-width, 132px);
-}
-
 .visual .clock {
   width: var(--visual-width, 132px);
 }
