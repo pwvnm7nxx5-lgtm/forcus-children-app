@@ -60,6 +60,9 @@
       .visual svg {
         max-width: 100%;
       }
+      .print-adjust-answer-hidden {
+        display: none !important;
+      }
     `;
     document.head.append(style);
   }
@@ -151,12 +154,16 @@
       });
 
       answerPages().forEach((page) => {
-        page.hidden = !settings.includeAnswers;
+        const hideAnswer = !settings.includeAnswers;
+        page.hidden = hideAnswer;
+        page.classList.toggle("print-adjust-answer-hidden", hideAnswer);
       });
 
       const pageCount = document.querySelector("#pageCount");
       if (pageCount) {
-        const visiblePages = Array.from(document.querySelectorAll(".print-page")).filter((page) => !page.hidden).length;
+        const visiblePages = Array.from(document.querySelectorAll(".print-page")).filter((page) => (
+          !page.hidden && !page.classList.contains("print-adjust-answer-hidden")
+        )).length;
         if (visiblePages) pageCount.textContent = `${visiblePages}枚`;
       }
     } finally {
@@ -202,6 +209,7 @@
         settings.includeAnswers = includeAnswers.checked;
         saveSettings(settings);
         applySettings(settings);
+        window.requestAnimationFrame(() => applySettings(settings));
       });
     }
 
