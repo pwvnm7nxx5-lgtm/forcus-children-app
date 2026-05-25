@@ -2,14 +2,11 @@
   const storageKey = `print-adjustments:${location.pathname}`;
   const defaults = {
     scalePct: 100,
-    spacingMm: 7,
-    pageMarginY: 14,
-    pageMarginX: 13,
-    answerGapMm: 0,
     includeAnswers: true,
   };
   const legacyScale = { compact: 88, normal: 100, large: 118 };
-  const legacySpacing = { tight: 5, normal: 7, wide: 10 };
+  let applying = false;
+  let observerFrame = 0;
 
   function clampNumber(value, min, max, fallback) {
     const parsed = Number(value);
@@ -23,10 +20,6 @@
     } catch {}
     return {
       scalePct: clampNumber(saved.scalePct ?? legacyScale[saved.scale], 70, 150, defaults.scalePct),
-      spacingMm: clampNumber(saved.spacingMm ?? legacySpacing[saved.spacing], 2, 20, defaults.spacingMm),
-      pageMarginY: clampNumber(saved.pageMarginY, 5, 28, defaults.pageMarginY),
-      pageMarginX: clampNumber(saved.pageMarginX, 5, 28, defaults.pageMarginX),
-      answerGapMm: clampNumber(saved.answerGapMm, 0, 12, defaults.answerGapMm),
       includeAnswers: saved.includeAnswers !== false,
     };
   }
@@ -122,49 +115,13 @@
   function ensureControls(settings) {
     injectStyles();
     upsertRangeNumberControl({
-      id: "problemScale",
+      id: "printProblemScale",
       label: "問題の大きさ（%）",
       min: 70,
       max: 150,
       step: 5,
       value: settings.scalePct,
       unit: "%",
-    });
-    upsertRangeNumberControl({
-      id: "problemSpacing",
-      label: "問題の間隔（mm）",
-      min: 2,
-      max: 20,
-      step: 1,
-      value: settings.spacingMm,
-      unit: "mm",
-    });
-    upsertRangeNumberControl({
-      id: "pageMarginY",
-      label: "上下の余白（mm）",
-      min: 5,
-      max: 28,
-      step: 1,
-      value: settings.pageMarginY,
-      unit: "mm",
-    });
-    upsertRangeNumberControl({
-      id: "pageMarginX",
-      label: "左右の余白（mm）",
-      min: 5,
-      max: 28,
-      step: 1,
-      value: settings.pageMarginX,
-      unit: "mm",
-    });
-    upsertRangeNumberControl({
-      id: "answerGap",
-      label: "解答欄との間隔（mm）",
-      min: 0,
-      max: 12,
-      step: 1,
-      value: settings.answerGapMm,
-      unit: "mm",
     });
   }
 
@@ -175,37 +132,35 @@
   }
 
   function applySettings(settings) {
-    const scale = settings.scalePct / 100;
+    if (applying) return;
+    applying = true;
+    try {
+      const scale = settings.scalePct / 100;
 
-    document.querySelectorAll(".print-page").forEach((page) => {
-      page.style.setProperty("--page-margin-y", `${settings.pageMarginY}mm`);
-      page.style.setProperty("--page-margin-x", `${settings.pageMarginX}mm`);
-    });
+      document.querySelectorAll(".problem-grid").forEach((grid) => {
+        const hasVisual = Boolean(grid.querySelector(".visual"));
+        const baseProblemMin = hasVisual ? 42 : 30;
+        grid.style.setProperty("--problem-font", `${Math.round(18 * scale)}px`);
+        grid.style.setProperty("--problem-min", `${(baseProblemMin * scale).toFixed(1)}mm`);
+        grid.style.setProperty("--visual-min", `${(24 * scale).toFixed(1)}mm`);
+        grid.style.setProperty("--visual-width", `${Math.round(132 * scale)}px`);
+        grid.style.setProperty("--clock-width", `${Math.round(132 * scale)}px`);
+        grid.style.setProperty("--dot-size", `${Math.round(10 * scale)}px`);
+        grid.style.setProperty("--blank-width", `${(28 * scale).toFixed(1)}mm`);
+        grid.style.setProperty("--blank-height", `${(8 * scale).toFixed(1)}mm`);
+      });
 
-    document.querySelectorAll(".problem-grid").forEach((grid) => {
-      const hasVisual = Boolean(grid.querySelector(".visual"));
-      const baseProblemMin = hasVisual ? 42 : 30;
-      grid.style.setProperty("--problem-font", `${Math.round(18 * scale)}px`);
-      grid.style.setProperty("--problem-min", `${(baseProblemMin * scale).toFixed(1)}mm`);
-      grid.style.setProperty("--row-gap", `${settings.spacingMm}mm`);
-      grid.style.setProperty("--card-gap", `${Math.max(2, settings.spacingMm / 2).toFixed(1)}mm`);
-      grid.style.setProperty("--visual-min", `${(24 * scale).toFixed(1)}mm`);
-      grid.style.setProperty("--visual-width", `${Math.round(132 * scale)}px`);
-      grid.style.setProperty("--clock-width", `${Math.round(132 * scale)}px`);
-      grid.style.setProperty("--dot-size", `${Math.round(10 * scale)}px`);
-      grid.style.setProperty("--blank-width", `${(28 * scale).toFixed(1)}mm`);
-      grid.style.setProperty("--blank-height", `${(8 * scale).toFixed(1)}mm`);
-      grid.style.setProperty("--answer-gap", `${settings.answerGapMm}mm`);
-    });
+      answerPages().forEach((page) => {
+        page.hidden = !settings.includeAnswers;
+      });
 
-    answerPages().forEach((page) => {
-      page.hidden = !settings.includeAnswers;
-    });
-
-    const pageCount = document.querySelector("#pageCount");
-    if (pageCount) {
-      const visiblePages = Array.from(document.querySelectorAll(".print-page")).filter((page) => !page.hidden).length;
-      if (visiblePages) pageCount.textContent = `${visiblePages}枚`;
+      const pageCount = document.querySelector("#pageCount");
+      if (pageCount) {
+        const visiblePages = Array.from(document.querySelectorAll(".print-page")).filter((page) => !page.hidden).length;
+        if (visiblePages) pageCount.textContent = `${visiblePages}枚`;
+      }
+    } finally {
+      applying = false;
     }
   }
 
@@ -231,11 +186,7 @@
     const settings = loadSettings();
     ensureControls(settings);
 
-    bindRangeNumber("problemScale", "scalePct", settings);
-    bindRangeNumber("problemSpacing", "spacingMm", settings);
-    bindRangeNumber("pageMarginY", "pageMarginY", settings);
-    bindRangeNumber("pageMarginX", "pageMarginX", settings);
-    bindRangeNumber("answerGap", "answerGapMm", settings);
+    bindRangeNumber("printProblemScale", "scalePct", settings);
 
     const includeAnswers = document.querySelector("#includeAnswers");
     if (includeAnswers) {
@@ -251,7 +202,13 @@
     applySettings(settings);
     const pages = document.querySelector("#pages");
     if (pages) {
-      new MutationObserver(() => applySettings(settings)).observe(pages, { childList: true, subtree: true });
+      new MutationObserver(() => {
+        if (observerFrame) return;
+        observerFrame = window.requestAnimationFrame(() => {
+          observerFrame = 0;
+          applySettings(settings);
+        });
+      }).observe(pages, { childList: true });
     }
   }
 

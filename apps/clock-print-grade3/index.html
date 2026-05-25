@@ -9,31 +9,6 @@
 <body>
   <div class="app-shell">
     <aside class="controls" aria-label="プリント設定">
-<<<<<<< HEAD
-      <div class="brand">
-        <h1 data-app-title>3年生 時計プリント</h1>
-        <div class="brand-actions">
-          <a class="home-link" href="../../index.html">入口に戻る</a>
-          <span id="pageCount">2枚</span>
-        </div>
-      </div>
-      <p class="notice" data-app-notice></p>
-      <div class="row-fields">
-        <label class="field"><span>名前</span><input id="studentName" type="text" autocomplete="off"></label>
-        <label class="field"><span>日付</span><input id="worksheetDate" type="text" placeholder="5 / 7"></label>
-      </div>
-      <label class="field"><span>プリント名</span><input id="worksheetTitle" type="text"></label>
-      <div class="settings-grid">
-        <label class="field"><span>内容</span><select id="problemType"></select></label>
-        <label class="field"><span>問題数</span><span class="combo-input"><input id="problemCount" type="number" min="1" max="36" step="1" value="12" inputmode="numeric"><select id="problemCountPreset" aria-label="問題数の候補"><option value="">候補</option><option value="6">6問</option><option value="12">12問</option><option value="18">18問</option><option value="24">24問</option><option value="36">36問</option></select></span></label>
-        <label class="field"><span>列数</span><select id="columns"><option value="1">1列</option><option value="2" selected>2列</option><option value="3" >3列</option></select></label>
-      </div>
-      <label class="check-row"><input id="includeAnswers" type="checkbox" checked><span>答えページをつける</span></label>
-      <div class="actions">
-        <button id="printButton" type="button">印刷する</button>
-        <button id="regenerateButton" type="button">作り直し</button>
-        <button id="copyLinkButton" type="button">リンクをコピー</button>
-=======
       <div class="brand"><h1 data-app-title>3年生 時計プリント</h1><div class="brand-actions"><a class="home-link" href="../../index.html">入口に戻る</a><span id="pageCount">2枚</span></div></div>
       <p class="notice" data-app-notice></p>
       <div class="row-fields"><label class="field"><span>名前</span><input id="studentName" type="text" autocomplete="off"></label><label class="field"><span>日付</span><input id="worksheetDate" type="text" placeholder="5 / 9"></label></div>
@@ -42,7 +17,6 @@
         <label class="field"><span>問題の種類</span><select id="problemType"></select></label>
         <label class="field"><span>問題数</span><span class="combo-input"><input id="problemCount" type="number" min="1" max="36" step="1" value="12" inputmode="numeric"><select id="problemCountPreset" aria-label="問題数の候補"><option value="">候補</option><option value="6">6問</option><option value="12">12問</option><option value="18">18問</option><option value="24">24問</option></select></span></label>
         <label class="field"><span>列数</span><select id="columns"><option value="1">1列</option><option value="2" selected>2列</option><option value="3">3列</option></select></label>
->>>>>>> codex/三年生本体
       </div>
       <label class="check-row"><input id="includeAnswers" type="checkbox" checked><span>答えページをつける</span></label>
       <div class="actions"><button id="printButton" type="button">印刷する</button><button id="regenerateButton" type="button">作り直し</button><button id="copyLinkButton" type="button">同じプリントを共有</button></div>
@@ -50,32 +24,16 @@
     </aside>
     <main class="preview-wrap" aria-label="印刷プレビュー"><div id="pages" class="pages"></div></main>
   </div>
-<<<<<<< HEAD
-  <template id="pageTemplate">
-    <section class="print-page">
-      <header class="print-header"><div><p class="dev-badge">開発中</p><h2 data-title></h2></div><div class="student-line"><span>名前</span><strong data-name></strong><span>日付</span><strong data-date></strong></div></header>
-      <p class="print-kind" data-kind></p>
-      <div class="problem-grid" data-problems></div>
-    </section>
-  </template>
-=======
   <template id="pageTemplate"><section class="print-page"><header class="print-header"><div><h2 data-title></h2></div><div class="student-line"><span>名前</span><strong data-name></strong><span>日付</span><strong data-date></strong></div></header><p class="print-kind" data-kind></p><div class="problem-grid" data-problems></div></section></template>
->>>>>>> codex/三年生本体
   <script>
     window.GRADE3_APP_CONFIG = {
       id: "clock-print-grade3",
       title: "3年生 時計プリント",
       kind: "clock",
       accent: "#2563eb",
-<<<<<<< HEAD
-      notice: "3年生向け時計プリントは開発中です。問題の種類や見た目はあとで調整します。",
-      defaultCount: 12,
-      defaultColumns: 2,
-=======
       defaultCount: 12,
       defaultColumns: 2,
       notice: "開発中です。印刷はできますが、問題の種類や見た目はあとで調整します。",
->>>>>>> codex/三年生本体
       types: [
         { value: "five", label: "5分ごとの時刻を読む" },
         { value: "minute", label: "1分ごとの時刻を読む" },

@@ -10,12 +10,6 @@ const els = {
   problemCount: document.querySelector("#problemCount"),
   problemCountPreset: document.querySelector("#problemCountPreset"),
   columns: document.querySelector("#columns"),
-<<<<<<< HEAD:apps/shared/grade3-dev/worksheet.js
-  problemScale: document.querySelector("#problemScale"),
-  problemSpacing: document.querySelector("#problemSpacing"),
-  minuteNumberMode: document.querySelector("#minuteNumberMode"),
-=======
->>>>>>> codex/三年生本体:apps/grade3-dev-common.js
   includeAnswers: document.querySelector("#includeAnswers"),
   printBtn: document.querySelector("#printButton"),
   regenerateBtn: document.querySelector("#regenerateButton"),
@@ -68,13 +62,6 @@ function getSettings() {
     title: els.worksheetTitle.value || config.title,
     type: clampChoice(els.problemType.value, typeValues(), config.types[0].value),
     count: getProblemCount(),
-<<<<<<< HEAD:apps/shared/grade3-dev/worksheet.js
-    columns: Number.parseInt(clampChoice(els.columns.value, ["1", "2", "3"], String(config.defaultColumns || 2)), 10),
-    minuteNumberMode: config.kind === "clock"
-      ? clampChoice(els.minuteNumberMode?.value || "none", ["none", "five", "ten"], "none")
-      : "none",
-    includeAnswers: els.includeAnswers.checked,
-=======
     columns: clampInt(els.columns.value, 1, 3, config.defaultColumns || 2),
     includeAnswers: els.includeAnswers?.checked !== false,
     problemScale: clampInt(document.querySelector("#problemScale")?.value, 70, 150, 100),
@@ -85,7 +72,6 @@ function getSettings() {
     minuteNumberMode: config.kind === "clock"
       ? clampChoice(document.querySelector("#minuteNumberMode")?.value || "none", ["none", "five", "ten"], "none")
       : "none",
->>>>>>> codex/三年生本体:apps/grade3-dev-common.js
   };
 }
 
@@ -104,13 +90,6 @@ function applySettings(settings) {
   els.problemType.value = clampChoice(settings.type, typeValues(), config.types[0].value);
   els.problemCount.value = String(clampInt(settings.count, problemCountMin, problemCountMax, config.defaultCount || 12));
   els.problemCountPreset.value = "";
-<<<<<<< HEAD:apps/shared/grade3-dev/worksheet.js
-  els.columns.value = clampChoice(settings.columns, ["1", "2", "3"], String(config.defaultColumns || 2));
-  if (els.minuteNumberMode) {
-    els.minuteNumberMode.value = clampChoice(settings.minuteNumberMode, ["none", "five", "ten"], "none");
-  }
-  els.includeAnswers.checked = settings.includeAnswers !== false;
-=======
   els.columns.value = String(clampInt(settings.columns, 1, 3, config.defaultColumns || 2));
   if (els.includeAnswers) els.includeAnswers.checked = settings.includeAnswers !== false;
   setRangeValue("problemScale", clampInt(settings.problemScale, 70, 150, 100));
@@ -122,7 +101,6 @@ function applySettings(settings) {
   if (minuteNumberMode) {
     minuteNumberMode.value = clampChoice(settings.minuteNumberMode, ["none", "five", "ten"], "none");
   }
->>>>>>> codex/三年生本体:apps/grade3-dev-common.js
 }
 
 function setStatus(message) {
@@ -178,12 +156,7 @@ function clockSvg(totalMinutes, handMode = "both", minuteNumberMode = "none") {
     hands.push(`<line x1="64" y1="64" x2="${(64 + Math.cos(minuteAngle) * 43).toFixed(1)}" y2="${(64 + Math.sin(minuteAngle) * 43).toFixed(1)}" stroke="#111827" stroke-width="3" stroke-linecap="round"/>`);
   }
   hands.push(`<circle cx="64" cy="64" r="3" fill="#111827"/>`);
-<<<<<<< HEAD:apps/shared/grade3-dev/worksheet.js
-  return `<svg class="clock" viewBox="-24 -24 176 176" width="132" height="132" role="img" aria-label="clock"><circle cx="64" cy="64" r="59" fill="#fff" stroke="#344054" stroke-width="3"/>${marks}${nums}${minuteNumbers}${hands.join("")}</svg>`;
-  return `<svg class="clock" viewBox="-14 -14 156 156" width="132" height="132" role="img" aria-label="時計"><circle cx="64" cy="64" r="59" fill="#fff" stroke="#344054" stroke-width="3"/>${marks}${nums}${hands.join("")}</svg>`;
-=======
   return `<svg class="clock" viewBox="-24 -24 176 176" width="132" height="132" role="img" aria-label="時計"><circle cx="64" cy="64" r="59" fill="#fff" stroke="#344054" stroke-width="3"/>${marks}${hourNumbers}${minuteNumbers}${hands.join("")}</svg>`;
->>>>>>> codex/三年生本体:apps/grade3-dev-common.js
 }
 
 function scaleSvg(grams) {
@@ -379,24 +352,6 @@ function applyGridDensity(list, settings) {
     problemMin = problemHasVisual() ? 32 : 16;
     fontSize = 16;
   }
-<<<<<<< HEAD:apps/shared/grade3-dev/worksheet.js
-
-  const scaleMap = { compact: 0.88, normal: 1, large: 1.18 };
-  const spacingMap = { tight: 0.72, normal: 1, wide: 1.35 };
-  const scale = scaleMap[settings.problemScale] || 1;
-  const spacing = spacingMap[settings.problemSpacing] || 1;
-
-  list.style.setProperty("--cols", settings.columns);
-  list.style.setProperty("--row-gap", `${(rowGap * spacing).toFixed(1)}mm`);
-  list.style.setProperty("--problem-min", `${(problemMin * scale).toFixed(1)}mm`);
-  list.style.setProperty("--problem-font", `${Math.round(fontSize * scale)}px`);
-  list.style.setProperty("--card-gap", `${(3 * spacing).toFixed(1)}mm`);
-  list.style.setProperty("--blank-width", `${(28 * scale).toFixed(1)}mm`);
-  list.style.setProperty("--blank-height", `${(8 * scale).toFixed(1)}mm`);
-  list.style.setProperty("--visual-min", `${(22 * scale).toFixed(1)}mm`);
-  list.style.setProperty("--visual-width", `${Math.round(132 * scale)}px`);
-  list.style.setProperty("--visual-scale", scale);
-=======
   list.style.setProperty("--cols", settings.columns);
   list.style.setProperty("--row-gap", `${settings.problemSpacing}mm`);
   list.style.setProperty("--problem-min", `${(problemMin * scale).toFixed(1)}mm`);
@@ -407,7 +362,6 @@ function applyGridDensity(list, settings) {
   list.style.setProperty("--blank-width", `${(28 * scale).toFixed(1)}mm`);
   list.style.setProperty("--blank-height", `${(8 * scale).toFixed(1)}mm`);
   list.style.setProperty("--answer-gap", `${settings.answerGap}mm`);
->>>>>>> codex/三年生本体:apps/grade3-dev-common.js
 }
 
 function problemHasVisual() {
@@ -454,15 +408,7 @@ function render() {
   }
   els.pages.replaceChildren(...pages);
   els.pageCount.textContent = `${pages.length}枚`;
-<<<<<<< HEAD:apps/shared/grade3-dev/worksheet.js
-  saveState();
-  return;
-  normalizeProblems();
-  els.pages.replaceChildren(renderPage("もんだい", false), renderPage("こたえ", true));
-  els.pageCount.textContent = "2枚";
-=======
   updateLayoutWarning(getSettings());
->>>>>>> codex/三年生本体:apps/grade3-dev-common.js
   saveState();
 }
 
@@ -506,14 +452,7 @@ function loadInitialState() {
     const decoded = decodeState(hash);
     if (decoded?.version === 2 && decoded.settings && Array.isArray(decoded.problems)) {
       applySettings(decoded.settings);
-<<<<<<< HEAD:apps/shared/grade3-dev/worksheet.js
-      problems = decoded.problems;
-      if (config.kind === "clock" && problems.some((problem) => typeof problem.clockTotal !== "number")) {
-        problems = [];
-      }
-=======
       problems = decoded.problems.filter(isCompatibleProblem);
->>>>>>> codex/三年生本体:apps/grade3-dev-common.js
       return;
     }
   }
@@ -524,14 +463,7 @@ function loadInitialState() {
       if (parsed?.version !== 2) return;
       applySettings(parsed.settings);
       if (Array.isArray(parsed.problems)) {
-<<<<<<< HEAD:apps/shared/grade3-dev/worksheet.js
-        problems = parsed.problems;
-        if (config.kind === "clock" && problems.some((problem) => typeof problem.clockTotal !== "number")) {
-          problems = [];
-        }
-=======
         problems = parsed.problems.filter(isCompatibleProblem);
->>>>>>> codex/三年生本体:apps/grade3-dev-common.js
       }
     }
   } catch {}
@@ -662,13 +594,9 @@ function updateLayoutWarning(settings) {
 function bindEvents() {
   [els.studentName, els.worksheetDate, els.worksheetTitle].forEach((control) => control.addEventListener("input", render));
   [els.problemType, els.problemCount, els.columns].forEach((control) => control.addEventListener("change", generateProblems));
-<<<<<<< HEAD:apps/shared/grade3-dev/worksheet.js
-  [els.includeAnswers, els.minuteNumberMode].filter(Boolean).forEach((control) => control.addEventListener("change", render));
-=======
   els.includeAnswers.addEventListener("change", render);
   ["problemScale", "problemSpacing", "pageMarginY", "pageMarginX", "answerGap"].forEach((id) => syncRange(id, render));
   document.querySelector("#minuteNumberMode")?.addEventListener("change", render);
->>>>>>> codex/三年生本体:apps/grade3-dev-common.js
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") return;
     els.problemCountPreset.value = "";
