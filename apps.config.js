@@ -128,7 +128,7 @@
     tags: ["算数", "3年生", "わり算", "印刷"],
     href: "apps/division-print-grade3/index.html",
     actionLabel: "わり算プリントを作る",
-    status: "開発中",
+    status: "ready",
     accent: "#7c3aed",
   },
 ];
