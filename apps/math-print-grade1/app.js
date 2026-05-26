@@ -415,9 +415,10 @@ function bindEvents() {
     control.addEventListener("input", render);
   });
 
-  [els.problemType, els.difficulty, els.problemCount, els.includeZero].forEach((control) => {
-    control.addEventListener("change", markProblemsStale);
+  [els.problemType, els.difficulty, els.includeZero].forEach((control) => {
+    control.addEventListener("change", generateProblems);
   });
+  els.problemCount.addEventListener("change", markProblemsStale);
   els.columns.addEventListener("change", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") {

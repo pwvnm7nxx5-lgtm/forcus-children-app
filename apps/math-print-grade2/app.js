@@ -475,9 +475,8 @@ function bindEvents() {
     control.addEventListener("input", render);
   });
 
-  [els.problemType, els.problemCount].forEach((control) => {
-    control.addEventListener("change", markProblemsStale);
-  });
+  els.problemType.addEventListener("change", generateProblems);
+  els.problemCount.addEventListener("change", markProblemsStale);
   [els.layoutMode, els.columns].forEach((control) => {
     control.addEventListener("change", render);
   });

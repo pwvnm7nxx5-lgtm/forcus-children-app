@@ -57,9 +57,6 @@
 
 共通化したものは `apps/shared/` に置く。
 
-- `apps/shared/grade3-dev/`
-  - 3年生の開発中プリントで使う共通UIと問題生成ロジック。
-  - 今後、3年生プリントを増やす場合はここを再利用する。
 - `apps/shared/grade2-worksheet.css`
   - 2年生の一部プリントで共通利用する印刷レイアウトCSS。
   - 現在は `capacity-print-grade2`、`length-print-grade2`、`table-graph-print-grade2` が読み込む。
@@ -77,4 +74,4 @@
 - `app.js` のブックマーク画面操作をさらに分離する。
 - `app.js` のブックマーク処理を分離する。
 - プリント生成アプリ共通の保存、共有URL、印刷処理を `apps/shared/` に寄せる。
-- 3年生プリントのHTMLテンプレート重複を減らす。
+- 3年生プリント本体は一時削除中。再開時は出題仕様を決め直してから追加する。
