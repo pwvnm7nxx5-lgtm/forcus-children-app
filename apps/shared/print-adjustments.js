@@ -21,7 +21,7 @@
       saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
     } catch {}
     return {
-      scalePct: clampNumber(saved.scalePct ?? legacyScale[saved.scale], 70, 150, defaults.scalePct),
+      scalePct: clampNumber(saved.scalePct ?? legacyScale[saved.scale], 70, 200, defaults.scalePct),
       sheetCount: clampNumber(saved.sheetCount, 1, 30, defaults.sheetCount),
       includeAnswers: saved.includeAnswers !== false,
     };
@@ -156,7 +156,7 @@
       id: "printProblemScale",
       label: "問題の大きさ（%）",
       min: 70,
-      max: 150,
+      max: 200,
       step: 5,
       value: settings.scalePct,
       unit: "%",
@@ -183,22 +183,19 @@
       }
 
       const scale = settings.scalePct / 100;
-      const appOwnsProblemScale = Boolean(window.GRADE3_APP_CONFIG);
 
-      if (!appOwnsProblemScale) {
-        document.querySelectorAll(".problem-grid").forEach((grid) => {
-          const hasVisual = Boolean(grid.querySelector(".visual"));
-          const baseProblemMin = hasVisual ? 42 : 30;
-          grid.style.setProperty("--problem-font", `${Math.round(18 * scale)}px`);
-          grid.style.setProperty("--problem-min", `${(baseProblemMin * scale).toFixed(1)}mm`);
-          grid.style.setProperty("--visual-min", `${(24 * scale).toFixed(1)}mm`);
-          grid.style.setProperty("--visual-width", `${Math.round(132 * scale)}px`);
-          grid.style.setProperty("--clock-width", `${Math.round(132 * scale)}px`);
-          grid.style.setProperty("--dot-size", `${Math.round(10 * scale)}px`);
-          grid.style.setProperty("--blank-width", `${(28 * scale).toFixed(1)}mm`);
-          grid.style.setProperty("--blank-height", `${(8 * scale).toFixed(1)}mm`);
-        });
-      }
+      document.querySelectorAll(".problem-grid").forEach((grid) => {
+        const hasVisual = Boolean(grid.querySelector(".visual"));
+        const baseProblemMin = hasVisual ? 42 : 30;
+        grid.style.setProperty("--problem-font", `${Math.round(18 * scale)}px`);
+        grid.style.setProperty("--problem-min", `${(baseProblemMin * scale).toFixed(1)}mm`);
+        grid.style.setProperty("--visual-min", `${(24 * scale).toFixed(1)}mm`);
+        grid.style.setProperty("--visual-width", `${Math.round(132 * scale)}px`);
+        grid.style.setProperty("--clock-width", `${Math.round(132 * scale)}px`);
+        grid.style.setProperty("--dot-size", `${Math.round(10 * scale)}px`);
+        grid.style.setProperty("--blank-width", `${(28 * scale).toFixed(1)}mm`);
+        grid.style.setProperty("--blank-height", `${(8 * scale).toFixed(1)}mm`);
+      });
 
       answerPages().forEach((page) => {
         const hideAnswer = !settings.includeAnswers;
@@ -237,14 +234,9 @@
   }
 
   function setup() {
-    const appOwnsProblemScale = Boolean(window.GRADE3_APP_CONFIG);
     const settings = loadSettings();
-    if (!appOwnsProblemScale) {
-      ensureControls(settings);
-      bindRangeNumber("printProblemScale", "scalePct", settings);
-    } else {
-      upsertSheetCountControl(settings);
-    }
+    ensureControls(settings);
+    bindRangeNumber("printProblemScale", "scalePct", settings);
 
     const sheetCount = document.querySelector("#printSheetCount");
     if (sheetCount) {

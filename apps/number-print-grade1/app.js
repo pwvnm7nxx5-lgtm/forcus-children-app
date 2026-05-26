@@ -18,8 +18,6 @@ const els = {
   problemCount: document.querySelector("#problemCount"),
   problemCountPreset: document.querySelector("#problemCountPreset"),
   columns: document.querySelector("#columns"),
-  problemScale: document.querySelector("#problemScale"),
-  problemSpacing: document.querySelector("#problemSpacing"),
   includeAnswers: document.querySelector("#includeAnswers"),
   printBtn: document.querySelector("#printBtn"),
   regenerateBtn: document.querySelector("#regenerateBtn"),
@@ -74,8 +72,6 @@ function getSettings() {
     range: clampChoice(els.range.value, ["ten", "twenty", "hundred"], "ten"),
     count: getProblemCount(),
     columns: Number.parseInt(clampChoice(els.columns.value, ["1", "2", "3"], String(APP.defaultCols)), 10),
-    problemScale: clampChoice(els.problemScale.value, ["compact", "normal", "large"], "normal"),
-    problemSpacing: clampChoice(els.problemSpacing.value, ["tight", "normal", "wide"], "normal"),
     includeAnswers: els.includeAnswers.checked,
   };
 }
@@ -90,8 +86,6 @@ function applySettings(settings) {
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, APP.defaultCount));
   els.problemCountPreset.value = "";
   els.columns.value = clampChoice(settings.columns, ["1", "2", "3"], String(APP.defaultCols));
-  els.problemScale.value = clampChoice(settings.problemScale, ["compact", "normal", "large"], "normal");
-  els.problemSpacing.value = clampChoice(settings.problemSpacing, ["tight", "normal", "wide"], "normal");
   els.includeAnswers.checked = settings.includeAnswers !== false;
 }
 
@@ -175,7 +169,6 @@ function sheetSignature(settings) {
     range: settings.range,
     count: settings.count,
     columns: settings.columns,
-    problemScale: settings.problemScale,
   });
 }
 
@@ -241,19 +234,15 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
   kindLabel.textContent = kind;
   if (showAnswer) kindLabel.classList.add("answer");
   const list = page.querySelector("[data-problems]");
-  const scaleMap = { compact: 0.88, normal: 1, large: 1.18 };
-  const spacingMap = { tight: 0.72, normal: 1, wide: 1.35 };
-  const scale = scaleMap[settings.problemScale] || 1;
-  const spacing = spacingMap[settings.problemSpacing] || 1;
   const baseRowGap = settings.count > 24 ? 4 : 7;
   const baseProblemMin = settings.count > 24 ? 28 : 35;
   list.style.setProperty("--cols", settings.columns);
-  list.style.setProperty("--row-gap", `${(baseRowGap * spacing).toFixed(1)}mm`);
-  list.style.setProperty("--problem-min", `${(baseProblemMin * scale).toFixed(1)}mm`);
-  list.style.setProperty("--problem-font", `${Math.round(18 * scale)}px`);
-  list.style.setProperty("--visual-min", `${(24 * scale).toFixed(1)}mm`);
-  list.style.setProperty("--dot-size", `${Math.round(10 * scale)}px`);
-  list.style.setProperty("--card-gap", `${(3 * spacing).toFixed(1)}mm`);
+  list.style.setProperty("--row-gap", `${baseRowGap.toFixed(1)}mm`);
+  list.style.setProperty("--problem-min", `${baseProblemMin.toFixed(1)}mm`);
+  list.style.setProperty("--problem-font", "18px");
+  list.style.setProperty("--visual-min", "24mm");
+  list.style.setProperty("--dot-size", "10px");
+  list.style.setProperty("--card-gap", "3mm");
   pageProblems.forEach((problem) => {
     const item = document.createElement("li");
     item.className = "problem";
@@ -387,9 +376,10 @@ async function copyShareUrl() {
 function bindEvents() {
   els.includeAnswers.disabled = false;
   [els.studentName, els.worksheetDate, els.worksheetTitle].forEach((control) => control.addEventListener("input", render));
-  [els.problemType, els.range, els.problemCount].forEach((control) => control.addEventListener("change", markProblemsStale));
+  [els.problemType, els.range].forEach((control) => control.addEventListener("change", generateProblems));
+  els.problemCount.addEventListener("change", markProblemsStale);
   els.columns.addEventListener("change", render);
-  [els.problemScale, els.problemSpacing, els.includeAnswers].forEach((control) => control.addEventListener("change", render));
+  els.includeAnswers.addEventListener("change", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") return;
     els.problemCountPreset.value = "";
