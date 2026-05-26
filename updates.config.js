@@ -1,5 +1,10 @@
 window.UPDATE_HISTORY = [
   {
+    date: "5月26日",
+    title: "3年生 わり算プリントを開発中として追加",
+    isNew: true,
+  },
+  {
     date: "5月7日",
     title: "3年生プリント作成アプリを一時削除",
     isNew: true,

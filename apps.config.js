@@ -119,5 +119,17 @@
     status: "ready",
     accent: "#c2410c",
   },
+  {
+    id: "division-print-grade3",
+    title: "3年生 わり算プリント",
+    description: "3年生向けのわり算プリントを作成できます。複数枚では別々の問題を生成します。",
+    category: "教材",
+    grades: ["3"],
+    tags: ["算数", "3年生", "わり算", "印刷"],
+    href: "apps/division-print-grade3/index.html",
+    actionLabel: "わり算プリントを作る",
+    status: "開発中",
+    accent: "#7c3aed",
+  },
 ];
 
