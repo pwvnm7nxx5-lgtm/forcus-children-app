@@ -31,6 +31,8 @@ const els = {
 const stateStorageKey = `${APP.id}-state`;
 const problemCountMin = 1;
 const problemCountMax = 36;
+const columnsMin = 1;
+const columnsMax = 6;
 let statusTimer;
 let problems = [];
 let sheetProblemSets = [];
@@ -49,6 +51,10 @@ function getProblemCount() {
   return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, APP.defaultCount);
 }
 
+function getColumns() {
+  return clampNumber(els.columns.value, columnsMin, columnsMax, APP.defaultCols);
+}
+
 function difficultyValues() {
   return [...els.difficulty.options].map((option) => option.value);
 }
@@ -60,7 +66,7 @@ function getSettings() {
     title: els.worksheetTitle.value || APP.title,
     difficulty: clampChoice(els.difficulty.value, difficultyValues(), APP.defaultDifficulty),
     count: getProblemCount(),
-    columns: clampNumber(els.columns.value, 1, 6, APP.defaultCols),
+    columns: getColumns(),
     showHint: els.showHint.checked,
   };
 }
@@ -73,7 +79,7 @@ function applySettings(settings) {
   els.difficulty.value = clampChoice(settings.difficulty, difficultyValues(), APP.defaultDifficulty);
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, APP.defaultCount));
   els.problemCountPreset.value = "";
-  els.columns.value = String(clampNumber(settings.columns, 1, 6, APP.defaultCols));
+  els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, APP.defaultCols));
   els.showHint.checked = Boolean(settings.showHint);
 }
 

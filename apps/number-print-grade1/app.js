@@ -31,6 +31,8 @@ const els = {
 const stateStorageKey = `${APP.id}-state`;
 const problemCountMin = 1;
 const problemCountMax = 36;
+const columnsMin = 1;
+const columnsMax = 6;
 let statusTimer;
 let problems = [];
 let sheetProblemSets = [];
@@ -57,6 +59,10 @@ function getProblemCount() {
   return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, APP.defaultCount);
 }
 
+function getColumns() {
+  return clampNumber(els.columns.value, columnsMin, columnsMax, APP.defaultCols);
+}
+
 function getMaxNumber(range) {
   if (range === "hundred") return 100;
   if (range === "twenty") return 20;
@@ -71,7 +77,7 @@ function getSettings() {
     type: clampChoice(els.problemType.value, ["count", "order", "compare"], "count"),
     range: clampChoice(els.range.value, ["ten", "twenty", "hundred"], "ten"),
     count: getProblemCount(),
-    columns: clampNumber(els.columns.value, 1, 6, APP.defaultCols),
+    columns: getColumns(),
     includeAnswers: els.includeAnswers.checked,
   };
 }
@@ -85,7 +91,7 @@ function applySettings(settings) {
   els.range.value = clampChoice(settings.range, ["ten", "twenty", "hundred"], "ten");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, APP.defaultCount));
   els.problemCountPreset.value = "";
-  els.columns.value = String(clampNumber(settings.columns, 1, 6, APP.defaultCols));
+  els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, APP.defaultCols));
   els.includeAnswers.checked = settings.includeAnswers !== false;
 }
 

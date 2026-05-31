@@ -1,4 +1,4 @@
-﻿const APP = {
+const APP = {
   id: "table-graph-print-grade2",
   title: "2年生 表とグラフ",
   accent: "#c2410c",
@@ -32,6 +32,8 @@ const els = {
 const stateStorageKey = `${APP.id}-state`;
 const problemCountMin = 1;
 const problemCountMax = 36;
+const columnsMin = 1;
+const columnsMax = 6;
 let statusTimer;
 let problems = [];
 let sheetProblemSets = [];
@@ -40,6 +42,7 @@ let sheetSetSignature = "";
 function clampChoice(value, allowed, fallback) { return allowed.includes(String(value)) ? String(value) : fallback; }
 function clampNumber(value, min, max, fallback) { const parsed = Number.parseInt(value, 10); return Number.isNaN(parsed) ? fallback : Math.min(max, Math.max(min, parsed)); }
 function getProblemCount() { return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, APP.defaultCount); }
+function getColumns() { return clampNumber(els.columns.value, columnsMin, columnsMax, APP.defaultCols); }
 function typeValues() { return [...els.problemType.options].map((option) => option.value); }
 function difficultyValues() { return [...els.difficulty.options].map((option) => option.value); }
 function getSettings() {
@@ -50,7 +53,7 @@ function getSettings() {
     type: clampChoice(els.problemType.value, typeValues(), APP.defaultType),
     difficulty: clampChoice(els.difficulty.value, difficultyValues(), APP.defaultDifficulty),
     count: getProblemCount(),
-    columns: clampNumber(els.columns.value, 1, 6, APP.defaultCols),
+    columns: getColumns(),
   };
 }
 function applySettings(settings) {
@@ -62,7 +65,7 @@ function applySettings(settings) {
   els.difficulty.value = clampChoice(settings.difficulty, difficultyValues(), APP.defaultDifficulty);
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, APP.defaultCount));
   els.problemCountPreset.value = "";
-  els.columns.value = String(clampNumber(settings.columns, 1, 6, APP.defaultCols));
+  els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, APP.defaultCols));
 }
 function setStatus(message) {
   window.clearTimeout(statusTimer);

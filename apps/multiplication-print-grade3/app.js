@@ -19,6 +19,8 @@ const els = {
 const stateStorageKey = "multiplication-print-grade3-state-v2";
 const problemCountMin = 1;
 const problemCountMax = 40;
+const columnsMin = 1;
+const columnsMax = 6;
 const problemTypes = ["twoByOne", "threeByOne", "twoByTwo", "mixed"];
 let statusTimer;
 let problems = [];
@@ -41,6 +43,10 @@ function getProblemCount() {
   return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, 16);
 }
 
+function getColumns() {
+  return clampNumber(els.columns.value, columnsMin, columnsMax, 2);
+}
+
 function getSettings() {
   return {
     name: els.studentName.value,
@@ -48,7 +54,7 @@ function getSettings() {
     title: els.worksheetTitle.value || "3年生 かけ算の筆算プリント",
     type: clampChoice(els.problemType.value, problemTypes, "twoByOne"),
     count: getProblemCount(),
-    columns: clampNumber(els.columns.value, 1, 6, 2),
+    columns: getColumns(),
     showCarryBoxes: els.showCarryBoxes.checked,
   };
 }
@@ -64,7 +70,7 @@ function applySettings(settings) {
   els.problemType.value = clampChoice(settings.type, problemTypes, "twoByOne");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, 16));
   els.problemCountPreset.value = "";
-  els.columns.value = String(clampNumber(settings.columns, 1, 6, 2));
+  els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, 2));
   els.showCarryBoxes.checked = settings.showCarryBoxes !== false;
 }
 

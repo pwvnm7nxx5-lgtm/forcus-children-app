@@ -21,6 +21,8 @@ const els = {
 const stateStorageKey = "math-print-grade1-state";
 const problemCountMin = 1;
 const problemCountMax = 60;
+const columnsMin = 1;
+const columnsMax = 6;
 let statusTimer;
 let problems = [];
 let sheetProblemSets = [];
@@ -42,6 +44,10 @@ function getProblemCount() {
   return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, 40);
 }
 
+function getColumns() {
+  return clampNumber(els.columns.value, columnsMin, columnsMax, 3);
+}
+
 function getSettings() {
   return {
     name: els.studentName.value,
@@ -50,7 +56,7 @@ function getSettings() {
     type: clampChoice(els.problemType.value, ["add", "sub", "mix"], "mix"),
     difficulty: clampChoice(els.difficulty.value, ["ten", "twenty", "bridge"], "bridge"),
     count: getProblemCount(),
-    columns: clampNumber(els.columns.value, 1, 6, 3),
+    columns: getColumns(),
     includeZero: els.includeZero.checked,
   };
 }
@@ -67,7 +73,7 @@ function applySettings(settings) {
   els.difficulty.value = clampChoice(settings.difficulty, ["ten", "twenty", "bridge"], "bridge");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, 40));
   els.problemCountPreset.value = "";
-  els.columns.value = String(clampNumber(settings.columns, 1, 6, 3));
+  els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, 3));
   els.includeZero.checked = Boolean(settings.includeZero);
 }
 
