@@ -35,8 +35,13 @@
   min-width: 14mm;
 }
 
-.inline-answer-blank.answered {
+.inline-answer-value {
+  display: inline;
+  margin: 0 .8mm;
   color: var(--answer);
-  border-bottom-color: transparent;
   font-weight: 700;
+}
+
+.answer-page .inline-answer-blank {
+  border-bottom: 0;
 }

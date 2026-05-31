@@ -263,9 +263,8 @@ function renderPrompt(problem, showAnswer) {
     prompt.append(document.createTextNode(part));
     if (index >= parts.length - 1) return;
     const blank = document.createElement("span");
-    blank.className = `inline-answer-blank ${problem.type || ""}`;
+    blank.className = showAnswer ? `inline-answer-value ${problem.type || ""}` : `inline-answer-blank ${problem.type || ""}`;
     blank.textContent = showAnswer ? blanks[index] || "" : "";
-    if (showAnswer) blank.classList.add("answered");
     prompt.append(blank);
   });
   return prompt;
@@ -281,6 +280,7 @@ function renderProblem(problem, showAnswer) {
 function renderPage(kind, showAnswer, pageProblems = problems) {
   const settings = getSettings();
   const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
+  if (showAnswer) page.classList.add("answer-page");
   page.querySelector("[data-name]").textContent = settings.name;
   page.querySelector("[data-date]").textContent = settings.date;
   page.querySelector("[data-title]").textContent = settings.title;
