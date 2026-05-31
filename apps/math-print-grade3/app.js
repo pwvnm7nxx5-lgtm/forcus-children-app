@@ -292,6 +292,9 @@ function makeVerticalFormula(problem, showAnswer, settings) {
     String(problem.answer).length,
     3,
   );
+  formula.style.setProperty("--digit-template", `repeat(${width}, var(--digit-size))`);
+  formula.style.setProperty("--formula-width", `${5.5 + width * 7}mm`);
+  formula.style.setProperty("--line-width", `${width * 7}mm`);
   formula.append(makeDigitRow(formatDigits(problem.a, width), "", settings.showCarryBoxes));
   formula.append(makeDigitRow(formatDigits(problem.b, width), problem.op, settings.showCarryBoxes));
 

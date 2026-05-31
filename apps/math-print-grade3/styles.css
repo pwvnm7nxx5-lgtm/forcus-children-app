@@ -370,22 +370,27 @@ button:hover {
 }
 
 .vertical-layout .problem-grid {
-  gap: var(--row-gap) 10mm;
+  gap: var(--row-gap) 6mm;
 }
 
 .vertical-layout .problem {
   align-items: start;
+  grid-template-columns: 7mm minmax(0, 1fr);
   border-bottom: 0;
 }
 
 .vertical-formula {
-  --digit-size: 8mm;
-  --helper-size: 2.8mm;
+  --digit-size: 7mm;
+  --helper-size: 2.4mm;
+  --operator-width: 5.5mm;
+  --digit-template: repeat(4, var(--digit-size));
+  --formula-width: 33.5mm;
+  --line-width: 28mm;
   display: grid;
-  width: 100%;
-  max-width: 38mm;
+  width: var(--formula-width);
+  max-width: 100%;
   justify-self: start;
-  gap: 1mm;
+  gap: 0.8mm;
   font-family: "BIZ UDPGothic", "Yu Gothic", "Meiryo", sans-serif;
   font-size: var(--problem-font);
   line-height: 1;
@@ -393,7 +398,7 @@ button:hover {
 
 .digit-row {
   display: grid;
-  grid-template-columns: 7mm repeat(3, 8mm);
+  grid-template-columns: var(--operator-width) var(--digit-template);
   align-items: center;
   justify-items: center;
   min-height: var(--digit-size);
@@ -431,7 +436,7 @@ button:hover {
 }
 
 .vertical-line {
-  width: 31mm;
+  width: var(--line-width);
   justify-self: end;
   border-top: 1.8px solid #425466;
 }
