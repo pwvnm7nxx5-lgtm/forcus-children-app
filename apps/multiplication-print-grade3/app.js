@@ -16,9 +16,10 @@ const els = {
   status: document.querySelector("#status"),
 };
 
-const stateStorageKey = "multiplication-print-grade3-state-v2";
+const stateStorageKey = "multiplication-print-grade3-state-v3";
 const problemCountMin = 1;
 const problemCountMax = 40;
+const verticalDigitWidth = 4;
 const columnsMin = 1;
 const columnsMax = 6;
 const problemTypes = ["twoByOne", "threeByOne", "twoByTwo", "mixed"];
@@ -209,6 +210,13 @@ function formatDigits(value, width) {
   return String(value).padStart(width, " ").slice(-width).split("");
 }
 
+function formatShiftedDigits(value, width, shift) {
+  const places = Math.max(0, shift);
+  const availableWidth = Math.max(1, width - places);
+  const digits = String(value).padStart(availableWidth, " ").slice(-availableWidth);
+  return `${digits}${" ".repeat(places)}`.slice(0, width).split("");
+}
+
 function makeDigitCell(digit, showCarryBoxes, isBlank = false) {
   const cell = document.createElement("span");
   cell.className = "digit-cell";
@@ -243,25 +251,40 @@ function makeDigitRow(digits, operator, showCarryBoxes, blank = false) {
 }
 
 function problemWidth(settings) {
-  if (settings.type === "twoByOne") {
-    return 3;
-  }
-  return 4;
+  return verticalDigitWidth;
+}
+
+function multiplierDigits(problem) {
+  return String(problem.b).split("").reverse().map((digit) => Number.parseInt(digit, 10));
 }
 
 function makeVerticalFormula(problem, showAnswer, settings) {
   const width = problemWidth(settings);
+  const steps = multiplierDigits(problem);
   const formula = document.createElement("span");
   formula.className = "vertical-formula";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
+  formula.style.setProperty("--step-count", String(steps.length));
   formula.style.setProperty("--digit-count", String(width));
 
   formula.append(makeDigitRow(formatDigits(problem.a, width), "", settings.showCarryBoxes));
   formula.append(makeDigitRow(formatDigits(problem.b, width), "×", settings.showCarryBoxes));
 
   const line = document.createElement("span");
-  line.className = "vertical-line";
+  line.className = steps.length > 1 ? "vertical-line subtotal-line" : "vertical-line answer-line";
   formula.append(line);
+
+  if (steps.length > 1) {
+    steps.forEach((digit, placeIndex) => {
+      const value = problem.a * digit;
+      const digits = showAnswer ? formatShiftedDigits(value, width, placeIndex) : formatDigits("", width);
+      formula.append(makeDigitRow(digits, "", settings.showCarryBoxes, !showAnswer));
+    });
+
+    const answerLine = document.createElement("span");
+    answerLine.className = "vertical-line answer-line";
+    formula.append(answerLine);
+  }
 
   if (showAnswer) {
     formula.append(makeDigitRow(formatDigits(problem.answer, width), "", settings.showCarryBoxes));
@@ -274,22 +297,22 @@ function makeVerticalFormula(problem, showAnswer, settings) {
 
 function applyGridDensity(list, settings) {
   const rows = Math.ceil(settings.count / settings.columns);
-  let rowGap = 7;
-  let problemMin = 43;
-  let fontSize = 20;
+  let rowGap = 5;
+  let problemMin = 35;
+  let fontSize = 18;
 
   if (rows > 16) {
-    rowGap = 2.5;
-    problemMin = 27;
-    fontSize = 15;
+    rowGap = 2;
+    problemMin = 25;
+    fontSize = 14;
   } else if (rows > 12) {
+    rowGap = 3;
+    problemMin = 29;
+    fontSize = 15;
+  } else if (rows > 8) {
     rowGap = 4;
     problemMin = 32;
     fontSize = 16;
-  } else if (rows > 8) {
-    rowGap = 5;
-    problemMin = 36;
-    fontSize = 18;
   }
 
   list.style.setProperty("--row-gap", `${rowGap}mm`);
