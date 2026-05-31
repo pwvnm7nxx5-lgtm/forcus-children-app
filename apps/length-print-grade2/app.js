@@ -1,4 +1,4 @@
-﻿const els = {
+const els = {
   studentName: document.querySelector("#studentName"),
   worksheetDate: document.querySelector("#worksheetDate"),
   worksheetTitle: document.querySelector("#worksheetTitle"),
@@ -592,6 +592,7 @@ function bindEvents() {
     control.addEventListener("change", generateProblems);
   });
   els.columns.addEventListener("change", render);
+  els.columns.addEventListener("input", render);
   els.showHint.addEventListener("change", render);
   els.problemCount.addEventListener("change", generateProblems);
   els.problemCount.addEventListener("input", () => {

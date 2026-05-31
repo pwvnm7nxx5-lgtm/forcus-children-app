@@ -395,6 +395,7 @@ function bindEvents() {
 
   els.problemType.addEventListener("change", generateProblems);
   els.columns.addEventListener("change", render);
+  els.columns.addEventListener("input", render);
   els.problemCount.addEventListener("change", generateProblems);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") {

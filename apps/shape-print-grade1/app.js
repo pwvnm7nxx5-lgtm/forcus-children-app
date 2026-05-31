@@ -325,6 +325,7 @@ async function copyShareUrl() {
 function bindEvents() {
   [els.studentName, els.worksheetDate, els.worksheetTitle].forEach((control) => control.addEventListener("input", render));
   [els.problemCount, els.columns].forEach((control) => control.addEventListener("change", generateProblems));
+  els.columns.addEventListener("input", generateProblems);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") return;
     els.problemCountPreset.value = "";

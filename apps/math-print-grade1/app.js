@@ -420,6 +420,7 @@ function bindEvents() {
   });
   els.problemCount.addEventListener("change", generateProblems);
   els.columns.addEventListener("change", render);
+  els.columns.addEventListener("input", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") {
       return;

@@ -16,7 +16,7 @@
         <label class="field"><span>問題タイプ</span><select id="problemType"><option value="read" selected>時刻を読む</option><option value="draw">針を書く</option><option value="mix">まぜて出題</option></select></label>
         <label class="field"><span>範囲</span><select id="range"><option value="hour" selected>なんじ</option><option value="half">なんじ・なんじはん</option></select></label>
         <label class="field"><span>問題数</span><span class="combo-input"><input id="problemCount" type="number" min="1" max="24" step="1" value="6" inputmode="numeric"><select id="problemCountPreset" aria-label="問題数の候補"><option value="">候補</option><option value="6">6問</option><option value="8">8問</option><option value="12">12問</option><option value="24">24問</option></select></span></label>
-        <label class="field"><span>列数</span><select id="columns"><option value="1">1列</option><option value="2" selected>2列</option></select></label>
+        <label class="field"><span>列数</span><input id="columns" type="number" min="1" max="6" step="1" value="2" inputmode="numeric"></label>
       </div>
       <div class="settings-grid">
         <label class="field"><span>分の数字</span><select id="minuteLabelMode"><option value="none" selected>表示しない</option><option value="five">5分ごと</option><option value="ten">10分ごと</option><option value="thirty">30分ごと</option></select></label>

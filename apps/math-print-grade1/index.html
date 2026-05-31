@@ -16,7 +16,7 @@
         <label class="field"><span>問題タイプ</span><select id="problemType"><option value="add">たし算</option><option value="sub">ひき算</option><option value="mix" selected>たし算・ひき算ミックス</option></select></label>
         <label class="field"><span>難易度</span><select id="difficulty"><option value="ten">10まで</option><option value="twenty">20まで</option><option value="bridge" selected>くり上がり・くり下がりあり</option></select></label>
         <label class="field"><span>問題数</span><span class="combo-input"><input id="problemCount" type="number" min="1" max="60" step="1" value="40" inputmode="numeric"><select id="problemCountPreset" aria-label="問題数の候補"><option value="">候補</option><option value="20">20問</option><option value="40">40問</option><option value="60">60問</option></select></span></label>
-        <label class="field"><span>列数</span><select id="columns"><option value="2">2列</option><option value="3" selected>3列</option></select></label>
+        <label class="field"><span>列数</span><input id="columns" type="number" min="1" max="6" step="1" value="3" inputmode="numeric"></label>
       </div>
       <div class="check-row">
         <label><input id="includeZero" type="checkbox"> 0を含める</label>

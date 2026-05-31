@@ -12,6 +12,7 @@
   const legacyScale = { compact: 88, normal: 100, large: 118 };
   let applying = false;
   let observerFrame = 0;
+  let resizeFrame = 0;
   let skipNextObserver = false;
   let lastSheetSignature = "";
   let printActive = false;
@@ -99,6 +100,20 @@
       .print-adjust-answer-hidden {
         display: none !important;
       }
+      @media (max-width: 980px) {
+        .print-page {
+          margin-bottom: var(--print-preview-mobile-overlap, -112mm) !important;
+        }
+      }
+      @media print {
+        .pages {
+          zoom: 1 !important;
+        }
+        .print-page {
+          width: var(--print-page-width, 210mm) !important;
+          min-height: var(--print-page-height, 297mm) !important;
+        }
+      }
     `;
     document.head.append(style);
   }
@@ -119,9 +134,32 @@
     const height = landscape ? "210mm" : "297mm";
     document.documentElement.style.setProperty("--print-page-width", width);
     document.documentElement.style.setProperty("--print-page-height", height);
+    document.documentElement.style.setProperty("--print-preview-mobile-overlap", landscape ? "-72mm" : "-112mm");
     document.body.classList.toggle("print-landscape", landscape);
     document.body.classList.toggle("print-portrait", !landscape);
     ensurePageRuleStyle().textContent = `@page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 0; }`;
+  }
+
+  function applyPreviewZoom() {
+    if (window.matchMedia?.("print").matches) return;
+    const preview = document.querySelector(".preview-wrap");
+    const pages = document.querySelector("#pages");
+    const page = visiblePrintPages()[0] || document.querySelector(".print-page");
+    if (!preview || !pages || !page) return;
+
+    pages.style.zoom = "";
+    const availableWidth = Math.max(320, preview.clientWidth - 32);
+    const pageWidth = page.getBoundingClientRect().width;
+    const zoom = pageWidth > availableWidth ? Math.max(0.5, availableWidth / pageWidth) : 1;
+    pages.style.zoom = String(Number(zoom.toFixed(3)));
+  }
+
+  function schedulePreviewZoom() {
+    if (resizeFrame) return;
+    resizeFrame = window.requestAnimationFrame(() => {
+      resizeFrame = 0;
+      applyPreviewZoom();
+    });
   }
 
   function createCheckboxControl({ id, label, checked }) {
@@ -495,6 +533,7 @@
         const visiblePages = visiblePrintPages().length;
         if (visiblePages) pageCount.textContent = `${visiblePages}枚`;
       }
+      applyPreviewZoom();
     } finally {
       applying = false;
     }
@@ -599,7 +638,9 @@
       window.addEventListener("beforeprint", () => applySettings(settings));
       window.addEventListener("afterprint", () => {
         printActive = false;
+        schedulePreviewZoom();
       });
+      window.addEventListener("resize", schedulePreviewZoom);
     }
 
     const printButton = document.querySelector("#printBtn");

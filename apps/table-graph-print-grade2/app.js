@@ -1,4 +1,4 @@
-﻿const APP = {
+const APP = {
   id: "table-graph-print-grade2",
   title: "2年生 表とグラフ",
   accent: "#c2410c",
@@ -371,6 +371,7 @@ async function copyShareUrl() {
 function bindEvents() {
   [els.studentName, els.worksheetDate, els.worksheetTitle].forEach((control) => control.addEventListener("input", render));
   [els.problemType, els.difficulty, els.problemCount, els.columns].forEach((control) => control.addEventListener("change", generateProblems));
+  els.columns.addEventListener("input", generateProblems);
   els.problemCount.addEventListener("input", () => { if (els.problemCount.value === "") return; els.problemCountPreset.value = ""; generateProblems({ normalizeCount: false }); });
   els.problemCountPreset.addEventListener("change", () => { if (!els.problemCountPreset.value) return; els.problemCount.value = els.problemCountPreset.value; generateProblems(); els.problemCountPreset.value = ""; });
   els.printBtn.addEventListener("click", () => { render(); window.print(); });

@@ -552,6 +552,7 @@ function bindEvents() {
     normalizeColumns();
     render();
   });
+  els.columns.addEventListener("input", render);
   els.showCarryBoxes.addEventListener("change", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") {

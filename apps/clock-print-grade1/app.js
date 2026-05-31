@@ -383,6 +383,7 @@ function bindEvents() {
   [els.problemType, els.range].forEach((control) => control.addEventListener("change", generateProblems));
   els.problemCount.addEventListener("change", generateProblems);
   [els.minuteLabelMode, els.columns].forEach((control) => control.addEventListener("change", render));
+  els.columns.addEventListener("input", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") return;
     els.problemCountPreset.value = "";

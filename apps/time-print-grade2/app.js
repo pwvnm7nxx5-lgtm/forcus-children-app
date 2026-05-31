@@ -1,4 +1,4 @@
-﻿const APP = {
+const APP = {
   id: "time-print-grade2",
   title: "2年生 時刻・時間",
   accent: "#2563eb",
@@ -420,6 +420,7 @@ function bindEvents() {
   [els.problemType, els.difficulty].forEach((control) => control.addEventListener("change", generateProblems));
   els.problemCount.addEventListener("change", generateProblems);
   [els.minuteNumberMode, els.columns].forEach((control) => control.addEventListener("change", render));
+  els.columns.addEventListener("input", render);
   els.problemCount.addEventListener("input", () => { if (els.problemCount.value === "") return; els.problemCountPreset.value = ""; generateProblems({ normalizeCount: false }); });
   els.problemCountPreset.addEventListener("change", () => { if (!els.problemCountPreset.value) return; els.problemCount.value = els.problemCountPreset.value; generateProblems(); els.problemCountPreset.value = ""; });
   els.printBtn.addEventListener("click", () => { render(); window.print(); });
