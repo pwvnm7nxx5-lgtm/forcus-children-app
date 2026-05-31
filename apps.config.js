@@ -120,6 +120,18 @@
     accent: "#c2410c",
   },
   {
+    id: "math-print-grade3",
+    title: "3年生 計算プリント",
+    description: "3けた・4けたのたし算とひき算プリントを自動作成して印刷できます。",
+    category: "教材",
+    grades: ["3"],
+    tags: ["算数", "3年生", "たし算", "ひき算", "筆算", "印刷"],
+    href: "apps/math-print-grade3/index.html",
+    actionLabel: "計算プリントを作る",
+    status: "ready",
+    accent: "#2563eb",
+  },
+  {
     id: "division-print-grade3",
     title: "3年生 わり算プリント",
     description: "3年生向けのわり算プリントを作成できます。複数枚では別々の問題を生成します。",
