@@ -46,7 +46,7 @@ function getSettings() {
     title: els.worksheetTitle.value || "3年生 わり算プリント",
     type: clampChoice(els.problemType.value, ["basic", "noRemainder", "withRemainder"], "basic"),
     count: getProblemCount(),
-    columns: Number.parseInt(clampChoice(els.columns.value, ["1", "2", "3"], "2"), 10),
+    columns: clampNumber(els.columns.value, 1, 6, 2),
   };
 }
 
@@ -61,7 +61,7 @@ function applySettings(settings) {
   els.problemType.value = clampChoice(settings.type, ["basic", "noRemainder", "withRemainder"], "basic");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, 20));
   els.problemCountPreset.value = "";
-  els.columns.value = clampChoice(settings.columns, ["1", "2", "3"], "2");
+  els.columns.value = String(clampNumber(settings.columns, 1, 6, 2));
 }
 
 function setStatus(message) {
@@ -387,6 +387,7 @@ function bindEvents() {
 
   els.problemType.addEventListener("change", generateProblems);
   els.columns.addEventListener("change", render);
+  els.columns.addEventListener("input", render);
   els.problemCount.addEventListener("change", generateProblems);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") {

@@ -59,7 +59,7 @@ function getSettings() {
     type: clampChoice(problemType, ["reading", "conversion", "compare", "arithmetic", "ruler", "mix"], "reading"),
     difficulty: clampChoice(els.difficulty.value, ["easy", "normal", "hard"], "easy"),
     count: getProblemCount(),
-    columns: Number.parseInt(clampChoice(els.columns.value, ["1", "2", "3"], "2"), 10),
+    columns: clampNumber(els.columns.value, 1, 6, 2),
     showHint: els.showHint.checked,
   };
 }
@@ -75,7 +75,7 @@ function applySettings(settings) {
   els.difficulty.value = clampChoice(settings.difficulty, ["easy", "normal", "hard"], "easy");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, 12));
   els.problemCountPreset.value = "";
-  els.columns.value = clampChoice(settings.columns, ["1", "2", "3"], "2");
+  els.columns.value = String(clampNumber(settings.columns, 1, 6, 2));
   els.showHint.checked = Boolean(settings.showHint);
 }
 
@@ -586,6 +586,7 @@ function bindEvents() {
     control.addEventListener("change", generateProblems);
   });
   els.columns.addEventListener("change", render);
+  els.columns.addEventListener("input", render);
   els.showHint.addEventListener("change", render);
   els.problemCount.addEventListener("change", generateProblems);
   els.problemCount.addEventListener("input", () => {

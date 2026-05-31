@@ -66,7 +66,7 @@ function getSettings() {
     range: clampChoice(els.range.value, ["hour", "half"], "hour"),
     minuteLabelMode: clampChoice(els.minuteLabelMode.value, ["none", "five", "ten", "thirty"], "none"),
     count: getProblemCount(),
-    columns: Number.parseInt(clampChoice(els.columns.value, ["1", "2"], String(APP.defaultCols)), 10),
+    columns: clampNumber(els.columns.value, 1, 6, APP.defaultCols),
   };
 }
 
@@ -84,7 +84,7 @@ function applySettings(settings) {
   );
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, APP.defaultCount));
   els.problemCountPreset.value = "";
-  els.columns.value = clampChoice(settings.columns, ["1", "2"], String(APP.defaultCols));
+  els.columns.value = String(clampNumber(settings.columns, 1, 6, APP.defaultCols));
 }
 
 function setStatus(message) {
@@ -377,6 +377,7 @@ function bindEvents() {
   [els.problemType, els.range].forEach((control) => control.addEventListener("change", generateProblems));
   els.problemCount.addEventListener("change", generateProblems);
   [els.minuteLabelMode, els.columns].forEach((control) => control.addEventListener("change", render));
+  els.columns.addEventListener("input", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") return;
     els.problemCountPreset.value = "";

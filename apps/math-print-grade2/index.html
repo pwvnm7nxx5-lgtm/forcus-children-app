@@ -16,7 +16,7 @@
         <label class="field"><span>学習内容</span><select id="problemType"><option value="add2" selected>2けた＋2けた</option><option value="sub2">2けた－2けた</option><option value="mix2">2けた 計算ミックス</option><option value="times">九九</option></select></label>
         <label class="field"><span>表示</span><select id="layoutMode"><option value="horizontal" selected>横式</option><option value="vertical">筆算</option></select></label>
         <label class="field"><span>問題数</span><span class="combo-input"><input id="problemCount" type="number" min="1" max="60" step="1" value="30" inputmode="numeric"><select id="problemCountPreset" aria-label="問題数の候補"><option value="">候補</option><option value="20">20問</option><option value="30">30問</option><option value="40">40問</option><option value="60">60問</option></select></span></label>
-        <label class="field"><span>列数</span><select id="columns"><option value="2" selected>2列</option><option value="3">3列</option></select></label>
+        <label class="field"><span>列数</span><input id="columns" type="number" min="1" max="6" step="1" value="2" inputmode="numeric"></label>
       </div>
       <div class="check-row">
         <label><input id="showCarryBoxes" type="checkbox" checked> 繰り上がり・くり下がりのマスをつける</label>
