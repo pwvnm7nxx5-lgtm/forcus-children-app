@@ -363,6 +363,15 @@ button:hover {
   font-weight: 700;
 }
 
+.answer-page .blank {
+  border-color: transparent;
+  background: transparent;
+}
+
+.answer-page .answer-line {
+  border-bottom: 0;
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;

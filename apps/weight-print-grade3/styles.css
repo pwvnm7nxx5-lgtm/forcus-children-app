@@ -1,0 +1,47 @@
+@import url("../shared/grade2-worksheet.css");
+
+.weight-problem-card {
+  min-height: 18mm;
+  gap: 0;
+}
+
+.weight-problem-card .prompt {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  gap: 0 1.5mm;
+  min-height: 11mm;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+
+.inline-answer-blank {
+  display: inline-block;
+  min-width: 18mm;
+  height: 8mm;
+  margin: 0 .8mm;
+  border-bottom: 1.5px solid #344054;
+  color: transparent;
+  vertical-align: baseline;
+}
+
+.inline-answer-blank.comparison {
+  min-width: 8mm;
+  text-align: center;
+}
+
+.inline-answer-blank.addition,
+.inline-answer-blank.subtraction {
+  min-width: 14mm;
+}
+
+.inline-answer-value {
+  display: inline;
+  margin: 0 .8mm;
+  color: var(--answer);
+  font-weight: 700;
+}
+
+.answer-page .inline-answer-blank {
+  border-bottom: 0;
+}

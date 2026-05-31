@@ -376,6 +376,15 @@ button:hover {
   font-weight: 700;
 }
 
+.answer-page .blank {
+  border-bottom: 0;
+  background: transparent;
+}
+
+.answer-page .answer-line {
+  border-bottom: 0;
+}
+
 .answer-note {
   color: #667085;
   font-size: 13px;

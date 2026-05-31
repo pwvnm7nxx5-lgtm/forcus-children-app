@@ -248,6 +248,7 @@ function renderProblem(problem, showAnswer) {
 function renderPage(kind, showAnswer, pageProblems = problems) {
   const settings = getSettings();
   const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
+  page.classList.toggle("answer-page", showAnswer);
   page.querySelector("[data-name]").textContent = settings.name;
   page.querySelector("[data-date]").textContent = settings.date;
   page.querySelector("[data-title]").textContent = settings.title;

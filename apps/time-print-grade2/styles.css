@@ -406,6 +406,15 @@ button:hover {
   color: var(--answer);
 }
 
+.answer-page .answer-line {
+  border-bottom: 0;
+}
+
+.answer-page .blank {
+  border-color: transparent;
+  background: transparent;
+}
+
 .draw-note {
   justify-self: stretch;
   color: #6b7280;

@@ -1,1 +1,10 @@
-﻿@import url("../shared/grade2-worksheet.css");
+@import url("../shared/grade2-worksheet.css");
+
+.answer-page .blank {
+  border-color: transparent;
+  background: transparent;
+}
+
+.answer-page .answer-line {
+  border-bottom: 0;
+}

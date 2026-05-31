@@ -1,9 +1,9 @@
 const APP = {
-  id: "capacity-print-grade2",
-  title: "2年生 水のかさ 単位変換プリント",
-  accent: "#0284c7",
+  id: "weight-print-grade3",
+  title: "3年生 重さプリント",
+  accent: "#8b5cf6",
   stateVersion: 2,
-  defaultDifficulty: "easy",
+  defaultType: "conversion",
   defaultCount: 12,
   defaultCols: 2,
 };
@@ -14,7 +14,7 @@ const els = {
   studentName: document.querySelector("#studentName"),
   worksheetDate: document.querySelector("#worksheetDate"),
   worksheetTitle: document.querySelector("#worksheetTitle"),
-  difficulty: document.querySelector("#difficulty"),
+  problemType: document.querySelector("#problemType"),
   problemCount: document.querySelector("#problemCount"),
   problemCountPreset: document.querySelector("#problemCountPreset"),
   columns: document.querySelector("#columns"),
@@ -33,6 +33,7 @@ const problemCountMin = 1;
 const problemCountMax = 36;
 const columnsMin = 1;
 const columnsMax = 6;
+const problemTypes = ["conversion", "addition", "subtraction", "comparison", "mixed"];
 let statusTimer;
 let problems = [];
 let sheetProblemSets = [];
@@ -55,16 +56,12 @@ function getColumns() {
   return clampNumber(els.columns.value, columnsMin, columnsMax, APP.defaultCols);
 }
 
-function difficultyValues() {
-  return [...els.difficulty.options].map((option) => option.value);
-}
-
 function getSettings() {
   return {
     name: els.studentName.value,
     date: els.worksheetDate.value,
     title: els.worksheetTitle.value || APP.title,
-    difficulty: clampChoice(els.difficulty.value, difficultyValues(), APP.defaultDifficulty),
+    type: clampChoice(els.problemType.value, problemTypes, APP.defaultType),
     count: getProblemCount(),
     columns: getColumns(),
     showHint: els.showHint.checked,
@@ -75,8 +72,8 @@ function applySettings(settings) {
   if (!settings || typeof settings !== "object") return;
   els.studentName.value = settings.name || "";
   els.worksheetDate.value = settings.date || "";
-  els.worksheetTitle.value = settings.title && settings.title !== "2年生 水のかさプリント" ? settings.title : APP.title;
-  els.difficulty.value = clampChoice(settings.difficulty, difficultyValues(), APP.defaultDifficulty);
+  els.worksheetTitle.value = settings.title || APP.title;
+  els.problemType.value = clampChoice(settings.type, problemTypes, APP.defaultType);
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, APP.defaultCount));
   els.problemCountPreset.value = "";
   els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, APP.defaultCols));
@@ -99,107 +96,129 @@ function pick(items) {
   return items[rand(0, items.length - 1)];
 }
 
-function formatMixedDlMl(totalMl) {
-  const dl = Math.floor(totalMl / 100);
-  const ml = totalMl % 100;
-  return ml === 0 ? `${dl}dL` : `${dl}dL ${ml}mL`;
+function formatKgG(totalG) {
+  const kg = Math.floor(totalG / 1000);
+  const g = totalG % 1000;
+  if (kg === 0) return `${g}g`;
+  if (g === 0) return `${kg}kg`;
+  return `${kg}kg ${g}g`;
 }
 
-function formatMixedLDl(totalDl) {
-  const liter = Math.floor(totalDl / 10);
-  const dl = totalDl % 10;
-  return dl === 0 ? `${liter}L` : `${liter}L ${dl}dL`;
+function makeWeight({ minKg = 0, maxKg = 5, allowZeroKg = true } = {}) {
+  const kg = rand(minKg, maxKg);
+  const grams = rand(0, 9) * 100;
+  const total = kg * 1000 + grams;
+  if (!allowZeroKg && total === 0) return makeWeight({ minKg: 1, maxKg, allowZeroKg });
+  return total;
 }
 
-function makeEasyConversion() {
+function makeSimpleWeight(maxKg = 5) {
+  const patterns = [
+    () => rand(1, maxKg) * 1000,
+    () => rand(1, 9) * 100,
+  ];
+  return pick(patterns)();
+}
+
+function makeMixedWeight(maxKg = 5) {
+  return rand(1, maxKg) * 1000 + rand(1, 9) * 100;
+}
+
+function makeConversionProblem() {
   const patterns = [
     () => {
-      const liter = rand(1, 9);
-      return { prompt: `${liter}L = □dL`, answer: `${liter * 10}dL` };
+      const totalG = makeWeight({ minKg: 1, maxKg: 6, allowZeroKg: false });
+      return {
+        prompt: `${formatKgG(totalG)} = □g`,
+        answer: `${totalG}g`,
+        blanks: [`${totalG}`],
+        type: "conversion",
+      };
     },
     () => {
-      const dl = rand(1, 9);
-      return { prompt: `${dl}dL = □mL`, answer: `${dl * 100}mL` };
+      const totalG = rand(11, 69) * 100;
+      const kg = Math.floor(totalG / 1000);
+      const g = totalG % 1000;
+      return {
+        prompt: `${totalG}g = □kg □g`,
+        answer: formatKgG(totalG),
+        blanks: [`${kg}`, `${g}`],
+        type: "conversion",
+      };
     },
     () => {
-      const liter = rand(1, 5);
-      return { prompt: `${liter}L = □mL`, answer: `${liter * 1000}mL` };
+      const kg = rand(1, 9);
+      return {
+        prompt: `${kg}kg = □g`,
+        answer: `${kg * 1000}g`,
+        blanks: [`${kg * 1000}`],
+        type: "conversion",
+      };
     },
   ];
   return pick(patterns)();
 }
 
-function makeNormalConversion() {
-  const patterns = [
-    () => {
-      const liter = rand(1, 6);
-      const dl = rand(1, 9);
-      return { prompt: `${liter}L ${dl}dL = □dL`, answer: `${liter * 10 + dl}dL` };
-    },
-    () => {
-      const dl = rand(1, 9);
-      const ml = rand(1, 9) * 10;
-      return { prompt: `${dl}dL ${ml}mL = □mL`, answer: `${dl * 100 + ml}mL` };
-    },
-    () => {
-      const totalDl = rand(11, 69);
-      return { prompt: `${totalDl}dL = □L □dL`, answer: formatMixedLDl(totalDl) };
-    },
-    () => {
-      const totalMl = rand(2, 19) * 100 + rand(1, 9) * 10;
-      return { prompt: `${totalMl}mL = □dL □mL`, answer: formatMixedDlMl(totalMl) };
-    },
-  ];
-  return pick(patterns)();
+function makeAdditionProblem() {
+  const a = pick([makeMixedWeight, makeSimpleWeight])(4);
+  const b = makeSimpleWeight(3);
+  return {
+    prompt: `${formatKgG(a)} + ${formatKgG(b)} = □`,
+    answer: formatKgG(a + b),
+    blanks: [formatKgG(a + b)],
+    type: "addition",
+  };
 }
 
-function makeHardConversion() {
-  const patterns = [
-    () => {
-      const liter = rand(1, 4);
-      const dl = rand(1, 9);
-      const ml = rand(1, 9) * 10;
-      return { prompt: `${liter}L ${dl}dL ${ml}mL = □mL`, answer: `${liter * 1000 + dl * 100 + ml}mL` };
-    },
-    () => {
-      const totalMl = rand(12, 49) * 100 + rand(1, 9) * 10;
-      const liter = Math.floor(totalMl / 1000);
-      const restMl = totalMl % 1000;
-      const dl = Math.floor(restMl / 100);
-      const ml = restMl % 100;
-      return { prompt: `${totalMl}mL = □L □dL □mL`, answer: `${liter}L ${dl}dL ${ml}mL` };
-    },
-    () => {
-      const liter = rand(1, 8);
-      return { prompt: `${liter * 1000}mL = □L`, answer: `${liter}L` };
-    },
-    () => {
-      const totalDl = rand(12, 89);
-      return { prompt: `${totalDl}dL = □mL`, answer: `${totalDl * 100}mL` };
-    },
-  ];
-  return pick(patterns)();
+function makeSubtractionProblem() {
+  const b = makeSimpleWeight(4);
+  const diff = pick([makeMixedWeight, makeSimpleWeight])(4);
+  const a = b + diff;
+  return {
+    prompt: `${formatKgG(a)} - ${formatKgG(b)} = □`,
+    answer: formatKgG(a - b),
+    blanks: [formatKgG(a - b)],
+    type: "subtraction",
+  };
+}
+
+function makeComparisonProblem() {
+  let a = makeWeight({ minKg: 0, maxKg: 6, allowZeroKg: false });
+  let b = makeWeight({ minKg: 0, maxKg: 6, allowZeroKg: false });
+  if (a === b) b += 100;
+  const answer = a > b ? ">" : a < b ? "<" : "=";
+  return {
+    prompt: `${formatKgG(a)} □ ${formatKgG(b)}`,
+    answer,
+    blanks: [answer],
+    type: "comparison",
+  };
 }
 
 function makeProblem(settings) {
-  if (settings.difficulty === "easy") return makeEasyConversion();
-  if (settings.difficulty === "hard") return makeHardConversion();
-  return makeNormalConversion();
+  const type = settings.type === "mixed" ? pick(["conversion", "addition", "subtraction", "comparison"]) : settings.type;
+  if (type === "addition") return makeAdditionProblem();
+  if (type === "subtraction") return makeSubtractionProblem();
+  if (type === "comparison") return makeComparisonProblem();
+  return makeConversionProblem();
 }
 
 function problemKey(problem) {
-  return JSON.stringify(problem);
+  return `${problem.type}:${problem.prompt}`;
 }
 
 function sheetSignature(settings) {
-  return JSON.stringify(settings);
+  return JSON.stringify({
+    type: settings.type,
+    count: settings.count,
+  });
 }
 
 function selectProblemSet(settings, usedKeys = new Set()) {
   const selected = [];
   const seen = new Set();
   let attempts = 0;
-  while (selected.length < settings.count && attempts < settings.count * 30) {
+  while (selected.length < settings.count && attempts < settings.count * 80) {
     const problem = makeProblem(settings);
     const key = problemKey(problem);
     if (!seen.has(key) && !usedKeys.has(key)) {
@@ -209,14 +228,13 @@ function selectProblemSet(settings, usedKeys = new Set()) {
     }
     attempts += 1;
   }
-  while (selected.length < settings.count && attempts < settings.count * 60) {
+  while (selected.length < settings.count) {
     const problem = makeProblem(settings);
     const key = problemKey(problem);
     if (!seen.has(key)) {
       selected.push(problem);
       seen.add(key);
     }
-    attempts += 1;
   }
   return selected;
 }
@@ -231,25 +249,38 @@ function generateProblems(options = {}) {
   setStatus("もんだいをつくりなおしました。");
 }
 
+function getBlankValues(problem) {
+  if (Array.isArray(problem.blanks) && problem.blanks.length) return problem.blanks;
+  return [problem.answer || ""];
+}
+
+function renderPrompt(problem, showAnswer) {
+  const prompt = document.createElement("div");
+  prompt.className = `prompt conversion-prompt ${problem.type || ""}`;
+  const parts = String(problem.prompt).split("□");
+  const blanks = getBlankValues(problem);
+  parts.forEach((part, index) => {
+    prompt.append(document.createTextNode(part));
+    if (index >= parts.length - 1) return;
+    const blank = document.createElement("span");
+    blank.className = showAnswer ? `inline-answer-value ${problem.type || ""}` : `inline-answer-blank ${problem.type || ""}`;
+    blank.textContent = showAnswer ? blanks[index] || "" : "";
+    prompt.append(blank);
+  });
+  return prompt;
+}
+
 function renderProblem(problem, showAnswer) {
   const card = document.createElement("div");
-  card.className = "problem-card";
-  const prompt = document.createElement("div");
-  prompt.className = "prompt conversion-prompt";
-  prompt.textContent = problem.prompt;
-  const answerLine = document.createElement("div");
-  answerLine.className = "answer-line";
-  answerLine.innerHTML = showAnswer
-    ? `<span class="answer-value">${problem.answer}</span>`
-    : `<span class="blank">□</span><span class="small-note">こたえ</span>`;
-  card.append(prompt, answerLine);
+  card.className = "problem-card weight-problem-card";
+  card.append(renderPrompt(problem, showAnswer));
   return card;
 }
 
 function renderPage(kind, showAnswer, pageProblems = problems) {
   const settings = getSettings();
   const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
-  page.classList.toggle("answer-page", showAnswer);
+  if (showAnswer) page.classList.add("answer-page");
   page.querySelector("[data-name]").textContent = settings.name;
   page.querySelector("[data-date]").textContent = settings.date;
   page.querySelector("[data-title]").textContent = settings.title;
@@ -259,7 +290,7 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
   if (!showAnswer && settings.showHint) {
     const hint = document.createElement("div");
     hint.className = "page-hint";
-    hint.textContent = "ヒント: 1L = 10dL、1dL = 100mL、1L = 1000mL";
+    hint.textContent = "ヒント: 1kg = 1000g";
     Object.assign(hint.style, {
       margin: "-3mm 0 6mm",
       padding: "2.5mm 4mm",
@@ -324,8 +355,7 @@ function renderSheetPages(sheetCount, includeAnswers) {
 
 function render() {
   if (!problems.length) {
-    const settings = getSettings();
-    problems = selectProblemSet(settings);
+    problems = selectProblemSet(getSettings());
   }
   els.pages.replaceChildren(renderPage("もんだい", false), renderPage("こたえ", true));
   els.pageCount.textContent = "2枚";
@@ -396,8 +426,12 @@ async function copyShareUrl() {
 
 function bindEvents() {
   [els.studentName, els.worksheetDate, els.worksheetTitle].forEach((control) => control.addEventListener("input", render));
-  [els.difficulty, els.problemCount, els.columns].forEach((control) => control.addEventListener("change", generateProblems));
-  els.columns.addEventListener("input", generateProblems);
+  els.problemType.addEventListener("change", generateProblems);
+  els.problemCount.addEventListener("change", generateProblems);
+  els.columns.addEventListener("input", () => {
+    if (els.columns.value !== "") render();
+  });
+  els.columns.addEventListener("change", render);
   els.showHint.addEventListener("change", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") return;

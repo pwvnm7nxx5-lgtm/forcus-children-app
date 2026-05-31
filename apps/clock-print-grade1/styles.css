@@ -3,3 +3,12 @@
 :root {
   --accent: #2563eb;
 }
+
+.answer-page .blank {
+  border-color: transparent;
+  background: transparent;
+}
+
+.answer-page .answer-line {
+  border-bottom: 0;
+}

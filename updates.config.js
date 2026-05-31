@@ -1,5 +1,10 @@
 window.UPDATE_HISTORY = [
   {
+    date: "6月1日",
+    title: "3年生 重さプリントを追加",
+    isNew: true,
+  },
+  {
     date: "5月31日",
     title: "3年生 計算プリントを追加",
     isNew: true,
