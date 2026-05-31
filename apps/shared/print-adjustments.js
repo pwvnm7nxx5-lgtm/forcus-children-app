@@ -641,6 +641,13 @@
         schedulePreviewZoom();
       });
       window.addEventListener("resize", schedulePreviewZoom);
+      window.addEventListener("keydown", (event) => {
+        const key = event.key?.toLowerCase();
+        if ((event.ctrlKey || event.metaKey) && key === "p" && !event.altKey) {
+          event.preventDefault();
+          window.print();
+        }
+      }, true);
     }
 
     const printButton = document.querySelector("#printBtn");
