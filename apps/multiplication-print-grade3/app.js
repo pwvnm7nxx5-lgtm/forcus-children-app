@@ -76,13 +76,6 @@ function setStatus(message) {
   }, 2800);
 }
 
-function markProblemsStale() {
-  sheetProblemSets = [];
-  sheetSetSignature = "";
-  render();
-  setStatus("問題数を変えました。問題を変えるには「作り直す」を押してください。");
-}
-
 function createProblem(a, b, type) {
   return {
     a,
@@ -410,20 +403,20 @@ function bindEvents() {
   els.problemType.addEventListener("change", generateProblems);
   els.columns.addEventListener("change", render);
   els.showCarryBoxes.addEventListener("change", render);
-  els.problemCount.addEventListener("change", markProblemsStale);
+  els.problemCount.addEventListener("change", generateProblems);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") {
       return;
     }
     els.problemCountPreset.value = "";
-    markProblemsStale();
+    generateProblems({ normalizeCount: false });
   });
   els.problemCountPreset.addEventListener("change", () => {
     if (!els.problemCountPreset.value) {
       return;
     }
     els.problemCount.value = els.problemCountPreset.value;
-    markProblemsStale();
+    generateProblems();
     els.problemCountPreset.value = "";
   });
 
