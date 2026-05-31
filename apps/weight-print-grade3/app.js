@@ -2,7 +2,7 @@ const APP = {
   id: "weight-print-grade3",
   title: "3年生 重さプリント",
   accent: "#8b5cf6",
-  stateVersion: 1,
+  stateVersion: 2,
   defaultType: "conversion",
   defaultCount: 12,
   defaultCols: 2,
@@ -112,6 +112,18 @@ function makeWeight({ minKg = 0, maxKg = 5, allowZeroKg = true } = {}) {
   return total;
 }
 
+function makeSimpleWeight(maxKg = 5) {
+  const patterns = [
+    () => rand(1, maxKg) * 1000,
+    () => rand(1, 9) * 100,
+  ];
+  return pick(patterns)();
+}
+
+function makeMixedWeight(maxKg = 5) {
+  return rand(1, maxKg) * 1000 + rand(1, 9) * 100;
+}
+
 function makeConversionProblem() {
   const patterns = [
     () => {
@@ -119,14 +131,18 @@ function makeConversionProblem() {
       return {
         prompt: `${formatKgG(totalG)} = □g`,
         answer: `${totalG}g`,
+        blanks: [`${totalG}`],
         type: "conversion",
       };
     },
     () => {
       const totalG = rand(11, 69) * 100;
+      const kg = Math.floor(totalG / 1000);
+      const g = totalG % 1000;
       return {
         prompt: `${totalG}g = □kg □g`,
         answer: formatKgG(totalG),
+        blanks: [`${kg}`, `${g}`],
         type: "conversion",
       };
     },
@@ -135,6 +151,7 @@ function makeConversionProblem() {
       return {
         prompt: `${kg}kg = □g`,
         answer: `${kg * 1000}g`,
+        blanks: [`${kg * 1000}`],
         type: "conversion",
       };
     },
@@ -143,22 +160,24 @@ function makeConversionProblem() {
 }
 
 function makeAdditionProblem() {
-  const a = makeWeight({ minKg: 0, maxKg: 4, allowZeroKg: false });
-  const b = makeWeight({ minKg: 0, maxKg: 3, allowZeroKg: false });
+  const a = pick([makeMixedWeight, makeSimpleWeight])(4);
+  const b = makeSimpleWeight(3);
   return {
     prompt: `${formatKgG(a)} + ${formatKgG(b)} = □`,
     answer: formatKgG(a + b),
+    blanks: [formatKgG(a + b)],
     type: "addition",
   };
 }
 
 function makeSubtractionProblem() {
-  const b = makeWeight({ minKg: 0, maxKg: 4, allowZeroKg: false });
-  const diff = rand(2, 35) * 100;
+  const b = makeSimpleWeight(4);
+  const diff = pick([makeMixedWeight, makeSimpleWeight])(4);
   const a = b + diff;
   return {
     prompt: `${formatKgG(a)} - ${formatKgG(b)} = □`,
     answer: formatKgG(a - b),
+    blanks: [formatKgG(a - b)],
     type: "subtraction",
   };
 }
@@ -171,6 +190,7 @@ function makeComparisonProblem() {
   return {
     prompt: `${formatKgG(a)} □ ${formatKgG(b)}`,
     answer,
+    blanks: [answer],
     type: "comparison",
   };
 }
@@ -229,18 +249,32 @@ function generateProblems(options = {}) {
   setStatus("もんだいをつくりなおしました。");
 }
 
+function getBlankValues(problem) {
+  if (Array.isArray(problem.blanks) && problem.blanks.length) return problem.blanks;
+  return [problem.answer || ""];
+}
+
+function renderPrompt(problem, showAnswer) {
+  const prompt = document.createElement("div");
+  prompt.className = `prompt conversion-prompt ${problem.type || ""}`;
+  const parts = String(problem.prompt).split("□");
+  const blanks = getBlankValues(problem);
+  parts.forEach((part, index) => {
+    prompt.append(document.createTextNode(part));
+    if (index >= parts.length - 1) return;
+    const blank = document.createElement("span");
+    blank.className = `inline-answer-blank ${problem.type || ""}`;
+    blank.textContent = showAnswer ? blanks[index] || "" : "";
+    if (showAnswer) blank.classList.add("answered");
+    prompt.append(blank);
+  });
+  return prompt;
+}
+
 function renderProblem(problem, showAnswer) {
   const card = document.createElement("div");
-  card.className = "problem-card";
-  const prompt = document.createElement("div");
-  prompt.className = "prompt conversion-prompt";
-  prompt.textContent = problem.prompt;
-  const answerLine = document.createElement("div");
-  answerLine.className = "answer-line";
-  answerLine.innerHTML = showAnswer
-    ? `<span class="answer-value">${problem.answer}</span>`
-    : `<span class="blank">□</span><span class="small-note">こたえ</span>`;
-  card.append(prompt, answerLine);
+  card.className = "problem-card weight-problem-card";
+  card.append(renderPrompt(problem, showAnswer));
   return card;
 }
 
