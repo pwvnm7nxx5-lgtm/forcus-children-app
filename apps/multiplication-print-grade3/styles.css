@@ -336,8 +336,8 @@ button:hover {
 }
 
 .vertical-formula {
-  --digit-size: calc(var(--problem-font) * 2.05);
-  --helper-size: calc(var(--problem-font) * 0.7);
+  --digit-size: 6mm;
+  --helper-size: 2mm;
   display: inline-grid;
   grid-template-columns: 6mm repeat(var(--digit-count), var(--digit-size));
   justify-content: start;
@@ -391,7 +391,7 @@ button:hover {
 .vertical-line {
   grid-column: 1 / -1;
   height: 0;
-  margin: 0.7mm 0;
+  margin: 0.45mm 0;
   border-top: 2px solid #111827;
 }
 
