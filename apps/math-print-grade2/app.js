@@ -7,6 +7,7 @@ const els = {
   problemCount: document.querySelector("#problemCount"),
   problemCountPreset: document.querySelector("#problemCountPreset"),
   columns: document.querySelector("#columns"),
+  showCarryBoxes: document.querySelector("#showCarryBoxes"),
   includeAnswers: document.querySelector("#includeAnswers"),
   printBtn: document.querySelector("#printBtn"),
   regenerateBtn: document.querySelector("#regenerateBtn"),
@@ -17,7 +18,7 @@ const els = {
   status: document.querySelector("#status"),
 };
 
-const stateStorageKey = "math-print-grade2-state";
+const stateStorageKey = "math-print-grade2-state-v2";
 const problemCountMin = 1;
 const problemCountMax = 60;
 let statusTimer;
@@ -53,6 +54,7 @@ function getSettings() {
     layout,
     count: getProblemCount(),
     columns: Number.parseInt(clampChoice(els.columns.value, ["2", "3"], "2"), 10),
+    showCarryBoxes: els.showCarryBoxes.checked,
   };
 }
 
@@ -69,6 +71,7 @@ function applySettings(settings) {
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, 30));
   els.problemCountPreset.value = "";
   els.columns.value = clampChoice(settings.columns, ["2", "3"], "2");
+  els.showCarryBoxes.checked = settings.showCarryBoxes !== false;
   updateLayoutAvailability();
 }
 
@@ -93,6 +96,7 @@ function updateLayoutAvailability() {
   if (isTimes) {
     els.layoutMode.value = "horizontal";
   }
+  els.showCarryBoxes.disabled = els.layoutMode.value !== "vertical";
 }
 
 function makeCandidatePool(settings) {
@@ -223,7 +227,24 @@ function formatDigits(value, width) {
   return String(value).padStart(width, " ").slice(-width).split("");
 }
 
-function makeDigitRow(digits, operator = "") {
+function makeDigitCell(digit, showCarryBoxes, isBlank = false) {
+  const cell = document.createElement("span");
+  cell.className = "digit-cell";
+  if (showCarryBoxes) {
+    const helper = document.createElement("span");
+    helper.className = "helper-box";
+    cell.append(helper);
+  }
+  if (!isBlank && digit !== " ") {
+    const value = document.createElement("span");
+    value.className = "digit-value";
+    value.textContent = digit;
+    cell.append(value);
+  }
+  return cell;
+}
+
+function makeDigitRow(digits, operator = "", showCarryBoxes = true, blank = false) {
   const row = document.createElement("span");
   row.className = "digit-row";
 
@@ -233,36 +254,27 @@ function makeDigitRow(digits, operator = "") {
   row.append(op);
 
   digits.forEach((digit) => {
-    const cell = document.createElement("span");
-    cell.textContent = digit === " " ? "" : digit;
-    row.append(cell);
+    row.append(makeDigitCell(digit, showCarryBoxes, blank));
   });
 
   return row;
 }
 
-function makeVerticalFormula(problem, showAnswer) {
+function makeVerticalFormula(problem, showAnswer, settings) {
   const formula = document.createElement("span");
   formula.className = "vertical-formula";
-  formula.append(makeDigitRow(formatDigits(problem.a, 3)));
-  formula.append(makeDigitRow(formatDigits(problem.b, 3), problem.op));
+  formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
+  formula.append(makeDigitRow(formatDigits(problem.a, 3), "", settings.showCarryBoxes));
+  formula.append(makeDigitRow(formatDigits(problem.b, 3), problem.op, settings.showCarryBoxes));
 
   const line = document.createElement("span");
   line.className = "vertical-line";
   formula.append(line);
 
   if (showAnswer) {
-    formula.append(makeDigitRow(formatDigits(problem.answer, 3)));
+    formula.append(makeDigitRow(formatDigits(problem.answer, 3), "", settings.showCarryBoxes));
   } else {
-    const blankRow = document.createElement("span");
-    blankRow.className = "vertical-blank-row";
-    for (let i = 0; i < 3; i += 1) {
-      const blank = document.createElement("span");
-      blank.className = "vertical-blank";
-      blank.textContent = "□";
-      blankRow.append(blank);
-    }
-    formula.append(blankRow);
+    formula.append(makeDigitRow(formatDigits("", 3), "", settings.showCarryBoxes, true));
   }
 
   return formula;
@@ -270,7 +282,7 @@ function makeVerticalFormula(problem, showAnswer) {
 
 function makeFormula(problem, showAnswer, settings) {
   if (settings.layout === "vertical" && problem.op !== "×") {
-    return makeVerticalFormula(problem, showAnswer);
+    return makeVerticalFormula(problem, showAnswer, settings);
   }
   return makeHorizontalFormula(problem, showAnswer);
 }
@@ -282,6 +294,7 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
   page.querySelector("[data-date]").textContent = settings.date;
   page.querySelector("[data-title]").textContent = settings.title;
   page.classList.toggle("vertical-layout", settings.layout === "vertical");
+  page.classList.toggle("answer-page", showAnswer);
 
   const kindLabel = page.querySelector("[data-kind]");
   kindLabel.textContent = kind;
@@ -480,6 +493,7 @@ function bindEvents() {
   [els.layoutMode, els.columns].forEach((control) => {
     control.addEventListener("change", render);
   });
+  els.showCarryBoxes.addEventListener("change", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") {
       return;

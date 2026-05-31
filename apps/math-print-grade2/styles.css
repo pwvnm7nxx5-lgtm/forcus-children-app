@@ -379,6 +379,8 @@ button:hover {
 }
 
 .vertical-formula {
+  --digit-size: 8mm;
+  --helper-size: 2.8mm;
   display: grid;
   width: 100%;
   max-width: 38mm;
@@ -389,18 +391,43 @@ button:hover {
   line-height: 1;
 }
 
-.digit-row,
-.vertical-blank-row {
+.digit-row {
   display: grid;
   grid-template-columns: 7mm repeat(3, 8mm);
   align-items: center;
   justify-items: center;
-  min-height: 7mm;
+  min-height: var(--digit-size);
 }
 
 .operator {
   color: #425466;
   font-weight: 700;
+}
+
+.digit-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--digit-size);
+  height: var(--digit-size);
+  border: 1px solid #bcc8d4;
+  background: #ffffff;
+}
+
+.helper-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--helper-size);
+  height: var(--helper-size);
+  border-right: 1px solid #d5dde6;
+  border-bottom: 1px solid #d5dde6;
+  background: #f8fafc;
+}
+
+.digit-value {
+  position: relative;
+  z-index: 1;
 }
 
 .vertical-line {
@@ -409,19 +436,8 @@ button:hover {
   border-top: 1.8px solid #425466;
 }
 
-.vertical-blank-row {
-  grid-template-columns: repeat(3, 8mm);
-  justify-content: end;
-}
-
-.vertical-blank {
-  display: grid;
-  place-items: center;
-  width: 6.5mm;
-  height: 6.5mm;
-  border: 1px solid #cfd8e3;
-  border-radius: 4px;
-  color: transparent;
+.answer-page .digit-value {
+  color: var(--answer);
 }
 
 @media (max-width: 980px) {
