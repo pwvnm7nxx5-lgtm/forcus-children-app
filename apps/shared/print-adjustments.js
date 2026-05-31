@@ -4,10 +4,12 @@
     scalePct: 100,
     sheetCount: 1,
     includeAnswers: true,
+    orientation: "portrait",
   };
   const legacyScale = { compact: 88, normal: 100, large: 118 };
   let applying = false;
   let observerFrame = 0;
+  let resizeFrame = 0;
   let skipNextObserver = false;
   let lastSheetSignature = "";
   let printActive = false;
@@ -26,6 +28,7 @@
       scalePct: clampNumber(saved.scalePct ?? legacyScale[saved.scale], 70, 200, defaults.scalePct),
       sheetCount: clampNumber(saved.sheetCount, 1, 30, defaults.sheetCount),
       includeAnswers: saved.includeAnswers !== false,
+      orientation: saved.orientation === "landscape" ? "landscape" : defaults.orientation,
     };
   }
 
@@ -53,6 +56,8 @@
         width: 100%;
       }
       .print-page {
+        width: var(--print-page-width, 210mm) !important;
+        min-height: var(--print-page-height, 297mm) !important;
         padding: var(--page-margin-y, 14mm) var(--page-margin-x, 13mm);
       }
       .problem-card .answer-line {
@@ -68,8 +73,64 @@
       .print-adjust-answer-hidden {
         display: none !important;
       }
+      @media (max-width: 980px) {
+        .print-page {
+          margin-bottom: var(--print-preview-mobile-overlap, -112mm) !important;
+        }
+      }
+      @media print {
+        .pages {
+          zoom: 1 !important;
+        }
+        .print-page {
+          width: var(--print-page-width, 210mm) !important;
+          min-height: var(--print-page-height, 297mm) !important;
+        }
+      }
     `;
     document.head.append(style);
+  }
+
+  function updateOrientationStyle(settings) {
+    let style = document.querySelector("#printOrientationStyle");
+    if (!style) {
+      style = document.createElement("style");
+      style.id = "printOrientationStyle";
+      document.head.append(style);
+    }
+    const pageSize = settings.orientation === "landscape" ? "A4 landscape" : "A4 portrait";
+    style.textContent = `@page { size: ${pageSize}; margin: 0; }`;
+  }
+
+  function applyOrientation(settings) {
+    const landscape = settings.orientation === "landscape";
+    document.documentElement.style.setProperty("--print-page-width", landscape ? "297mm" : "210mm");
+    document.documentElement.style.setProperty("--print-page-height", landscape ? "210mm" : "297mm");
+    document.documentElement.style.setProperty("--print-preview-mobile-overlap", landscape ? "-72mm" : "-112mm");
+    document.documentElement.classList.toggle("print-orientation-landscape", landscape);
+    updateOrientationStyle(settings);
+  }
+
+  function applyPreviewZoom() {
+    if (window.matchMedia?.("print").matches) return;
+    const preview = document.querySelector(".preview-wrap");
+    const pages = document.querySelector("#pages");
+    const page = visiblePrintPages()[0] || document.querySelector(".print-page");
+    if (!preview || !pages || !page) return;
+
+    pages.style.zoom = "";
+    const availableWidth = Math.max(320, preview.clientWidth - 32);
+    const pageWidth = page.getBoundingClientRect().width;
+    const zoom = pageWidth > availableWidth ? Math.max(0.5, availableWidth / pageWidth) : 1;
+    pages.style.zoom = String(Number(zoom.toFixed(3)));
+  }
+
+  function schedulePreviewZoom() {
+    if (resizeFrame) return;
+    resizeFrame = window.requestAnimationFrame(() => {
+      resizeFrame = 0;
+      applyPreviewZoom();
+    });
   }
 
   function fieldFor(id) {
@@ -141,6 +202,46 @@
     return field;
   }
 
+  function createOrientationControl(value) {
+    const field = document.createElement("label");
+    field.className = "field print-adjust-field";
+
+    const text = document.createElement("span");
+    text.textContent = "用紙の向き";
+
+    const select = document.createElement("select");
+    select.id = "printOrientation";
+    select.ariaLabel = "用紙の向き";
+
+    const portrait = document.createElement("option");
+    portrait.value = "portrait";
+    portrait.textContent = "たて";
+
+    const landscape = document.createElement("option");
+    landscape.value = "landscape";
+    landscape.textContent = "よこ";
+
+    select.append(portrait, landscape);
+    select.value = value;
+    field.append(text, select);
+    return field;
+  }
+
+  function upsertOrientationControl(settings) {
+    let select = document.querySelector("#printOrientation");
+    if (!select) {
+      const sheetCount = fieldFor("printSheetCount");
+      if (sheetCount) {
+        sheetCount.after(createOrientationControl(settings.orientation));
+      } else {
+        document.querySelector(".settings-grid")?.append(createOrientationControl(settings.orientation));
+      }
+      select = document.querySelector("#printOrientation");
+    }
+    if (select) select.value = settings.orientation;
+    return select;
+  }
+
   function upsertSheetCountControl(settings) {
     if (typeof window.__printAdjustmentsGenerateSheets !== "function") return null;
     let input = document.querySelector("#printSheetCount");
@@ -164,6 +265,7 @@
       unit: "%",
     });
     upsertSheetCountControl(settings);
+    upsertOrientationControl(settings);
   }
 
   function answerPages() {
@@ -204,6 +306,7 @@
       }
 
       const scale = settings.scalePct / 100;
+      applyOrientation(settings);
 
       document.querySelectorAll(".problem-grid").forEach((grid) => {
         const hasVisual = Boolean(grid.querySelector(".visual"));
@@ -229,6 +332,7 @@
         const visiblePages = visiblePrintPages().length;
         if (visiblePages) pageCount.textContent = `${visiblePages}枚`;
       }
+      applyPreviewZoom();
     } finally {
       applying = false;
     }
@@ -256,6 +360,15 @@
     const settings = loadSettings();
     ensureControls(settings);
     bindRangeNumber("printProblemScale", "scalePct", settings);
+
+    const orientation = document.querySelector("#printOrientation");
+    if (orientation) {
+      orientation.addEventListener("change", () => {
+        settings.orientation = orientation.value === "landscape" ? "landscape" : "portrait";
+        saveSettings(settings);
+        applySettings(settings);
+      });
+    }
 
     const sheetCount = document.querySelector("#printSheetCount");
     if (sheetCount) {
@@ -314,7 +427,9 @@
       window.addEventListener("beforeprint", () => applySettings(settings));
       window.addEventListener("afterprint", () => {
         printActive = false;
+        schedulePreviewZoom();
       });
+      window.addEventListener("resize", schedulePreviewZoom);
     }
 
     const printButton = document.querySelector("#printBtn");

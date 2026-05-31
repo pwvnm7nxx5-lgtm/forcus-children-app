@@ -53,7 +53,7 @@ function getSettings() {
     type,
     layout,
     count: getProblemCount(),
-    columns: Number.parseInt(clampChoice(els.columns.value, ["2", "3"], "2"), 10),
+    columns: clampNumber(els.columns.value, 1, 6, 2),
     showCarryBoxes: els.showCarryBoxes.checked,
   };
 }
@@ -70,7 +70,7 @@ function applySettings(settings) {
   els.layoutMode.value = clampChoice(settings.layout, ["horizontal", "vertical"], "horizontal");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, 30));
   els.problemCountPreset.value = "";
-  els.columns.value = clampChoice(settings.columns, ["2", "3"], "2");
+  els.columns.value = String(clampNumber(settings.columns, 1, 6, 2));
   els.showCarryBoxes.checked = settings.showCarryBoxes !== false;
   updateLayoutAvailability();
 }
@@ -486,6 +486,7 @@ function bindEvents() {
   [els.layoutMode, els.columns].forEach((control) => {
     control.addEventListener("change", render);
   });
+  els.columns.addEventListener("input", render);
   els.showCarryBoxes.addEventListener("change", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") {

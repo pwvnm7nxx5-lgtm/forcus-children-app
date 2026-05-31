@@ -50,7 +50,7 @@ function getSettings() {
     type: clampChoice(els.problemType.value, typeValues(), APP.defaultType),
     difficulty: clampChoice(els.difficulty.value, difficultyValues(), APP.defaultDifficulty),
     count: getProblemCount(),
-    columns: Number.parseInt(clampChoice(els.columns.value, ["1", "2", "3"], String(APP.defaultCols)), 10),
+    columns: clampNumber(els.columns.value, 1, 6, APP.defaultCols),
   };
 }
 function applySettings(settings) {
@@ -62,7 +62,7 @@ function applySettings(settings) {
   els.difficulty.value = clampChoice(settings.difficulty, difficultyValues(), APP.defaultDifficulty);
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, APP.defaultCount));
   els.problemCountPreset.value = "";
-  els.columns.value = clampChoice(settings.columns, ["1", "2", "3"], String(APP.defaultCols));
+  els.columns.value = String(clampNumber(settings.columns, 1, 6, APP.defaultCols));
 }
 function setStatus(message) {
   window.clearTimeout(statusTimer);
@@ -368,6 +368,7 @@ async function copyShareUrl() {
 function bindEvents() {
   [els.studentName, els.worksheetDate, els.worksheetTitle].forEach((control) => control.addEventListener("input", render));
   [els.problemType, els.difficulty, els.problemCount, els.columns].forEach((control) => control.addEventListener("change", generateProblems));
+  els.columns.addEventListener("input", generateProblems);
   els.problemCount.addEventListener("input", () => { if (els.problemCount.value === "") return; els.problemCountPreset.value = ""; generateProblems({ normalizeCount: false }); });
   els.problemCountPreset.addEventListener("change", () => { if (!els.problemCountPreset.value) return; els.problemCount.value = els.problemCountPreset.value; generateProblems(); els.problemCountPreset.value = ""; });
   els.printBtn.addEventListener("click", () => { render(); window.print(); });

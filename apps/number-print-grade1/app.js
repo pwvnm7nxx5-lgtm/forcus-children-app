@@ -71,7 +71,7 @@ function getSettings() {
     type: clampChoice(els.problemType.value, ["count", "order", "compare"], "count"),
     range: clampChoice(els.range.value, ["ten", "twenty", "hundred"], "ten"),
     count: getProblemCount(),
-    columns: Number.parseInt(clampChoice(els.columns.value, ["1", "2", "3"], String(APP.defaultCols)), 10),
+    columns: clampNumber(els.columns.value, 1, 6, APP.defaultCols),
     includeAnswers: els.includeAnswers.checked,
   };
 }
@@ -85,7 +85,7 @@ function applySettings(settings) {
   els.range.value = clampChoice(settings.range, ["ten", "twenty", "hundred"], "ten");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, APP.defaultCount));
   els.problemCountPreset.value = "";
-  els.columns.value = clampChoice(settings.columns, ["1", "2", "3"], String(APP.defaultCols));
+  els.columns.value = String(clampNumber(settings.columns, 1, 6, APP.defaultCols));
   els.includeAnswers.checked = settings.includeAnswers !== false;
 }
 
@@ -373,6 +373,7 @@ function bindEvents() {
   [els.problemType, els.range].forEach((control) => control.addEventListener("change", generateProblems));
   els.problemCount.addEventListener("change", generateProblems);
   els.columns.addEventListener("change", render);
+  els.columns.addEventListener("input", render);
   els.includeAnswers.addEventListener("change", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") return;

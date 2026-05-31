@@ -50,7 +50,7 @@ function getSettings() {
     type: clampChoice(els.problemType.value, ["add", "sub", "mix"], "mix"),
     difficulty: clampChoice(els.difficulty.value, ["ten", "twenty", "bridge"], "bridge"),
     count: getProblemCount(),
-    columns: Number.parseInt(clampChoice(els.columns.value, ["2", "3"], "3"), 10),
+    columns: clampNumber(els.columns.value, 1, 6, 3),
     includeZero: els.includeZero.checked,
   };
 }
@@ -67,7 +67,7 @@ function applySettings(settings) {
   els.difficulty.value = clampChoice(settings.difficulty, ["ten", "twenty", "bridge"], "bridge");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, 40));
   els.problemCountPreset.value = "";
-  els.columns.value = clampChoice(settings.columns, ["2", "3"], "3");
+  els.columns.value = String(clampNumber(settings.columns, 1, 6, 3));
   els.includeZero.checked = Boolean(settings.includeZero);
 }
 
@@ -414,6 +414,7 @@ function bindEvents() {
   });
   els.problemCount.addEventListener("change", generateProblems);
   els.columns.addEventListener("change", render);
+  els.columns.addEventListener("input", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") {
       return;
