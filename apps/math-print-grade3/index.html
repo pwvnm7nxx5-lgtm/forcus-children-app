@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>3年生 計算プリント</title>
+  <link rel="stylesheet" href="styles.css?v=vertical-fixed-5">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="controls" aria-label="プリント設定">
+      <div class="brand"><h1>3年生 計算プリント</h1><div class="brand-actions"><a class="home-link" href="../../index.html">入口に戻る</a><span id="pageCount">2枚</span></div></div>
+      <div class="row-fields"><label class="field"><span>名前</span><input id="studentName" type="text" autocomplete="off"></label><label class="field"><span>日付</span><input id="worksheetDate" type="text" autocomplete="off" placeholder="5 / 4"></label></div>
+      <label class="field"><span>プリント名</span><input id="worksheetTitle" type="text" autocomplete="off" value="3年生 計算プリント"></label>
+      <div class="settings-grid">
+        <label class="field"><span>学習内容</span><select id="problemType"><option value="add3" selected>3けた＋3けた</option><option value="sub3">3けた－3けた</option><option value="mix3">3けた 計算ミックス</option><option value="add4">4けた＋4けた</option><option value="sub4">4けた－4けた</option><option value="mixLarge">3・4けたミックス</option></select></label>
+        <label class="field"><span>表示</span><select id="layoutMode"><option value="horizontal" selected>横式</option><option value="vertical">筆算</option></select></label>
+        <label class="field"><span>問題数</span><span class="combo-input"><input id="problemCount" type="number" min="1" max="60" step="1" value="30" inputmode="numeric"><select id="problemCountPreset" aria-label="問題数の候補"><option value="">候補</option><option value="20">20問</option><option value="30">30問</option><option value="40">40問</option><option value="60">60問</option></select></span></label>
+        <label class="field"><span>列数</span><input id="columns" type="number" min="1" max="6" step="1" value="3" inputmode="numeric"></label>
+      </div>
+      <div class="check-row">
+        <label><input id="showCarryBoxes" type="checkbox" checked> 繰り上がり・くり下がりのマスをつける</label>
+        <label><input id="includeAnswers" type="checkbox" checked> 答えページをつける</label>
+      </div>
+
+      <div class="actions">
+        <button id="printBtn" type="button">印刷 / PDF保存</button>
+        <button id="regenerateBtn" type="button">作り直す</button>
+        <button id="copyLinkBtn" type="button">共有URLをコピー</button>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </aside>
+    <main class="preview-wrap" aria-label="印刷プレビュー"><div id="pages" class="pages"></div></main>
+  </div>
+  <template id="pageTemplate">
+    <section class="print-page">
+      <header class="sheet-header">
+        <div class="name-line">なまえ <span class="value" data-name></span></div>
+        <div class="title" data-title></div>
+        <div class="date-line">ひづけ <span class="value" data-date></span></div>
+        <div class="sheet-kind" data-kind></div>
+      </header>
+      <ol class="problem-grid" data-problems></ol>
+    </section>
+  </template>
+  <script src="app.js?v=answer-line-none"></script>
+  <script src="../shared/print-adjustments.js?v=answer-line-none"></script>
+</body>
+</html>
