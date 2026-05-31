@@ -132,6 +132,18 @@
     accent: "#2563eb",
   },
   {
+    id: "weight-print-grade3",
+    title: "3年生 重さプリント",
+    description: "kgとgの単位変換、重さのたし算・ひき算、重さ比べのプリントを作成できます。",
+    category: "教材",
+    grades: ["3"],
+    tags: ["算数", "3年生", "重さ", "単位変換", "計算", "印刷"],
+    href: "apps/weight-print-grade3/index.html",
+    actionLabel: "重さプリントを作る",
+    status: "ready",
+    accent: "#8b5cf6",
+  },
+  {
     id: "division-print-grade3",
     title: "3年生 わり算プリント",
     description: "3年生向けのわり算プリントを作成できます。複数枚では別々の問題を生成します。",
