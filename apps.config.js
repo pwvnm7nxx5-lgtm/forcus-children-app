@@ -131,5 +131,17 @@
     status: "ready",
     accent: "#7c3aed",
   },
+  {
+    id: "multiplication-print-grade3",
+    title: "3年生 かけ算の筆算",
+    description: "2けた・3けたのかけ算筆算プリントを自動作成して印刷できます。",
+    category: "教材",
+    grades: ["3"],
+    tags: ["算数", "3年生", "かけ算", "筆算", "印刷"],
+    href: "apps/multiplication-print-grade3/index.html",
+    actionLabel: "かけ算筆算を作る",
+    status: "ready",
+    accent: "#0f766e",
+  },
 ];
 
