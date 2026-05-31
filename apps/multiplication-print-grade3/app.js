@@ -253,27 +253,30 @@ function multiplierDigits(problem) {
 
 function makeVerticalFormula(problem, showAnswer, settings) {
   const width = problemWidth(settings);
+  const steps = multiplierDigits(problem);
   const formula = document.createElement("span");
   formula.className = "vertical-formula";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
-  formula.style.setProperty("--step-count", String(String(problem.b).length));
+  formula.style.setProperty("--step-count", String(steps.length));
   formula.style.setProperty("--digit-count", String(width));
 
   formula.append(makeDigitRow(formatDigits(problem.a, width), "", settings.showCarryBoxes));
   formula.append(makeDigitRow(formatDigits(problem.b, width), "×", settings.showCarryBoxes));
 
   const line = document.createElement("span");
-  line.className = "vertical-line subtotal-line";
+  line.className = steps.length > 1 ? "vertical-line subtotal-line" : "vertical-line answer-line";
   formula.append(line);
 
-  multiplierDigits(problem).forEach((digit) => {
-    const value = problem.a * digit;
-    formula.append(makeDigitRow(formatDigits(showAnswer ? value : "", width), "", settings.showCarryBoxes, !showAnswer));
-  });
+  if (steps.length > 1) {
+    steps.forEach((digit) => {
+      const value = problem.a * digit;
+      formula.append(makeDigitRow(formatDigits(showAnswer ? value : "", width), "", settings.showCarryBoxes, !showAnswer));
+    });
 
-  const answerLine = document.createElement("span");
-  answerLine.className = "vertical-line answer-line";
-  formula.append(answerLine);
+    const answerLine = document.createElement("span");
+    answerLine.className = "vertical-line answer-line";
+    formula.append(answerLine);
+  }
 
   if (showAnswer) {
     formula.append(makeDigitRow(formatDigits(problem.answer, width), "", settings.showCarryBoxes));
