@@ -79,12 +79,6 @@ function setStatus(message) {
   }, 2800);
 }
 
-function markProblemsStale() {
-  sheetProblemSets = [];
-  sheetSetSignature = "";
-  setStatus("設定を変えました。問題を変えるには「作り直す」を押してください。");
-}
-
 function makeCandidatePool(settings) {
   const ops = settings.type === "mix" ? ["+", "-"] : [settings.type === "add" ? "+" : "-"];
   const candidates = [];
@@ -418,21 +412,21 @@ function bindEvents() {
   [els.problemType, els.difficulty, els.includeZero].forEach((control) => {
     control.addEventListener("change", generateProblems);
   });
-  els.problemCount.addEventListener("change", markProblemsStale);
+  els.problemCount.addEventListener("change", generateProblems);
   els.columns.addEventListener("change", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") {
       return;
     }
     els.problemCountPreset.value = "";
-    markProblemsStale();
+    generateProblems({ normalizeCount: false });
   });
   els.problemCountPreset.addEventListener("change", () => {
     if (!els.problemCountPreset.value) {
       return;
     }
     els.problemCount.value = els.problemCountPreset.value;
-    markProblemsStale();
+    generateProblems();
     els.problemCountPreset.value = "";
   });
 
