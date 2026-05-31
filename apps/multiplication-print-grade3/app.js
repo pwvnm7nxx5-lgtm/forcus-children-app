@@ -210,6 +210,13 @@ function formatDigits(value, width) {
   return String(value).padStart(width, " ").slice(-width).split("");
 }
 
+function formatShiftedDigits(value, width, shift) {
+  const places = Math.max(0, shift);
+  const availableWidth = Math.max(1, width - places);
+  const digits = String(value).padStart(availableWidth, " ").slice(-availableWidth);
+  return `${digits}${" ".repeat(places)}`.slice(0, width).split("");
+}
+
 function makeDigitCell(digit, showCarryBoxes, isBlank = false) {
   const cell = document.createElement("span");
   cell.className = "digit-cell";
@@ -268,9 +275,10 @@ function makeVerticalFormula(problem, showAnswer, settings) {
   formula.append(line);
 
   if (steps.length > 1) {
-    steps.forEach((digit) => {
+    steps.forEach((digit, placeIndex) => {
       const value = problem.a * digit;
-      formula.append(makeDigitRow(formatDigits(showAnswer ? value : "", width), "", settings.showCarryBoxes, !showAnswer));
+      const digits = showAnswer ? formatShiftedDigits(value, width, placeIndex) : formatDigits("", width);
+      formula.append(makeDigitRow(digits, "", settings.showCarryBoxes, !showAnswer));
     });
 
     const answerLine = document.createElement("span");
