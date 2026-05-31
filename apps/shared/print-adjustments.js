@@ -9,6 +9,8 @@
   let applying = false;
   let observerFrame = 0;
   let skipNextObserver = false;
+  let lastSheetSignature = "";
+  let printActive = false;
 
   function clampNumber(value, min, max, fallback) {
     const parsed = Number(value);
@@ -170,16 +172,35 @@
     ));
   }
 
+  function visiblePrintPages() {
+    return Array.from(document.querySelectorAll(".print-page")).filter((page) => (
+      !page.hidden && !page.classList.contains("print-adjust-answer-hidden")
+    ));
+  }
+
+  function sheetSignature(settings) {
+    return `${settings.sheetCount}:${settings.includeAnswers ? "answers" : "questions"}`;
+  }
+
+  function shouldGenerateSheets(settings) {
+    if (typeof window.__printAdjustmentsGenerateSheets !== "function") return false;
+    const expectedPages = settings.sheetCount * (settings.includeAnswers ? 2 : 1);
+    return lastSheetSignature !== sheetSignature(settings) || visiblePrintPages().length !== expectedPages;
+  }
+
   function applySettings(settings) {
     if (applying) return;
     applying = true;
     try {
-      if (typeof window.__printAdjustmentsGenerateSheets === "function") {
+      if (shouldGenerateSheets(settings)) {
         const handled = window.__printAdjustmentsGenerateSheets({
           sheetCount: settings.sheetCount,
           includeAnswers: settings.includeAnswers,
         });
-        if (handled) skipNextObserver = true;
+        if (handled) {
+          lastSheetSignature = sheetSignature(settings);
+          skipNextObserver = true;
+        }
       }
 
       const scale = settings.scalePct / 100;
@@ -205,9 +226,7 @@
 
       const pageCount = document.querySelector("#pageCount");
       if (pageCount) {
-        const visiblePages = Array.from(document.querySelectorAll(".print-page")).filter((page) => (
-          !page.hidden && !page.classList.contains("print-adjust-answer-hidden")
-        )).length;
+        const visiblePages = visiblePrintPages().length;
         if (visiblePages) pageCount.textContent = `${visiblePages}枚`;
       }
     } finally {
@@ -258,7 +277,6 @@
         settings.includeAnswers = includeAnswers.checked;
         saveSettings(settings);
         applySettings(settings);
-        window.requestAnimationFrame(() => applySettings(settings));
       });
     }
 
@@ -282,10 +300,31 @@
       window.__printAdjustmentsPatched = true;
       const nativePrint = window.print.bind(window);
       window.print = () => {
+        if (printActive) return;
+        printActive = true;
         applySettings(settings);
-        nativePrint();
+        try {
+          nativePrint();
+        } finally {
+          window.setTimeout(() => {
+            printActive = false;
+          }, 1000);
+        }
       };
       window.addEventListener("beforeprint", () => applySettings(settings));
+      window.addEventListener("afterprint", () => {
+        printActive = false;
+      });
+    }
+
+    const printButton = document.querySelector("#printBtn");
+    if (printButton && !printButton.dataset.printAdjustManaged) {
+      printButton.dataset.printAdjustManaged = "true";
+      printButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        window.print();
+      }, true);
     }
   }
 
