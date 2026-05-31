@@ -28,6 +28,8 @@ const els = {
 const stateStorageKey = `${APP.id}-state`;
 const problemCountMin = 1;
 const problemCountMax = 15;
+const columnsMin = 1;
+const columnsMax = 6;
 let statusTimer;
 let problems = [];
 let sheetProblemSets = [];
@@ -46,13 +48,17 @@ function getProblemCount() {
   return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, APP.defaultCount);
 }
 
+function getColumns() {
+  return clampNumber(els.columns.value, columnsMin, columnsMax, APP.defaultCols);
+}
+
 function getSettings() {
   return {
     name: els.studentName.value,
     date: els.worksheetDate.value,
     title: els.worksheetTitle.value || APP.title,
     count: getProblemCount(),
-    columns: Number.parseInt(clampChoice(els.columns.value, ["1", "2", "3"], String(APP.defaultCols)), 10),
+    columns: getColumns(),
   };
 }
 
@@ -63,7 +69,7 @@ function applySettings(settings) {
   els.worksheetTitle.value = settings.title && settings.title !== "2年生 図形" ? settings.title : APP.title;
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, APP.defaultCount));
   els.problemCountPreset.value = "";
-  els.columns.value = clampChoice(settings.columns, ["1", "2", "3"], String(APP.defaultCols));
+  els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, APP.defaultCols));
 }
 
 function setStatus(message) {

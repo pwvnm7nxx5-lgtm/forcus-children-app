@@ -344,14 +344,14 @@ button:hover {
 
 .formula {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 2mm;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .answer-line {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   min-height: 9mm;
@@ -366,10 +366,9 @@ button:hover {
   place-items: center;
   min-width: var(--blank-width);
   min-height: var(--blank-height);
-  border: 1px solid #cfd8e3;
-  border-radius: 6px;
+  border-bottom: 1.6px solid #425466;
   color: transparent;
-  background: #ffffff;
+  background: transparent;
 }
 
 .answer-value {

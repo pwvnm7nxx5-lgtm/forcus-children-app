@@ -20,6 +20,8 @@
 const stateStorageKey = "length-print-grade2-state";
 const problemCountMin = 1;
 const problemCountMax = 36;
+const columnsMin = 1;
+const columnsMax = 6;
 const typeLabels = {
   reading: "よみとり",
   conversion: "たんいへんかん",
@@ -50,6 +52,10 @@ function getProblemCount() {
   return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, 12);
 }
 
+function getColumns() {
+  return clampNumber(els.columns.value, columnsMin, columnsMax, 2);
+}
+
 function getSettings() {
   const problemType = normalizeProblemType(els.problemType.value);
   return {
@@ -59,7 +65,7 @@ function getSettings() {
     type: clampChoice(problemType, ["reading", "conversion", "compare", "arithmetic", "ruler", "mix"], "reading"),
     difficulty: clampChoice(els.difficulty.value, ["easy", "normal", "hard"], "easy"),
     count: getProblemCount(),
-    columns: Number.parseInt(clampChoice(els.columns.value, ["1", "2", "3"], "2"), 10),
+    columns: getColumns(),
     showHint: els.showHint.checked,
   };
 }
@@ -75,7 +81,7 @@ function applySettings(settings) {
   els.difficulty.value = clampChoice(settings.difficulty, ["easy", "normal", "hard"], "easy");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, 12));
   els.problemCountPreset.value = "";
-  els.columns.value = clampChoice(settings.columns, ["1", "2", "3"], "2");
+  els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, 2));
   els.showHint.checked = Boolean(settings.showHint);
 }
 

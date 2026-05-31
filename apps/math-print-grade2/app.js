@@ -20,7 +20,10 @@ const els = {
 
 const stateStorageKey = "math-print-grade2-state-v2";
 const problemCountMin = 1;
-const problemCountMax = 60;
+const horizontalProblemCountMax = 60;
+const verticalProblemCountMax = 30;
+const columnsMin = 1;
+const columnsMax = 6;
 let statusTimer;
 let problems = [];
 let sheetProblemSets = [];
@@ -38,8 +41,52 @@ function clampNumber(value, min, max, fallback) {
   return Math.min(max, Math.max(min, parsed));
 }
 
+function getActiveLayout() {
+  const type = clampChoice(els.problemType.value, ["add2", "sub2", "mix2", "times"], "add2");
+  return type === "times" ? "horizontal" : clampChoice(els.layoutMode.value, ["horizontal", "vertical"], "horizontal");
+}
+
+function getProblemCountMax(layout = getActiveLayout()) {
+  return layout === "vertical" ? verticalProblemCountMax : horizontalProblemCountMax;
+}
+
+function updateProblemCountAvailability(layout = getActiveLayout()) {
+  const max = getProblemCountMax(layout);
+  els.problemCount.max = String(max);
+  Array.from(els.problemCountPreset.options).forEach((option) => {
+    if (!option.value) return;
+    const disabled = Number.parseInt(option.value, 10) > max;
+    option.disabled = disabled;
+    option.hidden = disabled;
+  });
+}
+
+function normalizeProblemCount({ notify = false } = {}) {
+  if (els.problemCount.value === "") {
+    return 30;
+  }
+  const max = getProblemCountMax();
+  const before = Number.parseInt(els.problemCount.value, 10);
+  const count = clampNumber(els.problemCount.value, problemCountMin, max, 30);
+  els.problemCount.value = String(count);
+  if (notify && Number.isFinite(before) && before > max) {
+    setStatus(`筆算は${max}問までにしました。`);
+  }
+  return count;
+}
+
 function getProblemCount() {
-  return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, 30);
+  return normalizeProblemCount();
+}
+
+function getColumns() {
+  return clampNumber(els.columns.value, columnsMin, columnsMax, 3);
+}
+
+function normalizeColumns() {
+  const columns = getColumns();
+  els.columns.value = String(columns);
+  return columns;
 }
 
 function getSettings() {
@@ -53,7 +100,7 @@ function getSettings() {
     type,
     layout,
     count: getProblemCount(),
-    columns: Number.parseInt(clampChoice(els.columns.value, ["2", "3"], "2"), 10),
+    columns: getColumns(),
     showCarryBoxes: els.showCarryBoxes.checked,
   };
 }
@@ -68,9 +115,10 @@ function applySettings(settings) {
   els.worksheetTitle.value = settings.title || "2年生 計算プリント";
   els.problemType.value = clampChoice(settings.type, ["add2", "sub2", "mix2", "times"], "add2");
   els.layoutMode.value = clampChoice(settings.layout, ["horizontal", "vertical"], "horizontal");
-  els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, 30));
+  updateLayoutAvailability();
+  els.problemCount.value = String(clampNumber(settings.count, problemCountMin, getProblemCountMax(), 30));
   els.problemCountPreset.value = "";
-  els.columns.value = clampChoice(settings.columns, ["2", "3"], "2");
+  els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, 3));
   els.showCarryBoxes.checked = settings.showCarryBoxes !== false;
   updateLayoutAvailability();
 }
@@ -90,6 +138,7 @@ function updateLayoutAvailability() {
     els.layoutMode.value = "horizontal";
   }
   els.showCarryBoxes.disabled = els.layoutMode.value !== "vertical";
+  updateProblemCountAvailability();
 }
 
 function makeCandidatePool(settings) {
@@ -196,8 +245,11 @@ function selectProblems(settings, usedKeys = new Set()) {
 }
 
 function generateProblems(options = {}) {
+  const max = getProblemCountMax();
+  const countBeforeNormalize = Number.parseInt(els.problemCount.value, 10);
+  const countClamped = options.normalizeCount !== false && Number.isFinite(countBeforeNormalize) && countBeforeNormalize > max;
   if (options.normalizeCount !== false) {
-    els.problemCount.value = String(getProblemCount());
+    normalizeProblemCount();
   }
   updateLayoutAvailability();
   const settings = getSettings();
@@ -205,7 +257,7 @@ function generateProblems(options = {}) {
   sheetProblemSets = [];
   sheetSetSignature = "";
   render();
-  setStatus("もんだいをつくりなおしました。");
+  setStatus(countClamped ? `筆算は${max}問までにしました。` : "もんだいをつくりなおしました。");
 }
 
 function makeHorizontalFormula(problem, showAnswer) {
@@ -392,8 +444,11 @@ function applyGridDensity(list, settings) {
 
 function render() {
   updateLayoutAvailability();
-  if (!problems.length) {
-    problems = makeCandidatePool(getSettings()).slice(0, getSettings().count);
+  const settings = getSettings();
+  if (!problems.length || problems.length < settings.count) {
+    problems = makeCandidatePool(settings).slice(0, settings.count);
+  } else if (problems.length > settings.count) {
+    problems = problems.slice(0, settings.count);
   }
 
   els.pages.replaceChildren(renderPage("もんだい", false), renderPage("こたえ", true));
@@ -483,8 +538,19 @@ function bindEvents() {
 
   els.problemType.addEventListener("change", generateProblems);
   els.problemCount.addEventListener("change", generateProblems);
-  [els.layoutMode, els.columns].forEach((control) => {
-    control.addEventListener("change", render);
+  els.layoutMode.addEventListener("change", () => {
+    updateLayoutAvailability();
+    generateProblems();
+  });
+  els.columns.addEventListener("input", () => {
+    if (els.columns.value === "") {
+      return;
+    }
+    render();
+  });
+  els.columns.addEventListener("change", () => {
+    normalizeColumns();
+    render();
   });
   els.showCarryBoxes.addEventListener("change", render);
   els.problemCount.addEventListener("input", () => {

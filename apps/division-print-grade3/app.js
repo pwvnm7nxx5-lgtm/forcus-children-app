@@ -18,6 +18,8 @@ const els = {
 const stateStorageKey = "division-print-grade3-state-v1";
 const problemCountMin = 1;
 const problemCountMax = 60;
+const columnsMin = 1;
+const columnsMax = 6;
 let statusTimer;
 let problems = [];
 let sheetProblemSets = [];
@@ -39,6 +41,10 @@ function getProblemCount() {
   return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, 20);
 }
 
+function getColumns() {
+  return clampNumber(els.columns.value, columnsMin, columnsMax, 2);
+}
+
 function getSettings() {
   return {
     name: els.studentName.value,
@@ -46,7 +52,7 @@ function getSettings() {
     title: els.worksheetTitle.value || "3年生 わり算プリント",
     type: clampChoice(els.problemType.value, ["basic", "noRemainder", "withRemainder"], "basic"),
     count: getProblemCount(),
-    columns: Number.parseInt(clampChoice(els.columns.value, ["1", "2", "3"], "2"), 10),
+    columns: getColumns(),
   };
 }
 
@@ -61,7 +67,7 @@ function applySettings(settings) {
   els.problemType.value = clampChoice(settings.type, ["basic", "noRemainder", "withRemainder"], "basic");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, 20));
   els.problemCountPreset.value = "";
-  els.columns.value = clampChoice(settings.columns, ["1", "2", "3"], "2");
+  els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, 2));
 }
 
 function setStatus(message) {
@@ -209,8 +215,9 @@ function makeFormula(problem, showAnswer) {
 
   const formula = document.createElement("span");
   formula.className = "formula";
-  formula.textContent = `${problem.dividend} ÷ ${problem.divisor} =`;
-  card.append(formula);
+  const expression = document.createElement("span");
+  expression.textContent = `${problem.dividend} ÷ ${problem.divisor} =`;
+  formula.append(expression);
 
   const answerLine = document.createElement("span");
   answerLine.className = "answer-line";
@@ -238,7 +245,8 @@ function makeFormula(problem, showAnswer) {
       answerLine.append(remainderBlank);
     }
   }
-  card.append(answerLine);
+  formula.append(answerLine);
+  card.append(formula);
   return card;
 }
 

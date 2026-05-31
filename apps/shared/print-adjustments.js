@@ -4,7 +4,11 @@
     scalePct: 100,
     sheetCount: 1,
     includeAnswers: true,
+    autoFitEnabled: true,
+    orientation: "portrait",
   };
+  const featureOptions = window.__printAdjustmentsOptions || {};
+  const autoFitAvailable = featureOptions.autoFit !== false;
   const legacyScale = { compact: 88, normal: 100, large: 118 };
   let applying = false;
   let observerFrame = 0;
@@ -22,10 +26,13 @@
     try {
       saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
     } catch {}
+    const orientation = saved.orientation === "landscape" ? "landscape" : defaults.orientation;
     return {
       scalePct: clampNumber(saved.scalePct ?? legacyScale[saved.scale], 70, 200, defaults.scalePct),
       sheetCount: clampNumber(saved.sheetCount, 1, 30, defaults.sheetCount),
       includeAnswers: saved.includeAnswers !== false,
+      autoFitEnabled: autoFitAvailable && saved.autoFitEnabled !== false,
+      orientation,
     };
   }
 
@@ -53,10 +60,34 @@
         width: 100%;
       }
       .print-page {
+        width: var(--print-page-width, 210mm);
+        height: var(--print-page-height, 297mm);
+        min-height: var(--print-page-height, 297mm);
+        overflow: visible;
         padding: var(--page-margin-y, 14mm) var(--page-margin-x, 13mm);
+      }
+      @media print {
+        .print-page {
+          width: var(--print-page-width, 210mm);
+          height: var(--print-page-height, 297mm);
+          min-height: var(--print-page-height, 297mm);
+          overflow: visible;
+        }
       }
       .problem-card .answer-line {
         margin-top: var(--answer-gap, 0mm);
+      }
+      .problem-grid .blank {
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+      }
+      .problem-card {
+        gap: var(--problem-card-gap, 3mm);
+        padding-bottom: var(--problem-card-pad, 3mm);
+      }
+      .visual {
+        min-height: var(--visual-min, 24mm);
       }
       .visual .clock,
       .visual svg.clock {
@@ -70,6 +101,98 @@
       }
     `;
     document.head.append(style);
+  }
+
+  function ensurePageRuleStyle() {
+    let style = document.querySelector("#printPageRuleStyle");
+    if (!style) {
+      style = document.createElement("style");
+      style.id = "printPageRuleStyle";
+      document.head.append(style);
+    }
+    return style;
+  }
+
+  function applyPaperSize(settings) {
+    const landscape = settings.orientation === "landscape";
+    const width = landscape ? "297mm" : "210mm";
+    const height = landscape ? "210mm" : "297mm";
+    document.documentElement.style.setProperty("--print-page-width", width);
+    document.documentElement.style.setProperty("--print-page-height", height);
+    document.body.classList.toggle("print-landscape", landscape);
+    document.body.classList.toggle("print-portrait", !landscape);
+    ensurePageRuleStyle().textContent = `@page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 0; }`;
+  }
+
+  function createCheckboxControl({ id, label, checked }) {
+    const row = document.createElement("label");
+    const input = document.createElement("input");
+    input.id = id;
+    input.type = "checkbox";
+    input.checked = checked;
+    row.append(input, document.createTextNode(` ${label}`));
+    return row;
+  }
+
+  function upsertAutoFitControl(settings) {
+    let input = document.querySelector("#printAutoFit");
+    if (!input) {
+      const row = createCheckboxControl({
+        id: "printAutoFit",
+        label: "A4に収める",
+        checked: settings.autoFitEnabled,
+      });
+      const includeAnswers = document.querySelector("#includeAnswers");
+      const checkRow = includeAnswers?.closest(".check-row") || document.querySelector(".check-row");
+      if (includeAnswers?.closest("label")) {
+        includeAnswers.closest("label").before(row);
+      } else if (checkRow) {
+        checkRow.prepend(row);
+      } else {
+        document.querySelector(".settings-grid")?.append(row);
+      }
+      input = document.querySelector("#printAutoFit");
+    }
+    if (input) input.checked = settings.autoFitEnabled;
+    return input;
+  }
+
+  function createOrientationControl(settings) {
+    const field = document.createElement("label");
+    field.className = "field";
+    const text = document.createElement("span");
+    text.textContent = "用紙の向き";
+
+    const select = document.createElement("select");
+    select.id = "printOrientation";
+    [
+      ["portrait", "縦向き"],
+      ["landscape", "横向き"],
+    ].forEach(([value, label]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      select.append(option);
+    });
+    select.value = settings.orientation;
+    field.append(text, select);
+    return field;
+  }
+
+  function upsertOrientationControl(settings) {
+    let select = document.querySelector("#printOrientation");
+    if (!select) {
+      const target = fieldFor("printProblemScale") || document.querySelector(".settings-grid")?.lastElementChild;
+      const control = createOrientationControl(settings);
+      if (target) {
+        target.before(control);
+      } else {
+        document.querySelector(".settings-grid")?.append(control);
+      }
+      select = document.querySelector("#printOrientation");
+    }
+    if (select) select.value = settings.orientation;
+    return select;
   }
 
   function fieldFor(id) {
@@ -154,9 +277,10 @@
 
   function ensureControls(settings) {
     injectStyles();
+    upsertOrientationControl(settings);
     upsertRangeNumberControl({
       id: "printProblemScale",
-      label: "問題の大きさ（%）",
+      label: "問題の大きさ上限（%）",
       min: 70,
       max: 200,
       step: 5,
@@ -164,6 +288,9 @@
       unit: "%",
     });
     upsertSheetCountControl(settings);
+    if (autoFitAvailable) {
+      upsertAutoFitControl(settings);
+    }
   }
 
   function answerPages() {
@@ -188,10 +315,162 @@
     return lastSheetSignature !== sheetSignature(settings) || visiblePrintPages().length !== expectedPages;
   }
 
+  function cssLengthToMm(value, fallback) {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    if (value.endsWith("px")) return parsed * 25.4 / 96;
+    if (value.endsWith("cm")) return parsed * 10;
+    if (value.endsWith("in")) return parsed * 25.4;
+    return parsed;
+  }
+
+  function cssLengthToPx(value, fallback) {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    if (value.endsWith("mm")) return parsed * 96 / 25.4;
+    if (value.endsWith("cm")) return parsed * 96 / 2.54;
+    if (value.endsWith("in")) return parsed * 96;
+    return parsed;
+  }
+
+  function cssVarValue(element, cssVar) {
+    return element.style.getPropertyValue(cssVar).trim()
+      || window.getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
+      || window.getComputedStyle(element).getPropertyValue(cssVar).trim();
+  }
+
+  function baseCssMm(element, dataKey, cssVar, fallback) {
+    const attr = `printBase${dataKey}`;
+    if (!element.dataset[attr]) {
+      element.dataset[attr] = String(cssLengthToMm(cssVarValue(element, cssVar), fallback));
+    }
+    return Number(element.dataset[attr]) || fallback;
+  }
+
+  function baseCssPx(element, dataKey, cssVar, fallback) {
+    const attr = `printBase${dataKey}`;
+    if (!element.dataset[attr]) {
+      element.dataset[attr] = String(cssLengthToPx(cssVarValue(element, cssVar), fallback));
+    }
+    return Number(element.dataset[attr]) || fallback;
+  }
+
+  function setProblemScale(scalePct) {
+    const scale = scalePct / 100;
+
+    document.querySelectorAll(".problem-grid").forEach((grid) => {
+      const hasVisual = Boolean(grid.querySelector(".visual"));
+      const baseProblemMin = baseCssMm(grid, "ProblemMin", "--problem-min", hasVisual ? 42 : 30);
+      const baseRowGap = baseCssMm(grid, "RowGap", "--row-gap", 7);
+      const baseProblemFont = baseCssPx(grid, "ProblemFont", "--problem-font", 18);
+      const baseBlankWidth = baseCssMm(grid, "BlankWidth", "--blank-width", 28);
+      const baseBlankHeight = baseCssMm(grid, "BlankHeight", "--blank-height", 8);
+      const baseBlankW = baseCssMm(grid, "BlankW", "--blank-w", 12);
+      const baseBlankH = baseCssMm(grid, "BlankH", "--blank-h", 9);
+      const baseProblemCardGap = baseCssMm(grid, "ProblemCardGap", "--problem-card-gap", 3);
+      const baseProblemCardPad = baseCssMm(grid, "ProblemCardPad", "--problem-card-pad", 3);
+
+      grid.style.setProperty("--problem-font", `${Math.round(baseProblemFont * scale)}px`);
+      grid.style.setProperty("--problem-min", `${(baseProblemMin * scale).toFixed(1)}mm`);
+      grid.style.setProperty("--row-gap", `${(baseRowGap * scale).toFixed(1)}mm`);
+      grid.style.setProperty("--visual-min", `${(24 * scale).toFixed(1)}mm`);
+      grid.style.setProperty("--visual-width", `${Math.round(132 * scale)}px`);
+      grid.style.setProperty("--clock-width", `${Math.round(132 * scale)}px`);
+      grid.style.setProperty("--dot-size", `${Math.round(10 * scale)}px`);
+      grid.style.setProperty("--blank-width", `${(baseBlankWidth * scale).toFixed(1)}mm`);
+      grid.style.setProperty("--blank-height", `${(baseBlankHeight * scale).toFixed(1)}mm`);
+      grid.style.setProperty("--blank-w", `${(baseBlankW * scale).toFixed(1)}mm`);
+      grid.style.setProperty("--blank-h", `${(baseBlankH * scale).toFixed(1)}mm`);
+      grid.style.setProperty("--problem-card-gap", `${(baseProblemCardGap * scale).toFixed(1)}mm`);
+      grid.style.setProperty("--problem-card-pad", `${(baseProblemCardPad * scale).toFixed(1)}mm`);
+    });
+
+    document.querySelectorAll(".vertical-formula").forEach((formula) => {
+      const baseDigitSize = baseCssMm(formula, "DigitSize", "--digit-size", 8);
+      const baseHelperSize = baseCssMm(formula, "HelperSize", "--helper-size", 2.8);
+      formula.style.setProperty("--digit-size", `${(baseDigitSize * scale).toFixed(1)}mm`);
+      formula.style.setProperty("--helper-size", `${(baseHelperSize * scale).toFixed(1)}mm`);
+    });
+  }
+
+  function pageFits(page) {
+    const style = window.getComputedStyle(page);
+    const targetWidth = Number.parseFloat(style.width);
+    const targetHeight = Number.parseFloat(style.minHeight) || Number.parseFloat(style.height);
+    const rect = page.getBoundingClientRect();
+    const tolerance = 0.5;
+    const actualWidth = Math.max(page.scrollWidth, rect.width);
+    const actualHeight = Math.max(page.scrollHeight, rect.height);
+    const fitsWidth = !targetWidth || actualWidth <= targetWidth + tolerance;
+    const fitsHeight = !targetHeight || actualHeight <= targetHeight + tolerance;
+    return fitsWidth && fitsHeight;
+  }
+
+  function pagesFit() {
+    const pages = visiblePrintPages();
+    return pages.length > 0 && pages.every(pageFits);
+  }
+
+  function setFitStatus(message) {
+    const status = document.querySelector("#status");
+    if (!status) return;
+    if (message) {
+      status.textContent = message;
+      status.dataset.printFitStatus = "true";
+    } else if (status.dataset.printFitStatus === "true") {
+      status.textContent = "";
+      delete status.dataset.printFitStatus;
+    }
+  }
+
+  function minimumAutoFitScale() {
+    return visiblePrintPages().some((page) => page.classList.contains("vertical-layout") || page.querySelector(".vertical-formula")) ? 70 : 25;
+  }
+
+  function applyAutoFit(settings) {
+    if (!settings.autoFitEnabled) {
+      setProblemScale(settings.scalePct);
+      return;
+    }
+
+    const minScale = minimumAutoFitScale();
+    const maxScale = clampNumber(settings.scalePct, minScale, 200, defaults.scalePct);
+    let low = minScale;
+    let high = maxScale;
+
+    setProblemScale(high);
+    if (pagesFit()) {
+      setProblemScale(high);
+      setFitStatus("");
+      return;
+    }
+
+    setProblemScale(low);
+    if (!pagesFit()) {
+      setFitStatus(`${minScale}%でも収まりません。列数や問題数を調整してください。`);
+      return;
+    }
+
+    for (let i = 0; i < 8; i += 1) {
+      const mid = (low + high) / 2;
+      setProblemScale(mid);
+      if (pagesFit()) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+
+    setProblemScale(low);
+    setFitStatus("");
+  }
+
   function applySettings(settings) {
     if (applying) return;
     applying = true;
     try {
+      applyPaperSize(settings);
+
       if (shouldGenerateSheets(settings)) {
         const handled = window.__printAdjustmentsGenerateSheets({
           sheetCount: settings.sheetCount,
@@ -203,26 +482,13 @@
         }
       }
 
-      const scale = settings.scalePct / 100;
-
-      document.querySelectorAll(".problem-grid").forEach((grid) => {
-        const hasVisual = Boolean(grid.querySelector(".visual"));
-        const baseProblemMin = hasVisual ? 42 : 30;
-        grid.style.setProperty("--problem-font", `${Math.round(18 * scale)}px`);
-        grid.style.setProperty("--problem-min", `${(baseProblemMin * scale).toFixed(1)}mm`);
-        grid.style.setProperty("--visual-min", `${(24 * scale).toFixed(1)}mm`);
-        grid.style.setProperty("--visual-width", `${Math.round(132 * scale)}px`);
-        grid.style.setProperty("--clock-width", `${Math.round(132 * scale)}px`);
-        grid.style.setProperty("--dot-size", `${Math.round(10 * scale)}px`);
-        grid.style.setProperty("--blank-width", `${(28 * scale).toFixed(1)}mm`);
-        grid.style.setProperty("--blank-height", `${(8 * scale).toFixed(1)}mm`);
-      });
-
       answerPages().forEach((page) => {
         const hideAnswer = !settings.includeAnswers;
         page.hidden = hideAnswer;
         page.classList.toggle("print-adjust-answer-hidden", hideAnswer);
       });
+
+      applyAutoFit(settings);
 
       const pageCount = document.querySelector("#pageCount");
       if (pageCount) {
@@ -257,6 +523,24 @@
     ensureControls(settings);
     bindRangeNumber("printProblemScale", "scalePct", settings);
 
+    const autoFit = document.querySelector("#printAutoFit");
+    if (autoFitAvailable && autoFit) {
+      autoFit.addEventListener("change", () => {
+        settings.autoFitEnabled = autoFit.checked;
+        saveSettings(settings);
+        applySettings(settings);
+      });
+    }
+
+    const orientation = document.querySelector("#printOrientation");
+    if (orientation) {
+      orientation.addEventListener("change", () => {
+        settings.orientation = orientation.value === "landscape" ? "landscape" : "portrait";
+        saveSettings(settings);
+        applySettings(settings);
+      });
+    }
+
     const sheetCount = document.querySelector("#printSheetCount");
     if (sheetCount) {
       const updateSheetCount = () => {
@@ -283,6 +567,7 @@
     applySettings(settings);
     const pages = document.querySelector("#pages");
     if (pages) {
+      skipNextObserver = false;
       new MutationObserver(() => {
         if (skipNextObserver) {
           skipNextObserver = false;
@@ -293,7 +578,7 @@
           observerFrame = 0;
           applySettings(settings);
         });
-      }).observe(pages, { childList: true });
+      }).observe(pages, { childList: true, subtree: true });
     }
 
     if (!window.__printAdjustmentsPatched) {
