@@ -369,6 +369,15 @@ button:hover {
   font-weight: 700;
 }
 
+.answer-page .blank {
+  border-color: transparent;
+  background: transparent;
+}
+
+.answer-page .answer-line {
+  border-bottom: 0;
+}
+
 .vertical-layout .problem-grid {
   gap: var(--row-gap) 10mm;
 }
