@@ -22,6 +22,7 @@ const stateStorageKey = "math-print-grade3-state-v1";
 const problemCountMin = 1;
 const horizontalProblemCountMax = 60;
 const verticalProblemCountMax = 30;
+const verticalDigitWidth = 5;
 const columnsMin = 1;
 const columnsMax = 6;
 const problemTypes = ["add3", "sub3", "mix3", "add4", "sub4", "mixLarge"];
@@ -286,15 +287,7 @@ function makeVerticalFormula(problem, showAnswer, settings) {
   const formula = document.createElement("span");
   formula.className = "vertical-formula";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
-  const width = Math.max(
-    String(problem.a).length,
-    String(problem.b).length,
-    String(problem.answer).length,
-    3,
-  );
-  formula.style.setProperty("--digit-template", `repeat(${width}, var(--digit-size))`);
-  formula.style.setProperty("--formula-width", `${5.5 + width * 7}mm`);
-  formula.style.setProperty("--line-width", `${width * 7}mm`);
+  const width = verticalDigitWidth;
   formula.append(makeDigitRow(formatDigits(problem.a, width), "", settings.showCarryBoxes));
   formula.append(makeDigitRow(formatDigits(problem.b, width), problem.op, settings.showCarryBoxes));
 

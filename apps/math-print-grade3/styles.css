@@ -383,11 +383,8 @@ button:hover {
   --digit-size: 7mm;
   --helper-size: 2.4mm;
   --operator-width: 5.5mm;
-  --digit-template: repeat(4, var(--digit-size));
-  --formula-width: 33.5mm;
-  --line-width: 28mm;
   display: grid;
-  width: var(--formula-width);
+  width: 40.5mm;
   max-width: 100%;
   justify-self: start;
   gap: 0.8mm;
@@ -398,7 +395,7 @@ button:hover {
 
 .digit-row {
   display: grid;
-  grid-template-columns: var(--operator-width) var(--digit-template);
+  grid-template-columns: var(--operator-width) repeat(5, var(--digit-size));
   align-items: center;
   justify-items: center;
   min-height: var(--digit-size);
@@ -436,7 +433,7 @@ button:hover {
 }
 
 .vertical-line {
-  width: var(--line-width);
+  width: 35mm;
   justify-self: end;
   border-top: 1.8px solid #425466;
 }
