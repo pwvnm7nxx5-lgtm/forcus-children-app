@@ -644,16 +644,17 @@
       window.addEventListener("keydown", (event) => {
         const key = event.key?.toLowerCase();
         if ((event.ctrlKey || event.metaKey) && key === "p" && !event.altKey) {
-          event.preventDefault();
-          window.print();
+          applySettings(settings);
         }
       }, true);
     }
 
     const printButton = document.querySelector("#printBtn");
     if (printButton && !printButton.dataset.printAdjustManaged) {
-      printButton.dataset.printAdjustManaged = "true";
-      printButton.addEventListener("click", (event) => {
+      const managedPrintButton = printButton.cloneNode(true);
+      managedPrintButton.dataset.printAdjustManaged = "true";
+      printButton.replaceWith(managedPrintButton);
+      managedPrintButton.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopImmediatePropagation();
         window.print();
