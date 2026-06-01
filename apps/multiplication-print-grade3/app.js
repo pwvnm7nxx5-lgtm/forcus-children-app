@@ -210,6 +210,14 @@ function formatDigits(value, width) {
   return String(value).padStart(width, " ").slice(-width).split("");
 }
 
+function operatorShift(digits) {
+  const firstDigitIndex = digits.findIndex((digit) => digit !== " ");
+  if (firstDigitIndex <= 0) {
+    return "0mm";
+  }
+  return Array.from({ length: firstDigitIndex }, () => "var(--digit-size)").join(" + ");
+}
+
 function formatShiftedDigits(value, width, shift) {
   const places = Math.max(0, shift);
   const availableWidth = Math.max(1, width - places);
@@ -237,6 +245,7 @@ function makeDigitCell(digit, showCarryBoxes, isBlank = false) {
 function makeDigitRow(digits, operator, showCarryBoxes, blank = false) {
   const row = document.createElement("span");
   row.className = "digit-row";
+  row.style.setProperty("--operator-shift", operatorShift(digits));
 
   const op = document.createElement("span");
   op.className = "operator";
