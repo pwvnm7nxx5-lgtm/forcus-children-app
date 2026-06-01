@@ -392,11 +392,12 @@ button:hover {
   --digit-size: 7mm;
   --helper-size: 2.4mm;
   --operator-width: 5.5mm;
+  --formula-gap: 0.8mm;
   display: grid;
-  width: 40.5mm;
+  width: max-content;
   max-width: 100%;
   justify-self: start;
-  gap: 0.8mm;
+  gap: var(--formula-gap);
   font-family: "BIZ UDPGothic", "Yu Gothic", "Meiryo", sans-serif;
   font-size: var(--problem-font);
   line-height: 1;
@@ -442,7 +443,7 @@ button:hover {
 }
 
 .vertical-line {
-  width: 35mm;
+  width: calc(5 * var(--digit-size));
   justify-self: end;
   border-top: 1.8px solid #425466;
 }

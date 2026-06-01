@@ -442,8 +442,12 @@
     document.querySelectorAll(".vertical-formula").forEach((formula) => {
       const baseDigitSize = baseCssMm(formula, "DigitSize", "--digit-size", 8);
       const baseHelperSize = baseCssMm(formula, "HelperSize", "--helper-size", 2.8);
+      const baseOperatorWidth = baseCssMm(formula, "OperatorWidth", "--operator-width", 6);
+      const baseFormulaGap = baseCssMm(formula, "FormulaGap", "--formula-gap", 1);
       formula.style.setProperty("--digit-size", `${(baseDigitSize * scale).toFixed(1)}mm`);
       formula.style.setProperty("--helper-size", `${(baseHelperSize * scale).toFixed(1)}mm`);
+      formula.style.setProperty("--operator-width", `${(baseOperatorWidth * scale).toFixed(1)}mm`);
+      formula.style.setProperty("--formula-gap", `${(baseFormulaGap * scale).toFixed(1)}mm`);
     });
   }
 
