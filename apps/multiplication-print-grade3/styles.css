@@ -354,11 +354,15 @@ button:hover {
 }
 
 .operator {
+  position: relative;
+  z-index: 2;
   display: grid;
   align-items: end;
-  justify-items: center;
+  justify-items: end;
+  justify-self: end;
   min-height: var(--digit-size);
   padding-bottom: 1.4mm;
+  transform: translateX(calc(var(--operator-shift, 0mm) - 0.8mm));
 }
 
 .digit-cell {

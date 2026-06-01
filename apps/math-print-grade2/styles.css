@@ -411,8 +411,12 @@ button:hover {
 }
 
 .operator {
+  position: relative;
+  z-index: 2;
+  justify-self: end;
   color: #425466;
   font-weight: 700;
+  transform: translateX(calc(var(--operator-shift, 0mm) - 0.8mm));
 }
 
 .digit-cell {
