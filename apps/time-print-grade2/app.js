@@ -315,7 +315,9 @@ function normalizeProblems() {
 function renderPage(kind, showAnswer, pageProblems = problems) {
   const settings = getSettings();
   const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
+  const rowCount = Math.ceil(pageProblems.length / settings.columns);
   page.classList.toggle("answer-page", showAnswer);
+  page.classList.toggle("dense-clock", rowCount >= 3);
   page.querySelector("[data-name]").textContent = settings.name;
   page.querySelector("[data-date]").textContent = settings.date;
   page.querySelector("[data-title]").textContent = settings.title;

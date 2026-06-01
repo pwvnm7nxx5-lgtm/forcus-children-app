@@ -9,6 +9,7 @@
   };
   const featureOptions = window.__printAdjustmentsOptions || {};
   const autoFitAvailable = featureOptions.autoFit !== false;
+  const lightweightPrint = featureOptions.lightweightPrint !== false;
   const legacyScale = { compact: 88, normal: 100, large: 118 };
   let applying = false;
   let observerFrame = 0;
@@ -106,8 +107,22 @@
         }
       }
       @media print {
+        body.print-lightweight {
+          background: #fff !important;
+        }
         .pages {
           zoom: 1 !important;
+        }
+        body.print-lightweight .print-page {
+          background: #fff !important;
+          box-shadow: none !important;
+          filter: none !important;
+          -webkit-print-color-adjust: economy;
+          print-color-adjust: economy;
+        }
+        body.print-lightweight .sheet-kind,
+        body.print-lightweight .page-hint {
+          background: transparent !important;
         }
         .print-page {
           width: var(--print-page-width, 210mm) !important;
@@ -137,6 +152,7 @@
     document.documentElement.style.setProperty("--print-preview-mobile-overlap", landscape ? "-72mm" : "-112mm");
     document.body.classList.toggle("print-landscape", landscape);
     document.body.classList.toggle("print-portrait", !landscape);
+    document.body.classList.toggle("print-lightweight", lightweightPrint);
     ensurePageRuleStyle().textContent = `@page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 0; }`;
   }
 
