@@ -428,10 +428,10 @@ button:hover {
 .helper-box {
   position: absolute;
   top: 0;
-  left: 0;
+  right: 0;
   width: var(--helper-size);
   height: var(--helper-size);
-  border-right: 1px solid #d5dde6;
+  border-left: 1px solid #d5dde6;
   border-bottom: 1px solid #d5dde6;
   background: #f8fafc;
 }
