@@ -299,7 +299,7 @@ button:hover {
 .problem-grid {
   display: grid;
   grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
-  gap: var(--problem-gap) 9mm;
+  gap: var(--row-gap, var(--problem-gap)) 9mm;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -312,7 +312,7 @@ button:hover {
   grid-template-columns: 8mm minmax(0, 1fr);
   gap: 3mm;
   align-items: start;
-  min-height: 80mm;
+  min-height: var(--problem-min, 80mm);
   padding-bottom: 3mm;
   border-bottom: 1px solid var(--line);
 }
@@ -431,16 +431,29 @@ button:hover {
 }
 
 .dense-clock {
-  --clock-size: 45mm;
-  --problem-gap: 4mm;
+  --clock-size: 36mm;
+  --problem-gap: 3mm;
 }
 
 .dense-clock .problem {
-  min-height: 62mm;
+  min-height: 52mm;
+  padding-bottom: 2mm;
+}
+
+.dense-clock .problem-body {
+  gap: 1.8mm;
 }
 
 .dense-clock .prompt {
-  font-size: 13px;
+  min-height: 7mm;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.dense-clock .answer-line {
+  min-height: 8mm;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 @media (max-width: 980px) {
