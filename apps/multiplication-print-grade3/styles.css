@@ -338,8 +338,9 @@ button:hover {
 .vertical-formula {
   --digit-size: 6mm;
   --helper-size: 2mm;
+  --operator-width: 6mm;
   display: inline-grid;
-  grid-template-columns: 6mm repeat(var(--digit-count), var(--digit-size));
+  grid-template-columns: var(--operator-width) repeat(var(--digit-count), var(--digit-size));
   justify-content: start;
   align-content: start;
   width: max-content;

@@ -390,11 +390,13 @@ button:hover {
 .vertical-formula {
   --digit-size: 8mm;
   --helper-size: 2.8mm;
+  --operator-width: 7mm;
+  --formula-gap: 1mm;
   display: grid;
-  width: 100%;
-  max-width: 38mm;
+  width: max-content;
+  max-width: 100%;
   justify-self: start;
-  gap: 1mm;
+  gap: var(--formula-gap);
   font-family: "BIZ UDPGothic", "Yu Gothic", "Meiryo", sans-serif;
   font-size: var(--problem-font);
   line-height: 1;
@@ -402,7 +404,7 @@ button:hover {
 
 .digit-row {
   display: grid;
-  grid-template-columns: 7mm repeat(3, 8mm);
+  grid-template-columns: var(--operator-width) repeat(3, var(--digit-size));
   align-items: center;
   justify-items: center;
   min-height: var(--digit-size);
@@ -440,8 +442,8 @@ button:hover {
 }
 
 .vertical-line {
-  width: 31mm;
-  justify-self: end;
+  width: 100%;
+  justify-self: stretch;
   border-top: 1.8px solid #425466;
 }
 
