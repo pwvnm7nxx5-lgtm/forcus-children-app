@@ -6,6 +6,7 @@
     includeAnswers: true,
     autoFitEnabled: true,
     orientation: "portrait",
+    punchGuide: "none",
   };
   const featureOptions = window.__printAdjustmentsOptions || {};
   const autoFitAvailable = featureOptions.autoFit !== false;
@@ -29,12 +30,14 @@
       saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
     } catch {}
     const orientation = saved.orientation === "landscape" ? "landscape" : defaults.orientation;
+    const punchGuide = ["none", "left", "top"].includes(saved.punchGuide) ? saved.punchGuide : defaults.punchGuide;
     return {
       scalePct: clampNumber(saved.scalePct ?? legacyScale[saved.scale], 70, 200, defaults.scalePct),
       sheetCount: clampNumber(saved.sheetCount, 1, 30, defaults.sheetCount),
       includeAnswers: saved.includeAnswers !== false,
       autoFitEnabled: autoFitAvailable && saved.autoFitEnabled !== false,
       orientation,
+      punchGuide,
     };
   }
 
@@ -67,6 +70,30 @@
         min-height: var(--print-page-height, 297mm);
         overflow: visible;
         padding: var(--page-margin-y, 14mm) var(--page-margin-x, 13mm);
+        position: relative;
+      }
+      .punch-guide {
+        position: absolute;
+        z-index: 30;
+        display: grid;
+        place-items: center;
+        width: 8mm;
+        height: 8mm;
+        color: #111827;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1;
+        pointer-events: none;
+      }
+      .punch-guide-left {
+        left: 1mm;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+      .punch-guide-top {
+        left: 50%;
+        top: 1mm;
+        transform: translateX(-50%);
       }
       @media print {
         .print-page {
@@ -74,6 +101,7 @@
           height: var(--print-page-height, 297mm);
           min-height: var(--print-page-height, 297mm);
           overflow: visible;
+          position: relative;
         }
       }
       .problem-card .answer-line {
@@ -249,6 +277,45 @@
     return select;
   }
 
+  function createPunchGuideControl(settings) {
+    const field = document.createElement("label");
+    field.className = "field";
+    const text = document.createElement("span");
+    text.textContent = "穴あけガイド";
+
+    const select = document.createElement("select");
+    select.id = "printPunchGuide";
+    [
+      ["none", "なし"],
+      ["left", "左の真ん中 ◀"],
+      ["top", "上の真ん中 ▲"],
+    ].forEach(([value, label]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      select.append(option);
+    });
+    select.value = settings.punchGuide;
+    field.append(text, select);
+    return field;
+  }
+
+  function upsertPunchGuideControl(settings) {
+    let select = document.querySelector("#printPunchGuide");
+    if (!select) {
+      const target = fieldFor("printProblemScale") || document.querySelector(".settings-grid")?.lastElementChild;
+      const control = createPunchGuideControl(settings);
+      if (target) {
+        target.before(control);
+      } else {
+        document.querySelector(".settings-grid")?.append(control);
+      }
+      select = document.querySelector("#printPunchGuide");
+    }
+    if (select) select.value = settings.punchGuide;
+    return select;
+  }
+
   function fieldFor(id) {
     const input = document.querySelector(`#${id}`);
     return input?.closest(".field") || input?.parentElement || null;
@@ -332,6 +399,7 @@
   function ensureControls(settings) {
     injectStyles();
     upsertOrientationControl(settings);
+    upsertPunchGuideControl(settings);
     upsertRangeNumberControl({
       id: "printProblemScale",
       label: "問題の大きさ上限（%）",
@@ -367,6 +435,24 @@
     if (typeof window.__printAdjustmentsGenerateSheets !== "function") return false;
     const expectedPages = settings.sheetCount * (settings.includeAnswers ? 2 : 1);
     return lastSheetSignature !== sheetSignature(settings) || visiblePrintPages().length !== expectedPages;
+  }
+
+  function syncPunchGuides(settings) {
+    document.querySelectorAll(".print-page").forEach((page) => {
+      let guide = page.querySelector(":scope > .punch-guide");
+      if (settings.punchGuide === "none") {
+        guide?.remove();
+        return;
+      }
+      if (!guide) {
+        guide = document.createElement("span");
+        guide.className = "punch-guide";
+        guide.setAttribute("aria-hidden", "true");
+        page.append(guide);
+      }
+      guide.className = `punch-guide punch-guide-${settings.punchGuide}`;
+      guide.textContent = settings.punchGuide === "left" ? "◀" : "▲";
+    });
   }
 
   function cssLengthToMm(value, fallback) {
@@ -542,6 +628,7 @@
       page.hidden = hideAnswer;
       page.classList.toggle("print-adjust-answer-hidden", hideAnswer);
     });
+    syncPunchGuides(settings);
 
     const pageCount = document.querySelector("#pageCount");
     if (pageCount) {
@@ -610,6 +697,15 @@
         settings.orientation = orientation.value === "landscape" ? "landscape" : "portrait";
         saveSettings(settings);
         applySettings(settings);
+      });
+    }
+
+    const punchGuide = document.querySelector("#printPunchGuide");
+    if (punchGuide) {
+      punchGuide.addEventListener("change", () => {
+        settings.punchGuide = ["left", "top"].includes(punchGuide.value) ? punchGuide.value : "none";
+        saveSettings(settings);
+        applySettings(settings, { autoFit: false });
       });
     }
 
