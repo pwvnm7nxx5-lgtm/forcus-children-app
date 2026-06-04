@@ -206,8 +206,7 @@ button:hover {
 }
 
 .preview-wrap {
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: visible;
   padding: 28px;
 }
 
