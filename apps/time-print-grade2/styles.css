@@ -313,8 +313,7 @@ button:hover {
   gap: 3mm;
   align-items: start;
   min-height: var(--problem-min, 80mm);
-  padding-bottom: 3mm;
-  border-bottom: 1px solid var(--line);
+  padding-bottom: 0;
 }
 
 .problem::before {
@@ -437,10 +436,6 @@ button:hover {
   background: transparent;
 }
 
-.draw-problems .problem {
-  border-bottom: 0;
-}
-
 .draw-note {
   justify-self: stretch;
   color: #6b7280;
@@ -463,7 +458,7 @@ button:hover {
 
 .dense-clock .problem {
   min-height: 52mm;
-  padding-bottom: 2mm;
+  padding-bottom: 0;
 }
 
 .dense-clock .problem-body {
