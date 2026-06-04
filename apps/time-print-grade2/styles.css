@@ -406,6 +406,28 @@ button:hover {
   color: var(--answer);
 }
 
+.answer-line.with-time-units {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2mm;
+  border-bottom: 0;
+  color: #1f2933;
+}
+
+.time-unit-answer {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2mm;
+}
+
+.time-unit-space {
+  display: inline-block;
+  width: 15mm;
+  height: 1.2em;
+  border-bottom: 1.3px solid #425466;
+}
+
 .answer-page .answer-line {
   border-bottom: 0;
 }
@@ -413,6 +435,10 @@ button:hover {
 .answer-page .blank {
   border-color: transparent;
   background: transparent;
+}
+
+.draw-problems .problem {
+  border-bottom: 0;
 }
 
 .draw-note {
@@ -454,6 +480,10 @@ button:hover {
   min-height: 8mm;
   font-size: 15px;
   line-height: 1.6;
+}
+
+.dense-clock .time-unit-space {
+  width: 12mm;
 }
 
 @media (max-width: 980px) {

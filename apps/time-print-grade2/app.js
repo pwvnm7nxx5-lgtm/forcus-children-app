@@ -18,6 +18,7 @@ const els = {
   problemType: document.querySelector("#problemType"),
   difficulty: document.querySelector("#difficulty"),
   minuteNumberMode: document.querySelector("#minuteNumberMode"),
+  timeUnitBlanks: document.querySelector("#timeUnitBlanks"),
   problemCount: document.querySelector("#problemCount"),
   problemCountPreset: document.querySelector("#problemCountPreset"),
   columns: document.querySelector("#columns"),
@@ -54,6 +55,7 @@ function getSettings() {
     type: clampChoice(els.problemType.value, typeValues(), APP.defaultType),
     difficulty: clampChoice(els.difficulty.value, difficultyValues(), APP.defaultDifficulty),
     minuteNumberMode: clampChoice(els.minuteNumberMode.value, ["none", "five", "ten", "thirty"], "none"),
+    timeUnitBlanks: els.timeUnitBlanks.checked,
     count: getProblemCount(),
     columns: getColumns(),
   };
@@ -70,6 +72,7 @@ function applySettings(settings) {
     ["none", "five", "ten", "thirty"],
     "none"
   );
+  els.timeUnitBlanks.checked = settings.timeUnitBlanks === true;
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, APP.defaultCount));
   els.problemCountPreset.value = "";
   els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, APP.defaultCols));
@@ -197,14 +200,14 @@ function makeProblem(settings) {
 function makeTimeProblem(settings) {
   const step = settings.difficulty === "easy" ? 30 : settings.difficulty === "hard" ? 1 : 5;
   const base = rand(1, 11) * 60 + rand(0, Math.floor(59 / step)) * step;
-  if (settings.type === "draw") return { prompt: `${timeText(base)} のながいはりをかきましょう。`, answer: timeText(base), visual: clockSvg(base, "hour", settings.minuteNumberMode), answerVisual: clockSvg(base, "both", settings.minuteNumberMode) };
+  if (settings.type === "draw") return { type: "draw", prompt: `${timeText(base)} のながいはりをかきましょう。`, answer: timeText(base), visual: clockSvg(base, "hour", settings.minuteNumberMode), answerVisual: clockSvg(base, "both", settings.minuteNumberMode) };
   if (settings.type === "beforeAfter") {
     const delta = pick(settings.difficulty === "easy" ? [30, 60] : settings.difficulty === "hard" ? [10, 15, 25, 35, 45, 50] : [5, 10, 15, 30]);
     const dir = pick(["あと", "まえ"]);
     const ans = dir === "あと" ? base + delta : base - delta;
-    return { prompt: `${timeText(base)} の ${delta}ふん${dir} はいつですか。`, answer: timeText(ans), visual: clockSvg(base, true, settings.minuteNumberMode) };
+    return { type: "beforeAfter", prompt: `${timeText(base)} の ${delta}ふん${dir} はいつですか。`, answer: timeText(ans), visual: clockSvg(base, true, settings.minuteNumberMode) };
   }
-  return { prompt: "とけいのじこくをかきましょう。", answer: timeText(base), visual: clockSvg(base, true, settings.minuteNumberMode) };
+  return { type: "read", prompt: "とけいのじこくをかきましょう。", answer: timeText(base), visual: clockSvg(base, true, settings.minuteNumberMode) };
 }
 function makeLengthProblem(settings) {
   const mm = settings.difficulty === "easy" ? rand(2, 10) * 10 : rand(15, 98);
@@ -292,7 +295,7 @@ function generateProblems(options = {}) {
   setStatus("もんだいをつくりなおしました。");
 }
 
-function renderProblem(problem, showAnswer) {
+function renderProblem(problem, showAnswer, settings) {
   const card = document.createElement("div");
   card.className = "problem-card";
   const prompt = document.createElement("div");
@@ -301,9 +304,18 @@ function renderProblem(problem, showAnswer) {
   const visual = document.createElement("div");
   visual.className = "visual";
   visual.innerHTML = showAnswer && problem.answerVisual ? problem.answerVisual : problem.visual;
+  const type = problem.type || settings.type;
+  if (!showAnswer && type === "draw") {
+    card.append(prompt, visual);
+    return card;
+  }
   const answerLine = document.createElement("div");
-  answerLine.className = "answer-line";
-  answerLine.innerHTML = showAnswer ? `<span class="answer-value">${problem.answer}</span>` : `<span class="blank">□</span><span class="small-note">こたえ</span>`;
+  answerLine.className = settings.timeUnitBlanks && !showAnswer && type === "read" ? "answer-line with-time-units" : "answer-line";
+  answerLine.innerHTML = showAnswer
+    ? `<span class="answer-value">${problem.answer}</span>`
+    : settings.timeUnitBlanks && type === "read"
+      ? `<span class="time-unit-answer"><span class="time-unit-space" aria-hidden="true"></span><span>時</span><span class="time-unit-space" aria-hidden="true"></span><span>分</span></span>`
+      : `<span class="blank">□</span><span class="small-note">こたえ</span>`;
   card.append(prompt, visual, answerLine);
   return card;
 }
@@ -318,6 +330,7 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
   const rowCount = Math.ceil(pageProblems.length / settings.columns);
   page.classList.toggle("answer-page", showAnswer);
   page.classList.toggle("dense-clock", rowCount >= 3);
+  page.classList.toggle("draw-problems", !showAnswer && settings.type === "draw");
   page.querySelector("[data-name]").textContent = settings.name;
   page.querySelector("[data-date]").textContent = settings.date;
   page.querySelector("[data-title]").textContent = settings.title;
@@ -331,7 +344,7 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
   pageProblems.forEach((problem) => {
     const item = document.createElement("li");
     item.className = "problem";
-    item.append(renderProblem(problem, showAnswer));
+    item.append(renderProblem(problem, showAnswer, settings));
     list.append(item);
   });
   return page;
@@ -422,7 +435,7 @@ function bindEvents() {
   [els.studentName, els.worksheetDate, els.worksheetTitle].forEach((control) => control.addEventListener("input", render));
   [els.problemType, els.difficulty].forEach((control) => control.addEventListener("change", generateProblems));
   els.problemCount.addEventListener("change", generateProblems);
-  [els.minuteNumberMode, els.columns].forEach((control) => control.addEventListener("change", render));
+  [els.minuteNumberMode, els.timeUnitBlanks, els.columns].forEach((control) => control.addEventListener("change", render));
   els.columns.addEventListener("input", render);
   els.problemCount.addEventListener("input", () => { if (els.problemCount.value === "") return; els.problemCountPreset.value = ""; generateProblems({ normalizeCount: false }); });
   els.problemCountPreset.addEventListener("change", () => { if (!els.problemCountPreset.value) return; els.problemCount.value = els.problemCountPreset.value; generateProblems(); els.problemCountPreset.value = ""; });
