@@ -44,8 +44,10 @@ a {
 }
 
 .controls {
-  align-self: stretch;
-  min-height: 100vh;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: auto;
   padding: 20px;
   border-right: 1px solid #d6dde4;
   background: var(--panel);
@@ -204,7 +206,8 @@ button:hover {
 }
 
 .preview-wrap {
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
   padding: 28px;
 }
 
