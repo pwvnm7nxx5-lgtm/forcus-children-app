@@ -44,10 +44,8 @@ a {
 }
 
 .controls {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow: auto;
+  align-self: stretch;
+  min-height: 100vh;
   padding: 20px;
   border-right: 1px solid #d6dde4;
   background: var(--panel);
