@@ -456,13 +456,32 @@ button:hover {
   --problem-gap: 3mm;
 }
 
+.read-clock-page.dense-clock {
+  --clock-size: 45mm;
+  --problem-gap: 4mm;
+}
+
+.read-clock-page.dense-clock .clock {
+  inline-size: var(--clock-size);
+  block-size: var(--clock-size);
+  max-width: var(--clock-size);
+}
+
 .dense-clock .problem {
   min-height: 52mm;
   padding-bottom: 0;
 }
 
+.read-clock-page.dense-clock .problem {
+  min-height: 64mm;
+}
+
 .dense-clock .problem-body {
   gap: 1.8mm;
+}
+
+.read-clock-page.dense-clock .problem-body {
+  gap: 2mm;
 }
 
 .dense-clock .prompt {
