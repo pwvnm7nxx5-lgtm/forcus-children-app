@@ -54,7 +54,7 @@ function getSettings() {
     title: els.worksheetTitle.value || APP.title,
     type: clampChoice(els.problemType.value, typeValues(), APP.defaultType),
     difficulty: clampChoice(els.difficulty.value, difficultyValues(), APP.defaultDifficulty),
-    minuteNumberMode: clampChoice(els.minuteNumberMode.value, ["none", "five", "ten", "thirty"], "none"),
+    minuteNumberMode: clampChoice(els.minuteNumberMode.value, ["none", "five", "ten", "fifteen", "thirty"], "none"),
     timeUnitBlanks: els.timeUnitBlanks.checked,
     count: getProblemCount(),
     columns: getColumns(),
@@ -69,7 +69,7 @@ function applySettings(settings) {
   els.difficulty.value = clampChoice(settings.difficulty, difficultyValues(), APP.defaultDifficulty);
   els.minuteNumberMode.value = clampChoice(
     settings.minuteNumberMode ?? (settings.minuteNumbers === true ? "five" : "none"),
-    ["none", "five", "ten", "thirty"],
+    ["none", "five", "ten", "fifteen", "thirty"],
     "none"
   );
   els.timeUnitBlanks.checked = settings.timeUnitBlanks === true;
@@ -100,6 +100,12 @@ function minuteNumberEntries(mode) {
   }
   if (mode === "ten") {
     return [10, 20, 30, 40, 50, 0].map((minute) => ({
+      minute,
+      label: minute === 0 ? "0" : String(minute),
+    }));
+  }
+  if (mode === "fifteen") {
+    return [15, 30, 45, 0].map((minute) => ({
       minute,
       label: minute === 0 ? "0" : String(minute),
     }));
@@ -200,14 +206,21 @@ function makeProblem(settings) {
 function makeTimeProblem(settings) {
   const step = settings.difficulty === "easy" ? 30 : settings.difficulty === "hard" ? 1 : 5;
   const base = rand(1, 11) * 60 + rand(0, Math.floor(59 / step)) * step;
-  if (settings.type === "draw") return { type: "draw", prompt: `${timeText(base)} のながいはりをかきましょう。`, answer: timeText(base), visual: clockSvg(base, "hour", settings.minuteNumberMode), answerVisual: clockSvg(base, "both", settings.minuteNumberMode) };
+  if (settings.type === "draw") return { type: "draw", clockMinutes: base, clockHandMode: "hour", answerClockHandMode: "both", prompt: `${timeText(base)} のながいはりをかきましょう。`, answer: timeText(base), visual: clockSvg(base, "hour", settings.minuteNumberMode), answerVisual: clockSvg(base, "both", settings.minuteNumberMode) };
   if (settings.type === "beforeAfter") {
     const delta = pick(settings.difficulty === "easy" ? [30, 60] : settings.difficulty === "hard" ? [10, 15, 25, 35, 45, 50] : [5, 10, 15, 30]);
     const dir = pick(["あと", "まえ"]);
     const ans = dir === "あと" ? base + delta : base - delta;
-    return { type: "beforeAfter", prompt: `${timeText(base)} の ${delta}ふん${dir} はいつですか。`, answer: timeText(ans), visual: clockSvg(base, true, settings.minuteNumberMode) };
+    return { type: "beforeAfter", clockMinutes: base, clockHandMode: "both", prompt: `${timeText(base)} の ${delta}ふん${dir} はいつですか。`, answer: timeText(ans), visual: clockSvg(base, true, settings.minuteNumberMode) };
   }
-  return { type: "read", prompt: "とけいのじこくをかきましょう。", answer: timeText(base), visual: clockSvg(base, true, settings.minuteNumberMode) };
+  return { type: "read", clockMinutes: base, clockHandMode: "both", prompt: "とけいのじこくをかきましょう。", answer: timeText(base), visual: clockSvg(base, true, settings.minuteNumberMode) };
+}
+function getProblemVisual(problem, showAnswer, settings) {
+  if (typeof problem.clockMinutes === "number") {
+    const mode = showAnswer && problem.answerClockHandMode ? problem.answerClockHandMode : problem.clockHandMode || "both";
+    return clockSvg(problem.clockMinutes, mode, settings.minuteNumberMode);
+  }
+  return showAnswer && problem.answerVisual ? problem.answerVisual : problem.visual;
 }
 function makeLengthProblem(settings) {
   const mm = settings.difficulty === "easy" ? rand(2, 10) * 10 : rand(15, 98);
@@ -303,7 +316,7 @@ function renderProblem(problem, showAnswer, settings) {
   prompt.textContent = problem.prompt;
   const visual = document.createElement("div");
   visual.className = "visual";
-  visual.innerHTML = showAnswer && problem.answerVisual ? problem.answerVisual : problem.visual;
+  visual.innerHTML = getProblemVisual(problem, showAnswer, settings);
   const type = problem.type || settings.type;
   if (!showAnswer && type === "draw") {
     card.append(prompt, visual);
@@ -330,6 +343,7 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
   const rowCount = Math.ceil(pageProblems.length / settings.columns);
   page.classList.toggle("answer-page", showAnswer);
   page.classList.toggle("dense-clock", rowCount >= 3);
+  page.classList.toggle("read-clock-page", settings.type === "read");
   page.querySelector("[data-name]").textContent = settings.name;
   page.querySelector("[data-date]").textContent = settings.date;
   page.querySelector("[data-title]").textContent = settings.title;
