@@ -679,6 +679,7 @@
 
   function setup() {
     const settings = loadSettings();
+    window.__printAdjustmentsRefresh = (options = {}) => applySettings(settings, options);
     ensureControls(settings);
     bindRangeNumber("printProblemScale", "scalePct", settings);
 

@@ -8,11 +8,11 @@
   --accent: #7c3aed;
   --answer: #0f7b5f;
   --cols: 2;
-  --row-gap: 7mm;
-  --problem-min: 30mm;
-  --problem-font: 18px;
+  --row-gap: 5mm;
+  --problem-min: 35mm;
+  --problem-font: 24px;
   --blank-width: 28mm;
-  --blank-height: 8mm;
+  --blank-height: 9mm;
 }
 
 * {
@@ -358,7 +358,7 @@ button:hover {
 }
 
 .answer-line.has-remainder .blank {
-  min-width: calc(var(--blank-width) * 0.78);
+  min-width: calc(var(--blank-width) * 0.55);
 }
 
 .blank {
@@ -392,7 +392,7 @@ button:hover {
 }
 
 .answer-line.has-remainder .remainder-blank {
-  min-width: calc(var(--blank-width) * 0.62);
+  min-width: calc(var(--blank-width) * 0.45);
 }
 
 @media (max-width: 980px) {
