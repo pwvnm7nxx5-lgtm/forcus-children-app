@@ -15,9 +15,9 @@ const els = {
   status: document.querySelector("#status"),
 };
 
-const stateStorageKey = "division-print-grade3-state-v1";
+const stateStorageKey = "division-print-grade3-state-v2";
 const problemCountMin = 1;
-const problemCountMax = 60;
+const problemCountMax = 40;
 const columnsMin = 1;
 const columnsMax = 6;
 let statusTimer;
@@ -38,7 +38,7 @@ function clampNumber(value, min, max, fallback) {
 }
 
 function getProblemCount() {
-  return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, 20);
+  return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, 16);
 }
 
 function getColumns() {
@@ -65,7 +65,7 @@ function applySettings(settings) {
   els.worksheetDate.value = settings.date || "";
   els.worksheetTitle.value = settings.title || "3年生 わり算プリント";
   els.problemType.value = clampChoice(settings.type, ["basic", "noRemainder", "withRemainder"], "basic");
-  els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, 20));
+  els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, 16));
   els.problemCountPreset.value = "";
   els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, 2));
 }
@@ -252,30 +252,30 @@ function makeFormula(problem, showAnswer) {
 
 function applyGridDensity(list, settings) {
   const rows = Math.ceil(settings.count / settings.columns);
-  let rowGap = 7;
-  let problemMin = 30;
-  let fontSize = 21;
+  let rowGap = 5;
+  let problemMin = 35;
+  let fontSize = 24;
   let blankWidth = 28;
-  let blankHeight = 8;
+  let blankHeight = 9;
 
-  if (rows > 24) {
+  if (rows > 16) {
     rowGap = 2;
-    problemMin = 14;
-    fontSize = 16;
+    problemMin = 25;
+    fontSize = 18;
     blankWidth = 20;
     blankHeight = 6;
-  } else if (rows > 18) {
+  } else if (rows > 12) {
     rowGap = 3;
-    problemMin = 18;
-    fontSize = 17;
+    problemMin = 29;
+    fontSize = 20;
     blankWidth = 22;
     blankHeight = 7;
-  } else if (rows > 12) {
+  } else if (rows > 8) {
     rowGap = 4;
-    problemMin = 23;
-    fontSize = 19;
+    problemMin = 32;
+    fontSize = 22;
     blankWidth = 24;
-    blankHeight = 7.5;
+    blankHeight = 8;
   }
 
   list.style.setProperty("--row-gap", `${rowGap}mm`);
@@ -357,6 +357,7 @@ function render() {
   els.pages.replaceChildren(renderPage("もんだい", false), renderPage("こたえ", true));
   els.pageCount.textContent = "2枚";
   saveState();
+  window.__printAdjustmentsRefresh?.();
 }
 
 function getShareState() {
