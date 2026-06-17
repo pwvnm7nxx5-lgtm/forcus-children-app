@@ -362,6 +362,7 @@ button:hover {
   width: 210mm;
   height: 297mm;
   padding: 5mm 4mm;
+  position: relative;
   background: var(--page);
   box-shadow: 0 8px 24px rgba(27, 39, 51, 0.16);
   color: #1f2933;
@@ -523,10 +524,36 @@ button:hover {
 
 .vertical-line-mark .trace-char {
   transform: translate(-50%, -50%);
-  width: 0.12em;
+  width: 1px;
   height: 0.82em;
   border-radius: 999px;
   background: currentColor;
+}
+
+.punch-guide {
+  position: absolute;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  width: 8mm;
+  height: 8mm;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.punch-guide-left {
+  left: 1mm;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.punch-guide-top {
+  left: 50%;
+  top: 1mm;
+  transform: translateX(-50%);
 }
 
 @media (max-width: 980px) {

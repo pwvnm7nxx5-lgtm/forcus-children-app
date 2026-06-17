@@ -12,6 +12,7 @@ const els = {
   cols: document.querySelector("#cols"),
   rows: document.querySelector("#rows"),
   sheetCount: document.querySelector("#sheetCount"),
+  punchGuide: document.querySelector("#punchGuide"),
   fontSize: document.querySelector("#fontSize"),
   smallFontSize: document.querySelector("#smallFontSize"),
   punctuationScale: document.querySelector("#punctuationScale"),
@@ -409,6 +410,7 @@ function render() {
       }
     }
 
+    applyPunchGuide(page);
     els.pages.append(page);
     });
   }
@@ -473,6 +475,23 @@ function createRubyCell(reading = "") {
   return cell;
 }
 
+function getPunchGuide() {
+  return ["left", "top"].includes(els.punchGuide.value) ? els.punchGuide.value : "none";
+}
+
+function applyPunchGuide(page) {
+  const position = getPunchGuide();
+  if (position === "none") {
+    return;
+  }
+
+  const guide = document.createElement("span");
+  guide.className = `punch-guide punch-guide-${position}`;
+  guide.setAttribute("aria-hidden", "true");
+  guide.textContent = position === "left" ? "◀" : "▲";
+  page.append(guide);
+}
+
 function extractReadingsFromText() {
   if (els.addReadings.disabled) {
     syncReadingPanel();
@@ -505,6 +524,7 @@ function getState() {
     cols: els.cols.value,
     rows: els.rows.value,
     sheetCount: els.sheetCount.value,
+    punchGuide: getPunchGuide(),
     fontSize: els.fontSize.value,
     smallFontSize: els.smallFontSize.value,
     punctuationScale: els.punctuationScale.value,
@@ -528,6 +548,7 @@ function getTemplateSettings() {
     cols: els.cols.value,
     rows: els.rows.value,
     sheetCount: els.sheetCount.value,
+    punchGuide: getPunchGuide(),
     fontSize: els.fontSize.value,
     smallFontSize: els.smallFontSize.value,
     punctuationScale: els.punctuationScale.value,
@@ -559,6 +580,7 @@ function applyState(state) {
     ["cols", "cols"],
     ["rows", "rows"],
     ["sheetCount", "sheetCount"],
+    ["punchGuide", "punchGuide"],
     ["fontSize", "fontSize"],
     ["smallFontSize", "smallFontSize"],
     ["punctuationScale", "punctuationScale"],
@@ -773,6 +795,7 @@ function bindEvents() {
     els.cols,
     els.rows,
     els.sheetCount,
+    els.punchGuide,
     els.fontSize,
     els.smallFontSize,
     els.punctuationScale,
