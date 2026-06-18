@@ -341,7 +341,7 @@ function render() {
   const fontSize = clampNumber(els.fontSize.value, 18, 72, 34);
   const smallFontSize = clampNumber(els.smallFontSize.value, 14, 56, 30);
   const punctuationScale = clampNumber(els.punctuationScale.value, 35, 90, 58);
-  const fontWeight = clampNumber(els.fontWeight.value, 300, 700, 500);
+  const fontWeight = normalizeFontWeight(els.fontWeight.value);
   const letterSpacing = clampNumber(els.letterSpacing.value, -2, 6, 0);
   const opacity = clampNumber(els.opacity.value, 8, 45, 24) / 100;
   const rubyFontSize = clampNumber(els.rubyFontSize.value, 5, 14, 7);
@@ -514,6 +514,13 @@ function clampNumber(value, min, max, fallback) {
   return Math.min(max, Math.max(min, parsed));
 }
 
+function normalizeFontWeight(value) {
+  const parsed = clampNumber(value, 300, 800, 600);
+  if (parsed <= 300) return 300;
+  if (parsed < 700) return 600;
+  return 800;
+}
+
 function getState() {
   return {
     text: els.sourceText.value,
@@ -599,8 +606,8 @@ function applyState(state) {
     }
   });
 
-  if (Number(state.fontWeight) > 700) {
-    els.fontWeight.value = "700";
+  if (state.fontWeight !== undefined) {
+    els.fontWeight.value = String(normalizeFontWeight(state.fontWeight));
   }
 
   if (state.fontFamily === "maru") {
