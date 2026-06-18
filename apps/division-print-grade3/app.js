@@ -254,28 +254,28 @@ function applyGridDensity(list, settings) {
   const rows = Math.ceil(settings.count / settings.columns);
   let rowGap = 5;
   let problemMin = 35;
-  let fontSize = 24;
-  let blankWidth = 28;
-  let blankHeight = 9;
+  let fontSize = 28;
+  let blankWidth = 22;
+  let blankHeight = 20;
 
   if (rows > 16) {
     rowGap = 2;
     problemMin = 25;
-    fontSize = 18;
-    blankWidth = 20;
-    blankHeight = 6;
+    fontSize = 21;
+    blankWidth = 17;
+    blankHeight = 11;
   } else if (rows > 12) {
     rowGap = 3;
     problemMin = 29;
-    fontSize = 20;
-    blankWidth = 22;
-    blankHeight = 7;
+    fontSize = 23;
+    blankWidth = 18;
+    blankHeight = 13;
   } else if (rows > 8) {
     rowGap = 4;
     problemMin = 32;
-    fontSize = 22;
-    blankWidth = 24;
-    blankHeight = 8;
+    fontSize = 25;
+    blankWidth = 20;
+    blankHeight = 16;
   }
 
   list.style.setProperty("--row-gap", `${rowGap}mm`);
