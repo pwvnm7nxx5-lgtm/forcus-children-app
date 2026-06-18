@@ -49,6 +49,7 @@ const stateStorageKey = "kanji-tracing-print";
 const templateStorageKey = "kanji-tracing-templates";
 const fontStacks = {
   kyokasho: '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", "BIZ UDPGothic", "Yu Gothic", sans-serif',
+  kyokashoBold: '"UD Digi Kyokasho N-B", "UD デジタル 教科書体 N-B", "BIZ UDPGothic", "Yu Gothic", sans-serif',
   gothic: '"BIZ UDPGothic", "Yu Gothic", "Meiryo", "Noto Sans JP", sans-serif',
   mincho: '"Yu Mincho", "BIZ UDMincho", "MS Mincho", "Noto Serif JP", serif',
 };
@@ -140,7 +141,10 @@ function getDirection() {
   return document.querySelector('input[name="direction"]:checked')?.value || "ltr";
 }
 
-function getTraceFontStack() {
+function getTraceFontStack(weightStyle = normalizeFontWeight()) {
+  if (els.fontFamily.value === "kyokasho" && weightStyle.value === "bold") {
+    return fontStacks.kyokashoBold;
+  }
   return fontStacks[els.fontFamily.value] || fontStacks.kyokasho;
 }
 
@@ -364,9 +368,9 @@ function render() {
   document.documentElement.style.setProperty("--trace-size", `${fontSize}px`);
   document.documentElement.style.setProperty("--small-trace-size", `${smallFontSize}px`);
   document.documentElement.style.setProperty("--punctuation-size", `${Math.round(fontSize * punctuationScale) / 100}px`);
-  document.documentElement.style.setProperty("--trace-font-family", getTraceFontStack());
+  document.documentElement.style.setProperty("--trace-font-family", getTraceFontStack(weightStyle));
   document.documentElement.style.setProperty("--trace-font-weight", weightStyle.weight);
-  document.documentElement.style.setProperty("--trace-font-stroke", `${weightStyle.stroke}em`);
+  document.documentElement.style.setProperty("--trace-weight-opacity", weightStyle.opacity);
   document.documentElement.style.setProperty("--letter-spacing", `${letterSpacing}px`);
   document.documentElement.style.setProperty("--trace-opacity", opacity.toFixed(2));
   document.documentElement.style.setProperty("--ruby-font-size", `${rubyFontSize}px`);
@@ -516,14 +520,18 @@ function clampNumber(value, min, max, fallback) {
 }
 
 function normalizeFontWeight(value) {
-  const parsed = clampNumber(value, 200, 800, 300);
-  if (parsed < 300) {
-    return { value: "200", weight: 200, stroke: 0 };
+  if (value === "thin") {
+    return { value: "thin", weight: 200, opacity: 0.55 };
   }
-  if (parsed < 700) {
-    return { value: "300", weight: 300, stroke: 0 };
+  if (value === "bold") {
+    return { value: "bold", weight: 700, opacity: 1 };
   }
-  return { value: "700", weight: 700, stroke: 0.012 };
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isFinite(parsed)) {
+    if (parsed < 300) return { value: "thin", weight: 200, opacity: 0.55 };
+    if (parsed >= 700) return { value: "bold", weight: 700, opacity: 1 };
+  }
+  return { value: "normal", weight: 300, opacity: 1 };
 }
 
 function getState() {

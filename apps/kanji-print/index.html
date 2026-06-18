@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>漢字なぞりプリント</title>
-  <link rel="stylesheet" href="styles.css?v=real-weight-contrast">
+  <link rel="stylesheet" href="styles.css?v=stable-weight-modes">
 </head>
 <body>
   <div class="app-shell">
@@ -125,9 +125,9 @@
           <label class="field">
             <span>文字の太さ</span>
             <select id="fontWeight">
-              <option value="200">細い</option>
-              <option value="300" selected>普通</option>
-              <option value="700">太い</option>
+              <option value="thin">細い</option>
+              <option value="normal" selected>普通</option>
+              <option value="bold">太い</option>
             </select>
           </label>
           <label class="field">
@@ -203,6 +203,6 @@
     </section>
   </template>
 
-  <script src="app.js?v=real-weight-contrast"></script>
+  <script src="app.js?v=stable-weight-modes"></script>
 </body>
 </html>
