@@ -17,7 +17,8 @@
   --small-trace-size: 30px;
   --punctuation-size: 20px;
   --trace-font-family: "UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", "BIZ UDPGothic", "Yu Gothic", sans-serif;
-  --trace-font-weight: 600;
+  --trace-font-weight: 300;
+  --trace-font-stroke: 0em;
   --letter-spacing: 0px;
   --ruby-font-size: 7px;
   --ruby-opacity: 0.8;
@@ -470,6 +471,8 @@ button:hover {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+  -webkit-text-stroke: var(--trace-font-stroke) currentColor;
+  paint-order: stroke fill;
   z-index: 2;
 }
 
