@@ -341,7 +341,7 @@ function render() {
   const fontSize = clampNumber(els.fontSize.value, 18, 72, 34);
   const smallFontSize = clampNumber(els.smallFontSize.value, 14, 56, 30);
   const punctuationScale = clampNumber(els.punctuationScale.value, 35, 90, 58);
-  const fontWeight = normalizeFontWeight(els.fontWeight.value);
+  const weightStyle = normalizeFontWeight(els.fontWeight.value);
   const letterSpacing = clampNumber(els.letterSpacing.value, -2, 6, 0);
   const opacity = clampNumber(els.opacity.value, 8, 45, 24) / 100;
   const rubyFontSize = clampNumber(els.rubyFontSize.value, 5, 14, 7);
@@ -365,7 +365,8 @@ function render() {
   document.documentElement.style.setProperty("--small-trace-size", `${smallFontSize}px`);
   document.documentElement.style.setProperty("--punctuation-size", `${Math.round(fontSize * punctuationScale) / 100}px`);
   document.documentElement.style.setProperty("--trace-font-family", getTraceFontStack());
-  document.documentElement.style.setProperty("--trace-font-weight", fontWeight);
+  document.documentElement.style.setProperty("--trace-font-weight", weightStyle.weight);
+  document.documentElement.style.setProperty("--trace-font-stroke", `${weightStyle.stroke}em`);
   document.documentElement.style.setProperty("--letter-spacing", `${letterSpacing}px`);
   document.documentElement.style.setProperty("--trace-opacity", opacity.toFixed(2));
   document.documentElement.style.setProperty("--ruby-font-size", `${rubyFontSize}px`);
@@ -515,10 +516,14 @@ function clampNumber(value, min, max, fallback) {
 }
 
 function normalizeFontWeight(value) {
-  const parsed = clampNumber(value, 300, 800, 600);
-  if (parsed <= 300) return 300;
-  if (parsed < 700) return 600;
-  return 800;
+  const parsed = clampNumber(value, 200, 800, 300);
+  if (parsed < 300) {
+    return { value: "200", weight: 200, stroke: 0 };
+  }
+  if (parsed < 700) {
+    return { value: "300", weight: 300, stroke: 0 };
+  }
+  return { value: "700", weight: 700, stroke: 0.012 };
 }
 
 function getState() {
@@ -607,7 +612,7 @@ function applyState(state) {
   });
 
   if (state.fontWeight !== undefined) {
-    els.fontWeight.value = String(normalizeFontWeight(state.fontWeight));
+    els.fontWeight.value = normalizeFontWeight(state.fontWeight).value;
   }
 
   if (state.fontFamily === "maru") {
