@@ -525,6 +525,9 @@ button:hover {
 .vertical-line-mark .trace-char {
   transform: translate(-50%, -50%) rotate(90deg);
   transform-origin: center;
+  font-weight: 600;
+  -webkit-text-stroke: 0.015em currentColor;
+  paint-order: stroke fill;
 }
 
 .punch-guide {
