@@ -524,7 +524,7 @@ button:hover {
 
 .vertical-line-mark .trace-char {
   transform: translate(-50%, -50%);
-  width: 1px;
+  width: clamp(2px, 0.055em, 3px);
   height: 0.82em;
   border-radius: 999px;
   background: currentColor;
