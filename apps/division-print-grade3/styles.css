@@ -10,9 +10,9 @@
   --cols: 2;
   --row-gap: 5mm;
   --problem-min: 35mm;
-  --problem-font: 24px;
-  --blank-width: 28mm;
-  --blank-height: 9mm;
+  --problem-font: 28px;
+  --blank-width: 22mm;
+  --blank-height: 20mm;
 }
 
 * {
