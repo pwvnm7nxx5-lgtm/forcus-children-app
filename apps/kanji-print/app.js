@@ -457,7 +457,7 @@ function createTextCell(char) {
   if (char) {
     const span = document.createElement("span");
     span.className = "trace-char";
-    span.textContent = verticalLineMarks.has(char) ? "" : char;
+    span.textContent = char;
     cell.append(span);
   }
   return cell;
