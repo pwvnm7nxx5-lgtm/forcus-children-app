@@ -10,19 +10,34 @@ const els = {
   includeAnswers: document.querySelector("#includeAnswers"),
   printBtn: document.querySelector("#printBtn"),
   regenerateBtn: document.querySelector("#regenerateBtn"),
+  copyLinkBtn: document.querySelector("#copyLinkBtn"),
   pageCount: document.querySelector("#pageCount"),
   pages: document.querySelector("#pages"),
   pageTemplate: document.querySelector("#pageTemplate"),
   status: document.querySelector("#status"),
 };
 
-const stateStorageKey = "multiplication-print-grade3-state-v3";
+const multiplicationConfig = window.MULTIPLICATION_WORKSHEET_APP || {
+  id: "multiplication-print-grade3",
+  title: "3年生 かけ算の筆算プリント",
+  defaultType: "twoByOne",
+  defaultCount: 16,
+  defaultColumns: 2,
+  digitWidth: 4,
+  types: ["twoByOne", "threeByOne", "twoByTwo", "mixed"],
+  ranges: {
+    twoByOne: { aMin: 12, aMax: 99, bMin: 2, bMax: 9 },
+    threeByOne: { aMin: 101, aMax: 999, bMin: 2, bMax: 9 },
+    twoByTwo: { aMin: 12, aMax: 99, bMin: 11, bMax: 99 },
+  },
+};
+const stateStorageKey = `${multiplicationConfig.id}-state-v4`;
 const problemCountMin = 1;
 const problemCountMax = 40;
-const verticalDigitWidth = 4;
+const verticalDigitWidth = multiplicationConfig.digitWidth;
 const columnsMin = 1;
 const columnsMax = 6;
-const problemTypes = ["twoByOne", "threeByOne", "twoByTwo", "mixed"];
+const problemTypes = multiplicationConfig.types;
 let statusTimer;
 let problems = [];
 let sheetProblemSets = [];
@@ -41,19 +56,19 @@ function clampNumber(value, min, max, fallback) {
 }
 
 function getProblemCount() {
-  return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, 16);
+  return clampNumber(els.problemCount.value, problemCountMin, problemCountMax, multiplicationConfig.defaultCount);
 }
 
 function getColumns() {
-  return clampNumber(els.columns.value, columnsMin, columnsMax, 2);
+  return clampNumber(els.columns.value, columnsMin, columnsMax, multiplicationConfig.defaultColumns);
 }
 
 function getSettings() {
   return {
     name: els.studentName.value,
     date: els.worksheetDate.value,
-    title: els.worksheetTitle.value || "3年生 かけ算の筆算プリント",
-    type: clampChoice(els.problemType.value, problemTypes, "twoByOne"),
+    title: els.worksheetTitle.value || multiplicationConfig.title,
+    type: clampChoice(els.problemType.value, problemTypes, multiplicationConfig.defaultType),
     count: getProblemCount(),
     columns: getColumns(),
     showCarryBoxes: els.showCarryBoxes.checked,
@@ -67,11 +82,11 @@ function applySettings(settings) {
 
   els.studentName.value = settings.name || "";
   els.worksheetDate.value = settings.date || "";
-  els.worksheetTitle.value = settings.title || "3年生 かけ算の筆算プリント";
-  els.problemType.value = clampChoice(settings.type, problemTypes, "twoByOne");
-  els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, 16));
+  els.worksheetTitle.value = settings.title || multiplicationConfig.title;
+  els.problemType.value = clampChoice(settings.type, problemTypes, multiplicationConfig.defaultType);
+  els.problemCount.value = String(clampNumber(settings.count, problemCountMin, problemCountMax, multiplicationConfig.defaultCount));
   els.problemCountPreset.value = "";
-  els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, 2));
+  els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, multiplicationConfig.defaultColumns));
   els.showCarryBoxes.checked = settings.showCarryBoxes !== false;
 }
 
@@ -92,60 +107,15 @@ function createProblem(a, b, type) {
   };
 }
 
-function makeTwoByOneCandidates() {
-  const candidates = [];
-  for (let a = 12; a <= 99; a += 1) {
-    for (let b = 2; b <= 9; b += 1) {
-      candidates.push(createProblem(a, b, "twoByOne"));
-    }
-  }
-  return candidates;
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function makeThreeByOneCandidates() {
-  const candidates = [];
-  for (let a = 101; a <= 999; a += 1) {
-    for (let b = 2; b <= 9; b += 1) {
-      candidates.push(createProblem(a, b, "threeByOne"));
-    }
-  }
-  return candidates;
-}
-
-function makeTwoByTwoCandidates() {
-  const candidates = [];
-  for (let a = 12; a <= 99; a += 1) {
-    for (let b = 11; b <= 99; b += 1) {
-      candidates.push(createProblem(a, b, "twoByTwo"));
-    }
-  }
-  return candidates;
-}
-
-function makeCandidatePool(settings) {
-  if (settings.type === "threeByOne") {
-    return makeThreeByOneCandidates();
-  }
-  if (settings.type === "twoByTwo") {
-    return makeTwoByTwoCandidates();
-  }
-  if (settings.type === "mixed") {
-    return [
-      ...makeTwoByOneCandidates(),
-      ...makeThreeByOneCandidates(),
-      ...makeTwoByTwoCandidates(),
-    ];
-  }
-  return makeTwoByOneCandidates();
-}
-
-function shuffle(items) {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
+function makeProblemForType(type) {
+  const concreteTypes = problemTypes.filter((value) => value !== "mixed");
+  const selectedType = type === "mixed" ? concreteTypes[randomInt(0, concreteTypes.length - 1)] : type;
+  const range = multiplicationConfig.ranges[selectedType] || multiplicationConfig.ranges[multiplicationConfig.defaultType];
+  return createProblem(randomInt(range.aMin, range.aMax), randomInt(range.bMin, range.bMax), selectedType);
 }
 
 function problemKey(problem) {
@@ -160,37 +130,20 @@ function sheetSignature(settings) {
 }
 
 function selectProblems(settings, usedKeys = new Set()) {
-  const pool = shuffle(makeCandidatePool(settings));
   const selected = [];
   const seen = new Set();
-
-  pool.forEach((problem) => {
-    if (selected.length >= settings.count) {
-      return;
-    }
+  let attempts = 0;
+  while (selected.length < settings.count && attempts < settings.count * 160) {
+    attempts += 1;
+    const problem = makeProblemForType(settings.type);
     const key = problemKey(problem);
     if (!seen.has(key) && !usedKeys.has(key)) {
       selected.push(problem);
       seen.add(key);
       usedKeys.add(key);
     }
-  });
-
-  pool.forEach((problem) => {
-    if (selected.length >= settings.count) {
-      return;
-    }
-    const key = problemKey(problem);
-    if (!seen.has(key)) {
-      selected.push(problem);
-      seen.add(key);
-    }
-  });
-
-  while (selected.length < settings.count && pool.length > 0) {
-    selected.push(pool[selected.length % pool.length]);
   }
-
+  while (selected.length < settings.count) selected.push(makeProblemForType(settings.type));
   return selected;
 }
 
@@ -418,7 +371,44 @@ function saveState() {
   }
 }
 
+function encodeState(state) {
+  const bytes = new TextEncoder().encode(JSON.stringify(state));
+  let binary = "";
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function decodeState(value) {
+  try {
+    const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+    const bytes = Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+}
+
+async function copyShareUrl() {
+  const encoded = encodeState(getShareState());
+  const url = `${location.origin}${location.pathname}#data=${encoded}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    setStatus("共有URLをコピーしました。");
+  } catch {
+    location.hash = `data=${encoded}`;
+  }
+}
+
 function loadInitialState() {
+  const hash = location.hash.replace(/^#data=/, "");
+  if (hash) {
+    const shared = decodeState(hash);
+    if (shared?.settings) {
+      applySettings(shared.settings);
+      if (Array.isArray(shared.problems)) problems = shared.problems;
+      return;
+    }
+  }
   try {
     const saved = localStorage.getItem(stateStorageKey);
     if (saved) {
@@ -464,6 +454,7 @@ function bindEvents() {
     window.print();
   });
   els.regenerateBtn.addEventListener("click", generateProblems);
+  els.copyLinkBtn?.addEventListener("click", copyShareUrl);
 }
 
 loadInitialState();

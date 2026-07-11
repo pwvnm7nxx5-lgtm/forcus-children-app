@@ -191,5 +191,17 @@
     status: "ready",
     accent: "#0f766e",
   },
+  {
+    id: "multiplication-print-grade4",
+    title: "4年生 かけ算の筆算",
+    description: "3けた・4けたの数に2けた・3けたの数をかける筆算プリントを作成できます。",
+    category: "教材",
+    grades: ["4"],
+    tags: ["算数", "4年生", "かけ算", "筆算", "印刷"],
+    href: "apps/multiplication-print-grade4/index.html",
+    actionLabel: "かけ算筆算を作る",
+    status: "ready",
+    accent: "#0f766e",
+  },
 ];
 
