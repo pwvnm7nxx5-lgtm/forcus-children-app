@@ -179,5 +179,17 @@
     status: "ready",
     accent: "#0f766e",
   },
+  {
+    id: "decimal-print-grade4",
+    title: "4年生 小数計算",
+    description: "小数のたし算・ひき算と、小数×整数・小数÷整数のプリントを作成できます。",
+    category: "教材",
+    grades: ["4"],
+    tags: ["算数", "4年生", "小数", "計算", "筆算", "印刷"],
+    href: "apps/decimal-print-grade4/index.html",
+    actionLabel: "小数計算を練習する",
+    status: "ready",
+    accent: "#0f766e",
+  },
 ];
 

@@ -1,0 +1,107 @@
+@import url("grade2-worksheet.css");
+
+:root {
+  --digit-count: 7;
+}
+
+.horizontal-formula {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2mm;
+  min-height: 10mm;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.horizontal-answer-space {
+  display: inline-block;
+  min-width: 18mm;
+  min-height: 8mm;
+  color: transparent;
+}
+
+.vertical-layout .problem {
+  align-items: start;
+  grid-template-columns: 7mm minmax(0, 1fr);
+  border-bottom: 0;
+}
+
+.vertical-layout .problem-card {
+  border-bottom: 0;
+}
+
+.vertical-formula {
+  --digit-size: 7mm;
+  --helper-size: 2.4mm;
+  --operator-width: 5.5mm;
+  display: grid;
+  width: max-content;
+  max-width: 100%;
+  justify-self: start;
+  gap: .8mm;
+  font-family: "BIZ UDPGothic", "Yu Gothic", "Meiryo", sans-serif;
+  font-size: var(--problem-font);
+  line-height: 1;
+}
+
+.digit-row {
+  display: grid;
+  grid-template-columns: var(--operator-width) repeat(var(--digit-count), var(--digit-size));
+  align-items: center;
+  justify-items: center;
+  min-height: var(--digit-size);
+}
+
+.operator {
+  position: relative;
+  z-index: 2;
+  justify-self: end;
+  color: #425466;
+  font-weight: 700;
+  transform: translateX(calc(var(--operator-shift, 0mm) - .8mm));
+}
+
+.digit-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--digit-size);
+  height: var(--digit-size);
+  border: 1px solid #bcc8d4;
+  background: #fff;
+}
+
+.digit-cell.decimal-cell {
+  border-color: transparent;
+  background: transparent;
+  align-items: end;
+  padding-bottom: .8mm;
+}
+
+.helper-box {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--helper-size);
+  height: var(--helper-size);
+  border-left: 1px solid #d5dde6;
+  border-bottom: 1px solid #d5dde6;
+  background: #f8fafc;
+}
+
+.digit-value {
+  position: relative;
+  z-index: 1;
+}
+
+.vertical-line {
+  width: calc(var(--digit-count) * var(--digit-size));
+  justify-self: end;
+  border-top: 1.8px solid #425466;
+}
+
+.answer-page .digit-value,
+.answer-page .horizontal-answer-value {
+  color: var(--answer);
+}
