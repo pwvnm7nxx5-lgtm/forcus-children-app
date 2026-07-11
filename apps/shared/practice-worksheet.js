@@ -28,7 +28,7 @@
   const columnsMax = 6;
   const defaultCount = app.defaultCount || 24;
   const defaultColumns = app.defaultColumns || 3;
-  const storageKey = `${app.id}-state-v1`;
+  const storageKey = `${app.id}-state-v${app.stateVersion || 1}`;
   let statusTimer;
   let problems = [];
   let sheetProblemSets = [];
@@ -91,7 +91,7 @@
   }
 
   function problemKey(problem) {
-    return problem.key || `${problem.template}|${(problem.answers || []).join("|")}`;
+    return problem.key || `${problem.prompt || problem.template}|${problem.answerTemplate || ""}|${(problem.answers || []).join("|")}`;
   }
 
   function makeProblem(type) {
@@ -122,24 +122,38 @@
     return JSON.stringify({ type: settings.type, count: settings.count, columns: settings.columns });
   }
 
-  function renderTemplate(problem, showAnswer) {
-    const formula = document.createElement("span");
-    formula.className = "practice-formula";
-    const template = String(problem.template || "");
-    const answers = (problem.answers || []).map(String);
+  function appendTemplate(container, template, answers, showAnswer) {
     const matcher = /\{(\d+)\}/g;
     let cursor = 0;
     let match;
     while ((match = matcher.exec(template))) {
-      if (match.index > cursor) formula.append(document.createTextNode(template.slice(cursor, match.index)));
+      if (match.index > cursor) container.append(document.createTextNode(template.slice(cursor, match.index)));
       const answerIndex = Number.parseInt(match[1], 10);
       const slot = document.createElement("span");
       slot.className = showAnswer ? "answer-value" : "answer-space";
       slot.textContent = showAnswer ? (answers[answerIndex] ?? "") : "□";
-      formula.append(slot);
+      container.append(slot);
       cursor = match.index + match[0].length;
     }
-    if (cursor < template.length) formula.append(document.createTextNode(template.slice(cursor)));
+    if (cursor < template.length) container.append(document.createTextNode(template.slice(cursor)));
+  }
+
+  function renderTemplate(problem, showAnswer) {
+    const formula = document.createElement("span");
+    formula.className = "practice-formula";
+    const answers = (problem.answers || []).map(String);
+    if (problem.prompt && problem.answerTemplate) {
+      formula.classList.add("has-stacked-answer");
+      const prompt = document.createElement("span");
+      prompt.className = "problem-prompt";
+      prompt.textContent = problem.prompt;
+      const answerRow = document.createElement("span");
+      answerRow.className = "problem-answer-row";
+      appendTemplate(answerRow, String(problem.answerTemplate), answers, showAnswer);
+      formula.append(prompt, answerRow);
+    } else {
+      appendTemplate(formula, String(problem.template || ""), answers, showAnswer);
+    }
     if (problem.note) {
       const note = document.createElement("span");
       note.className = "problem-note";

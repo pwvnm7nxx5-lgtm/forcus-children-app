@@ -1,0 +1,51 @@
+@import url("../shared/practice-worksheet.css");
+
+.time-practice .practice-card {
+  min-height: 21mm;
+}
+
+.time-practice .problem-grid {
+  column-gap: 4mm;
+}
+
+.time-practice .problem {
+  grid-template-columns: 7mm minmax(0, 1fr);
+  font-size: min(var(--problem-font), 17px);
+}
+
+.time-practice .practice-formula.has-stacked-answer {
+  display: grid;
+  grid-template-rows: auto auto;
+  align-content: start;
+  gap: 1.8mm;
+  width: 100%;
+  min-height: 16mm;
+  line-height: 1.45;
+}
+
+.time-practice .problem-prompt {
+  display: block;
+  min-width: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.time-practice .problem-answer-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 1mm;
+  min-width: 0;
+  min-height: 8mm;
+  white-space: nowrap;
+}
+
+.time-practice .answer-space {
+  min-width: 11mm;
+  min-height: 7mm;
+}
+
+.time-practice .answer-value {
+  min-width: 7mm;
+  text-align: center;
+}
