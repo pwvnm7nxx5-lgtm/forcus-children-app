@@ -99,15 +99,17 @@
     if (!blank && digit !== " ") { const value = document.createElement("span"); value.className = "digit-value"; value.textContent = digit; cell.append(value); }
     return cell;
   }
-  function makeRow(digitData, operator, carry, blank = false) {
-    const row = document.createElement("span"); row.className = "digit-row"; row.style.setProperty("--operator-shift", operatorShift(digitData.digits));
+  function makeRow(digitData, operator, carry, blank = false, operatorAnchorData = digitData) {
+    const row = document.createElement("span"); row.className = "digit-row"; row.style.setProperty("--operator-shift", operatorShift(operatorAnchorData.digits));
     const op = document.createElement("span"); op.className = "operator"; op.textContent = operator; row.append(op);
     digitData.digits.forEach((digit, index) => row.append(makeCell(digit, carry, blank, index === digitData.decimalIndex))); return row;
   }
   function makeVertical(problem, showAnswer, settings) {
     const formula = document.createElement("span"); formula.className = "vertical-formula";
-    formula.append(makeRow(formatDigitData(problem.a), "", settings.showCarryBoxes));
-    formula.append(makeRow(formatDigitData(problem.b), problem.op, settings.showCarryBoxes));
+    const firstRow = formatDigitData(problem.a);
+    const secondRow = formatDigitData(problem.b);
+    formula.append(makeRow(firstRow, "", settings.showCarryBoxes));
+    formula.append(makeRow(secondRow, problem.op, settings.showCarryBoxes, false, problem.op === "×" ? firstRow : secondRow));
     const line = document.createElement("span"); line.className = "vertical-line"; formula.append(line);
     formula.append(showAnswer ? makeRow(formatDigitData(problem.answer), "", settings.showCarryBoxes) : makeRow(blankDigitData(problem.answerPlaces), "", settings.showCarryBoxes, true));
     return formula;

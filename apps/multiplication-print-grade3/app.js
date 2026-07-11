@@ -195,10 +195,10 @@ function makeDigitCell(digit, showCarryBoxes, isBlank = false) {
   return cell;
 }
 
-function makeDigitRow(digits, operator, showCarryBoxes, blank = false) {
+function makeDigitRow(digits, operator, showCarryBoxes, blank = false, operatorAnchorDigits = digits) {
   const row = document.createElement("span");
   row.className = "digit-row";
-  row.style.setProperty("--operator-shift", operatorShift(digits));
+  row.style.setProperty("--operator-shift", operatorShift(operatorAnchorDigits));
 
   const op = document.createElement("span");
   op.className = "operator";
@@ -229,8 +229,9 @@ function makeVerticalFormula(problem, showAnswer, settings) {
   formula.style.setProperty("--step-count", String(steps.length));
   formula.style.setProperty("--digit-count", String(width));
 
-  formula.append(makeDigitRow(formatDigits(problem.a, width), "", settings.showCarryBoxes));
-  formula.append(makeDigitRow(formatDigits(problem.b, width), "×", settings.showCarryBoxes));
+  const multiplicandDigits = formatDigits(problem.a, width);
+  formula.append(makeDigitRow(multiplicandDigits, "", settings.showCarryBoxes));
+  formula.append(makeDigitRow(formatDigits(problem.b, width), "×", settings.showCarryBoxes, false, multiplicandDigits));
 
   const line = document.createElement("span");
   line.className = steps.length > 1 ? "vertical-line subtotal-line" : "vertical-line answer-line";
