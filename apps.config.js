@@ -227,5 +227,17 @@
     status: "ready",
     accent: "#2563eb",
   },
+  {
+    id: "number-properties-print-grade5",
+    title: "5年生 約数・倍数",
+    description: "偶数・奇数、倍数、約数、公倍数、公約数を練習するプリントを作成できます。",
+    category: "教材",
+    grades: ["5"],
+    tags: ["算数", "5年生", "約数", "倍数", "公約数", "公倍数", "印刷"],
+    href: "apps/number-properties-print-grade5/index.html",
+    actionLabel: "約数・倍数を練習する",
+    status: "ready",
+    accent: "#7c3aed",
+  },
 ];
 
