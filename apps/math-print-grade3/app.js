@@ -272,16 +272,19 @@ function makeHorizontalFormula(problem, showAnswer) {
   return span;
 }
 
-function formatDigits(value, width) {
-  return String(value).padStart(width, " ").slice(-width).split("");
+function formatDigitData(value, width) {
+  const [whole, fraction] = String(value).split(".");
+  const rawDigits = `${whole}${fraction || ""}`;
+  const digits = rawDigits.padStart(width, " ").slice(-width).split("");
+  return {
+    digits,
+    decimalIndex: fraction === undefined ? -1 : width - fraction.length - 1,
+  };
 }
 
-function formatBlankDigits(width, decimalPlaces = 0) {
+function formatBlankDigitData(width, decimalPlaces = 0) {
   const digits = Array(width).fill(" ");
-  if (decimalPlaces > 0) {
-    digits[width - decimalPlaces - 1] = ".";
-  }
-  return digits;
+  return { digits, decimalIndex: decimalPlaces > 0 ? width - decimalPlaces - 1 : -1 };
 }
 
 function operatorShift(digits) {
@@ -292,18 +295,16 @@ function operatorShift(digits) {
   return Array.from({ length: firstDigitIndex }, () => "var(--digit-size)").join(" + ");
 }
 
-function makeDigitCell(digit, showCarryBoxes, isBlank = false) {
+function makeDigitCell(digit, showCarryBoxes, isBlank = false, hasDecimalAfter = false) {
   const cell = document.createElement("span");
   cell.className = "digit-cell";
-  if (digit === ".") {
-    cell.classList.add("decimal-cell");
-  }
-  if (showCarryBoxes && digit !== ".") {
+  cell.classList.toggle("has-decimal-after", hasDecimalAfter);
+  if (showCarryBoxes) {
     const helper = document.createElement("span");
     helper.className = "helper-box";
     cell.append(helper);
   }
-  if ((!isBlank || digit === ".") && digit !== " ") {
+  if (!isBlank && digit !== " ") {
     const value = document.createElement("span");
     value.className = "digit-value";
     value.textContent = digit;
@@ -312,18 +313,18 @@ function makeDigitCell(digit, showCarryBoxes, isBlank = false) {
   return cell;
 }
 
-function makeDigitRow(digits, operator = "", showCarryBoxes = true, blank = false) {
+function makeDigitRow(digitData, operator = "", showCarryBoxes = true, blank = false) {
   const row = document.createElement("span");
   row.className = "digit-row";
-  row.style.setProperty("--operator-shift", operatorShift(digits));
+  row.style.setProperty("--operator-shift", operatorShift(digitData.digits));
 
   const op = document.createElement("span");
   op.className = "operator";
   op.textContent = operator;
   row.append(op);
 
-  digits.forEach((digit) => {
-    row.append(makeDigitCell(digit, showCarryBoxes, blank));
+  digitData.digits.forEach((digit, index) => {
+    row.append(makeDigitCell(digit, showCarryBoxes, blank, index === digitData.decimalIndex));
   });
 
   return row;
@@ -334,17 +335,17 @@ function makeVerticalFormula(problem, showAnswer, settings) {
   formula.className = "vertical-formula";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
   const width = verticalDigitWidth;
-  formula.append(makeDigitRow(formatDigits(problem.a, width), "", settings.showCarryBoxes));
-  formula.append(makeDigitRow(formatDigits(problem.b, width), problem.op, settings.showCarryBoxes));
+  formula.append(makeDigitRow(formatDigitData(problem.a, width), "", settings.showCarryBoxes));
+  formula.append(makeDigitRow(formatDigitData(problem.b, width), problem.op, settings.showCarryBoxes));
 
   const line = document.createElement("span");
   line.className = "vertical-line";
   formula.append(line);
 
   if (showAnswer) {
-    formula.append(makeDigitRow(formatDigits(problem.answer, width), "", settings.showCarryBoxes));
+    formula.append(makeDigitRow(formatDigitData(problem.answer, width), "", settings.showCarryBoxes));
   } else {
-    formula.append(makeDigitRow(formatBlankDigits(width, problem.decimalPlaces), "", settings.showCarryBoxes, true));
+    formula.append(makeDigitRow(formatBlankDigitData(width, problem.decimalPlaces), "", settings.showCarryBoxes, true));
   }
 
   return formula;

@@ -72,11 +72,16 @@
   background: #fff;
 }
 
-.digit-cell.decimal-cell {
-  border-color: transparent;
-  background: transparent;
-  align-items: end;
-  padding-bottom: .8mm;
+.digit-cell.has-decimal-after::after {
+  content: "";
+  position: absolute;
+  right: .35mm;
+  bottom: .35mm;
+  z-index: 3;
+  width: 1mm;
+  height: 1mm;
+  border-radius: 50%;
+  background: #425466;
 }
 
 .helper-box {
@@ -104,4 +109,8 @@
 .answer-page .digit-value,
 .answer-page .horizontal-answer-value {
   color: var(--answer);
+}
+
+.answer-page .digit-cell.has-decimal-after::after {
+  background: var(--answer);
 }
