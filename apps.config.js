@@ -251,5 +251,17 @@
     status: "ready",
     accent: "#0284c7",
   },
+  {
+    id: "ratio-print-grade6",
+    title: "6年生 比",
+    description: "比を簡単にする、等しい比、空欄補充、比の値のプリントを作成できます。",
+    category: "教材",
+    grades: ["6"],
+    tags: ["算数", "6年生", "比", "比の値", "計算", "印刷"],
+    href: "apps/ratio-print-grade6/index.html",
+    actionLabel: "比を練習する",
+    status: "ready",
+    accent: "#7c3aed",
+  },
 ];
 
