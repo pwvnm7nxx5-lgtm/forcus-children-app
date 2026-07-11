@@ -72,16 +72,15 @@
   background: #fff;
 }
 
-.digit-cell.has-decimal-after::after {
-  content: "";
-  position: absolute;
-  right: .35mm;
-  bottom: .35mm;
-  z-index: 3;
-  width: 1mm;
-  height: 1mm;
-  border-radius: 50%;
-  background: #425466;
+.digit-cell.decimal-cell {
+  align-items: end;
+  padding-bottom: .65mm;
+  background: #fff;
+}
+
+.decimal-cell .digit-value {
+  font-weight: 700;
+  line-height: 1;
 }
 
 .helper-box {
@@ -109,8 +108,4 @@
 .answer-page .digit-value,
 .answer-page .horizontal-answer-value {
   color: var(--answer);
-}
-
-.answer-page .digit-cell.has-decimal-after::after {
-  background: var(--answer);
 }
