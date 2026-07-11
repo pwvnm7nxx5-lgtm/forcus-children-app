@@ -75,28 +75,31 @@
     return selected;
   }
   function formatDigitData(value) {
-    return { digits: String(value).padStart(digitCount, " ").slice(-digitCount).split("") };
+    const [whole, fraction] = String(value).split(".");
+    const digits = `${whole}${fraction || ""}`.padStart(digitCount, " ").slice(-digitCount).split("");
+    return { digits, decimalAfterIndex: fraction === undefined ? -1 : digitCount - fraction.length - 1 };
   }
   function blankDigitData(decimalPlaces = 0) {
-    const digits = Array(digitCount).fill(" ");
-    if (decimalPlaces > 0) digits[digitCount - decimalPlaces - 1] = ".";
-    return { digits };
+    return {
+      digits: Array(digitCount).fill(" "),
+      decimalAfterIndex: decimalPlaces > 0 ? digitCount - decimalPlaces - 1 : -1,
+    };
   }
   function operatorShift(digits) {
     const index = digits.findIndex((digit) => digit !== " ");
     return index > 0 ? Array(index).fill("var(--digit-size)").join(" + ") : "0mm";
   }
-  function makeCell(digit, carry, blank) {
+  function makeCell(digit, carry, blank, hasDecimalAfter) {
     const cell = document.createElement("span"); cell.className = "digit-cell";
-    cell.classList.toggle("decimal-cell", digit === ".");
-    if (carry && digit !== ".") { const helper = document.createElement("span"); helper.className = "helper-box"; cell.append(helper); }
-    if ((!blank || digit === ".") && digit !== " ") { const value = document.createElement("span"); value.className = "digit-value"; value.textContent = digit; cell.append(value); }
+    if (carry) { const helper = document.createElement("span"); helper.className = "helper-box"; cell.append(helper); }
+    if (!blank && digit !== " ") { const value = document.createElement("span"); value.className = "digit-value"; value.textContent = digit; cell.append(value); }
+    if (hasDecimalAfter) { const decimal = document.createElement("span"); decimal.className = "decimal-mark"; decimal.textContent = "."; cell.append(decimal); }
     return cell;
   }
   function makeRow(digitData, operator, carry, blank = false, operatorAnchorData = digitData) {
     const row = document.createElement("span"); row.className = "digit-row"; row.style.setProperty("--operator-shift", operatorShift(operatorAnchorData.digits));
     const op = document.createElement("span"); op.className = "operator"; op.textContent = operator; row.append(op);
-    digitData.digits.forEach((digit) => row.append(makeCell(digit, carry, blank))); return row;
+    digitData.digits.forEach((digit, index) => row.append(makeCell(digit, carry, blank, index === digitData.decimalAfterIndex))); return row;
   }
   function makeVertical(problem, showAnswer, settings) {
     const formula = document.createElement("span"); formula.className = "vertical-formula";

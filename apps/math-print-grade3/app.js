@@ -273,13 +273,16 @@ function makeHorizontalFormula(problem, showAnswer) {
 }
 
 function formatDigitData(value, width) {
-  return { digits: String(value).padStart(width, " ").slice(-width).split("") };
+  const [whole, fraction] = String(value).split(".");
+  const digits = `${whole}${fraction || ""}`.padStart(width, " ").slice(-width).split("");
+  return { digits, decimalAfterIndex: fraction === undefined ? -1 : width - fraction.length - 1 };
 }
 
 function formatBlankDigitData(width, decimalPlaces = 0) {
-  const digits = Array(width).fill(" ");
-  if (decimalPlaces > 0) digits[width - decimalPlaces - 1] = ".";
-  return { digits };
+  return {
+    digits: Array(width).fill(" "),
+    decimalAfterIndex: decimalPlaces > 0 ? width - decimalPlaces - 1 : -1,
+  };
 }
 
 function operatorShift(digits) {
@@ -290,20 +293,25 @@ function operatorShift(digits) {
   return Array.from({ length: firstDigitIndex }, () => "var(--digit-size)").join(" + ");
 }
 
-function makeDigitCell(digit, showCarryBoxes, isBlank = false) {
+function makeDigitCell(digit, showCarryBoxes, isBlank = false, hasDecimalAfter = false) {
   const cell = document.createElement("span");
   cell.className = "digit-cell";
-  cell.classList.toggle("decimal-cell", digit === ".");
-  if (showCarryBoxes && digit !== ".") {
+  if (showCarryBoxes) {
     const helper = document.createElement("span");
     helper.className = "helper-box";
     cell.append(helper);
   }
-  if ((!isBlank || digit === ".") && digit !== " ") {
+  if (!isBlank && digit !== " ") {
     const value = document.createElement("span");
     value.className = "digit-value";
     value.textContent = digit;
     cell.append(value);
+  }
+  if (hasDecimalAfter) {
+    const decimal = document.createElement("span");
+    decimal.className = "decimal-mark";
+    decimal.textContent = ".";
+    cell.append(decimal);
   }
   return cell;
 }
@@ -318,8 +326,8 @@ function makeDigitRow(digitData, operator = "", showCarryBoxes = true, blank = f
   op.textContent = operator;
   row.append(op);
 
-  digitData.digits.forEach((digit) => {
-    row.append(makeDigitCell(digit, showCarryBoxes, blank));
+  digitData.digits.forEach((digit, index) => {
+    row.append(makeDigitCell(digit, showCarryBoxes, blank, index === digitData.decimalAfterIndex));
   });
 
   return row;
