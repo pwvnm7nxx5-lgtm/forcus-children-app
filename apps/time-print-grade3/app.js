@@ -13,7 +13,8 @@ function makeAddition(randomInt) {
   const second = randomInt(1, 18) * 5;
   const result = makeDuration(first + second);
   return {
-    template: `${durationText(makeDuration(first))} + ${durationText(makeDuration(second))} = {0}時間 {1}分`,
+    prompt: `${durationText(makeDuration(first))} + ${durationText(makeDuration(second))} =`,
+    answerTemplate: "{0}時間 {1}分",
     answers: [result.hours, result.minutes],
   };
 }
@@ -24,7 +25,8 @@ function makeSubtraction(randomInt) {
   const total = makeDuration(answer + removed);
   const result = makeDuration(answer);
   return {
-    template: `${durationText(total)} - ${durationText(makeDuration(removed))} = {0}時間 {1}分`,
+    prompt: `${durationText(total)} - ${durationText(makeDuration(removed))} =`,
+    answerTemplate: "{0}時間 {1}分",
     answers: [result.hours, result.minutes],
   };
 }
@@ -33,14 +35,15 @@ function makeConversion(randomInt) {
   if (Math.random() < 0.5) {
     const minutes = randomInt(1, 9);
     const seconds = randomInt(1, 59);
-    return { template: `${minutes * 60 + seconds}秒 = {0}分 {1}秒`, answers: [minutes, seconds] };
+    return { prompt: `${minutes * 60 + seconds}秒 =`, answerTemplate: "{0}分 {1}秒", answers: [minutes, seconds] };
   }
   const minutes = randomInt(1, 12);
-  return { template: `${minutes}分 = {0}秒`, answers: [minutes * 60] };
+  return { prompt: `${minutes}分 =`, answerTemplate: "{0}秒", answers: [minutes * 60] };
 }
 
 window.WORKSHEET_APP = {
   id: "time-print-grade3",
+  stateVersion: 2,
   title: "3年生 時刻と時間",
   defaultType: "mixed",
   defaultCount: 24,
