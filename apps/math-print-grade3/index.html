@@ -13,7 +13,7 @@
       <div class="row-fields"><label class="field"><span>名前</span><input id="studentName" type="text" autocomplete="off"></label><label class="field"><span>日付</span><input id="worksheetDate" type="text" autocomplete="off" placeholder="5 / 4"></label></div>
       <label class="field"><span>プリント名</span><input id="worksheetTitle" type="text" autocomplete="off" value="3年生 計算プリント"></label>
       <div class="settings-grid">
-        <label class="field"><span>学習内容</span><select id="problemType"><option value="add3" selected>3けた＋3けた</option><option value="sub3">3けた－3けた</option><option value="mix3">3けた 計算ミックス</option><option value="add4">4けた＋4けた</option><option value="sub4">4けた－4けた</option><option value="mixLarge">3・4けたミックス</option></select></label>
+        <label class="field"><span>学習内容</span><select id="problemType"><option value="add3" selected>3けた＋3けた</option><option value="sub3">3けた－3けた</option><option value="mix3">3けた 計算ミックス</option><option value="add4">4けた＋4けた</option><option value="sub4">4けた－4けた</option><option value="mixLarge">3・4けたミックス</option><option value="decimalAdd">小数のたし算</option><option value="decimalSub">小数のひき算</option><option value="decimalMix">小数計算ミックス</option></select></label>
         <label class="field"><span>表示</span><select id="layoutMode"><option value="horizontal" selected>横式</option><option value="vertical">筆算</option></select></label>
         <label class="field"><span>問題数</span><span class="combo-input"><input id="problemCount" type="number" min="1" max="60" step="1" value="30" inputmode="numeric"><select id="problemCountPreset" aria-label="問題数の候補"><option value="">候補</option><option value="20">20問</option><option value="30">30問</option><option value="40">40問</option><option value="60">60問</option></select></span></label>
         <label class="field"><span>列数</span><input id="columns" type="number" min="1" max="6" step="1" value="3" inputmode="numeric"></label>
@@ -43,7 +43,7 @@
       <ol class="problem-grid" data-problems></ol>
     </section>
   </template>
-  <script src="app.js?v=answer-line-none"></script>
+  <script src="app.js?v=grade3-decimal"></script>
   <script src="../shared/print-adjustments.js?v=answer-line-none"></script>
 </body>
 </html>

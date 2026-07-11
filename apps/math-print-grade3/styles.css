@@ -430,6 +430,17 @@ button:hover {
   background: #ffffff;
 }
 
+.digit-cell.decimal-cell {
+  border-color: transparent;
+  background: transparent;
+  align-items: end;
+  padding-bottom: 0.8mm;
+}
+
+.decimal-cell .digit-value {
+  font-weight: 700;
+}
+
 .helper-box {
   position: absolute;
   top: 0;

@@ -18,14 +18,14 @@ const els = {
   status: document.querySelector("#status"),
 };
 
-const stateStorageKey = "math-print-grade3-state-v1";
+const stateStorageKey = "math-print-grade3-state-v2";
 const problemCountMin = 1;
 const horizontalProblemCountMax = 60;
 const verticalProblemCountMax = 30;
 const verticalDigitWidth = 5;
 const columnsMin = 1;
 const columnsMax = 6;
-const problemTypes = ["add3", "sub3", "mix3", "add4", "sub4", "mixLarge"];
+const problemTypes = ["add3", "sub3", "mix3", "add4", "sub4", "mixLarge", "decimalAdd", "decimalSub", "decimalMix"];
 let statusTimer;
 let problems = [];
 let sheetProblemSets = [];
@@ -157,6 +157,26 @@ function makeSubtractionProblem(digits) {
   return { a, b, op: "-", answer: a - b };
 }
 
+function formatTenths(value) {
+  return (value / 10).toFixed(1);
+}
+
+function makeDecimalProblem(op) {
+  let a = rand(1, 999);
+  let b = rand(1, 999);
+  if (op === "-" && b > a) {
+    [a, b] = [b, a];
+  }
+  const answer = op === "+" ? a + b : a - b;
+  return {
+    a: formatTenths(a),
+    b: formatTenths(b),
+    op,
+    answer: formatTenths(answer),
+    decimalPlaces: 1,
+  };
+}
+
 function makeProblem(settings) {
   switch (settings.type) {
     case "sub3":
@@ -176,6 +196,12 @@ function makeProblem(settings) {
       ][rand(0, 3)];
       return maker();
     }
+    case "decimalAdd":
+      return makeDecimalProblem("+");
+    case "decimalSub":
+      return makeDecimalProblem("-");
+    case "decimalMix":
+      return makeDecimalProblem(Math.random() < 0.5 ? "+" : "-");
     case "add3":
     default:
       return makeAdditionProblem(3);
@@ -250,6 +276,14 @@ function formatDigits(value, width) {
   return String(value).padStart(width, " ").slice(-width).split("");
 }
 
+function formatBlankDigits(width, decimalPlaces = 0) {
+  const digits = Array(width).fill(" ");
+  if (decimalPlaces > 0) {
+    digits[width - decimalPlaces - 1] = ".";
+  }
+  return digits;
+}
+
 function operatorShift(digits) {
   const firstDigitIndex = digits.findIndex((digit) => digit !== " ");
   if (firstDigitIndex <= 0) {
@@ -261,12 +295,15 @@ function operatorShift(digits) {
 function makeDigitCell(digit, showCarryBoxes, isBlank = false) {
   const cell = document.createElement("span");
   cell.className = "digit-cell";
-  if (showCarryBoxes) {
+  if (digit === ".") {
+    cell.classList.add("decimal-cell");
+  }
+  if (showCarryBoxes && digit !== ".") {
     const helper = document.createElement("span");
     helper.className = "helper-box";
     cell.append(helper);
   }
-  if (!isBlank && digit !== " ") {
+  if ((!isBlank || digit === ".") && digit !== " ") {
     const value = document.createElement("span");
     value.className = "digit-value";
     value.textContent = digit;
@@ -307,7 +344,7 @@ function makeVerticalFormula(problem, showAnswer, settings) {
   if (showAnswer) {
     formula.append(makeDigitRow(formatDigits(problem.answer, width), "", settings.showCarryBoxes));
   } else {
-    formula.append(makeDigitRow(formatDigits("", width), "", settings.showCarryBoxes, true));
+    formula.append(makeDigitRow(formatBlankDigits(width, problem.decimalPlaces), "", settings.showCarryBoxes, true));
   }
 
   return formula;
