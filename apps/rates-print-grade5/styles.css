@@ -1,7 +1,23 @@
 @import url("../shared/practice-worksheet.css?v=unit-alignment");
 
+.problem-grid {
+  grid-auto-rows: 1fr;
+  align-items: stretch;
+}
+
+.problem,
+.practice-card,
+.practice-formula {
+  height: 100%;
+}
+
+.practice-card {
+  align-self: stretch;
+}
+
 .has-stacked-answer {
   display: grid;
+  grid-template-rows: auto minmax(8mm, 1fr);
   align-content: start;
   gap: 0;
   width: 100%;
@@ -9,11 +25,14 @@
 
 .problem-prompt {
   display: block;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 .problem-answer-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  align-self: end;
   align-items: end;
   gap: 2mm;
   width: 100%;
