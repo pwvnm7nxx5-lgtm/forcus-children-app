@@ -215,5 +215,17 @@
     status: "ready",
     accent: "#c2410c",
   },
+  {
+    id: "decimal-print-grade5",
+    title: "5年生 小数のかけ算・わり算",
+    description: "小数×小数と、割り切れる小数÷小数のプリントを作成できます。",
+    category: "教材",
+    grades: ["5"],
+    tags: ["算数", "5年生", "小数", "かけ算", "わり算", "印刷"],
+    href: "apps/decimal-print-grade5/index.html",
+    actionLabel: "小数計算を練習する",
+    status: "ready",
+    accent: "#2563eb",
+  },
 ];
 
