@@ -239,5 +239,17 @@
     status: "ready",
     accent: "#7c3aed",
   },
+  {
+    id: "rates-print-grade5",
+    title: "5年生 割合・平均・速さ",
+    description: "平均、単位量あたり、割合・百分率、速さの計算プリントを作成できます。",
+    category: "教材",
+    grades: ["5"],
+    tags: ["算数", "5年生", "割合", "平均", "速さ", "百分率", "印刷"],
+    href: "apps/rates-print-grade5/index.html",
+    actionLabel: "割合・平均・速さを練習する",
+    status: "ready",
+    accent: "#0284c7",
+  },
 ];
 
