@@ -1,0 +1,30 @@
+@import url("../shared/practice-worksheet.css?v=unit-alignment");
+
+.has-stacked-answer {
+  display: grid;
+  align-content: start;
+  gap: 0;
+  width: 100%;
+}
+
+.problem-prompt {
+  display: block;
+}
+
+.problem-answer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 2mm;
+  width: 100%;
+  min-height: 8mm;
+}
+
+.problem-answer-row .answer-space {
+  width: 100%;
+  min-width: 0;
+}
+
+.problem-answer-row .answer-value {
+  justify-self: end;
+}
