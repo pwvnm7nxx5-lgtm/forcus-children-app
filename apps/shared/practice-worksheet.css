@@ -1,0 +1,48 @@
+@import url("grade2-worksheet.css");
+
+:root {
+  --accent: #2563eb;
+  --answer-space: 15mm;
+}
+
+.practice-card {
+  min-height: 15mm;
+  gap: 0;
+}
+
+.practice-formula {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 1.2mm;
+  min-height: 10mm;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.answer-space {
+  display: inline-block;
+  min-width: var(--answer-space);
+  min-height: 8mm;
+  color: transparent;
+  vertical-align: baseline;
+}
+
+.answer-value {
+  display: inline;
+  min-width: 0;
+  color: var(--answer);
+  font-weight: 700;
+}
+
+.problem-note {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+@media print {
+  .practice-formula {
+    break-inside: avoid;
+  }
+}

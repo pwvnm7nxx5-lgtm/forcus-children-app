@@ -144,6 +144,18 @@
     accent: "#8b5cf6",
   },
   {
+    id: "time-print-grade3",
+    title: "3年生 時刻と時間",
+    description: "時間のたし算・ひき算と、分・秒の単位変換プリントを自動作成できます。",
+    category: "教材",
+    grades: ["3"],
+    tags: ["算数", "3年生", "時刻", "時間", "秒", "計算", "印刷"],
+    href: "apps/time-print-grade3/index.html",
+    actionLabel: "時刻と時間を練習する",
+    status: "ready",
+    accent: "#2563eb",
+  },
+  {
     id: "division-print-grade3",
     title: "3年生 わり算プリント",
     description: "3年生向けのわり算プリントを作成できます。複数枚では別々の問題を生成します。",
