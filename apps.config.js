@@ -263,5 +263,17 @@
     status: "ready",
     accent: "#7c3aed",
   },
+  {
+    id: "area-volume-print-grade6",
+    title: "6年生 面積・体積計算",
+    description: "円の面積と、角柱・円柱の体積を計算するプリントを作成できます。",
+    category: "教材",
+    grades: ["6"],
+    tags: ["算数", "6年生", "円", "面積", "角柱", "円柱", "体積", "印刷"],
+    href: "apps/area-volume-print-grade6/index.html",
+    actionLabel: "面積・体積を練習する",
+    status: "ready",
+    accent: "#c2410c",
+  },
 ];
 
