@@ -430,16 +430,15 @@ button:hover {
   background: #ffffff;
 }
 
-.digit-cell.has-decimal-after::after {
-  content: "";
-  position: absolute;
-  right: 0.35mm;
-  bottom: 0.35mm;
-  z-index: 3;
-  width: 1mm;
-  height: 1mm;
-  border-radius: 50%;
-  background: #425466;
+.digit-cell.decimal-cell {
+  align-items: end;
+  padding-bottom: 0.65mm;
+  background: #ffffff;
+}
+
+.decimal-cell .digit-value {
+  font-weight: 700;
+  line-height: 1;
 }
 
 .helper-box {
@@ -468,9 +467,6 @@ button:hover {
   color: var(--answer);
 }
 
-.answer-page .digit-cell.has-decimal-after::after {
-  background: var(--answer);
-}
 
 @media (max-width: 980px) {
   .app-shell {
