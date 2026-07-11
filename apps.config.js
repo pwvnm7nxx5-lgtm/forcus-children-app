@@ -203,5 +203,17 @@
     status: "ready",
     accent: "#0f766e",
   },
+  {
+    id: "rounding-print-grade4",
+    title: "4年生 概数・四捨五入",
+    description: "四捨五入と、概数を使った計算の見積もりプリントを作成できます。",
+    category: "教材",
+    grades: ["4"],
+    tags: ["算数", "4年生", "概数", "四捨五入", "見積もり", "印刷"],
+    href: "apps/rounding-print-grade4/index.html",
+    actionLabel: "概数を練習する",
+    status: "ready",
+    accent: "#c2410c",
+  },
 ];
 
