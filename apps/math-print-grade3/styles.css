@@ -430,15 +430,17 @@ button:hover {
   background: #ffffff;
 }
 
-.digit-cell.decimal-cell {
-  align-items: end;
-  padding-bottom: 0.65mm;
-  background: #ffffff;
-}
-
-.decimal-cell .digit-value {
-  font-weight: 700;
-  line-height: 1;
+.decimal-mark {
+  position: absolute;
+  right: 0.8mm;
+  bottom: 0.7mm;
+  z-index: 3;
+  width: 1.1mm;
+  height: 1.1mm;
+  border-radius: 50%;
+  background: #425466;
+  color: transparent;
+  font-size: 0;
 }
 
 .helper-box {
@@ -465,6 +467,10 @@ button:hover {
 
 .answer-page .digit-value {
   color: var(--answer);
+}
+
+.answer-page .decimal-mark {
+  background: var(--answer);
 }
 
 

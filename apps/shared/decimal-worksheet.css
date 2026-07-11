@@ -72,15 +72,17 @@
   background: #fff;
 }
 
-.digit-cell.decimal-cell {
-  align-items: end;
-  padding-bottom: .65mm;
-  background: #fff;
-}
-
-.decimal-cell .digit-value {
-  font-weight: 700;
-  line-height: 1;
+.decimal-mark {
+  position: absolute;
+  right: .8mm;
+  bottom: .7mm;
+  z-index: 3;
+  width: 1.1mm;
+  height: 1.1mm;
+  border-radius: 50%;
+  background: #425466;
+  color: transparent;
+  font-size: 0;
 }
 
 .helper-box {
@@ -108,4 +110,8 @@
 .answer-page .digit-value,
 .answer-page .horizontal-answer-value {
   color: var(--answer);
+}
+
+.answer-page .decimal-mark {
+  background: var(--answer);
 }
