@@ -1,5 +1,6 @@
 const els = {
   sourceText: document.querySelector("#sourceText"),
+  markGuideTextBtn: document.querySelector("#markGuideTextBtn"),
   addReadings: document.querySelector("#addReadings"),
   readingPanel: document.querySelector("#readingPanel"),
   readingText: document.querySelector("#readingText"),
@@ -174,8 +175,8 @@ function normalizeText(text, cols, rows) {
   let position = 0;
   let columnStart = 0;
 
-  function pushCell(char, practice = false) {
-    cells.push({ char, practice });
+  function pushCell(char, practice = false, guide = false) {
+    cells.push({ char, practice, guide });
     position += 1;
   }
 
@@ -204,7 +205,11 @@ function normalizeText(text, cols, rows) {
       return;
     }
 
-    const columnKanji = getUniqueKanji(cells.slice(columnStart, position).map((cell) => cell.char).join(""));
+    const columnKanji = getUniqueKanji(cells
+      .slice(columnStart, position)
+      .filter((cell) => !cell.guide)
+      .map((cell) => cell.char)
+      .join(""));
     const blanksToBottom = rows - remainder;
     const bottomBlanks = clampNumber(els.extraBlankCount.value, 0, rows - 1, 2);
     const practiceSlots = Math.max(0, blanksToBottom - bottomBlanks);
@@ -216,13 +221,13 @@ function normalizeText(text, cols, rows) {
     fillColumnWithBlanks(true);
   }
 
-  for (const char of Array.from(source)) {
+  for (const { char, guide } of parseMarkedCharacters(source)) {
     if (char === columnBreak) {
       fillColumnWithBlanks();
       continue;
     }
 
-    pushCell(char);
+    pushCell(char, false, guide);
     if (isSentenceEndChar(char)) {
       addPracticeToColumn();
     }
@@ -234,6 +239,32 @@ function normalizeText(text, cols, rows) {
     pages.push(cells.slice(i, i + perPage));
   }
   return pages;
+}
+
+function parseMarkedCharacters(source) {
+  const characters = [];
+  let index = 0;
+  let guide = false;
+
+  while (index < source.length) {
+    if (!guide && source.startsWith("[[", index) && source.indexOf("]]", index + 2) !== -1) {
+      guide = true;
+      index += 2;
+      continue;
+    }
+    if (guide && source.startsWith("]]", index)) {
+      guide = false;
+      index += 2;
+      continue;
+    }
+
+    const codePoint = source.codePointAt(index);
+    const char = String.fromCodePoint(codePoint);
+    characters.push({ char, guide });
+    index += char.length;
+  }
+
+  return characters;
 }
 
 function isKanji(char) {
@@ -395,7 +426,7 @@ function render() {
     });
 
     const grid = page.querySelector("[data-grid]");
-    const cells = Array.from({ length: cols * rows }, () => ({ char: "", practice: false, reading: "" }));
+    const cells = Array.from({ length: cols * rows }, () => ({ char: "", practice: false, guide: false, reading: "" }));
     chars.forEach((sourceCell, index) => {
       const col = Math.floor(index / rows);
       const row = index % rows;
@@ -410,7 +441,7 @@ function render() {
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
         const cell = cells[row * cols + col];
-        grid.append(createTextCell(cell.char));
+        grid.append(createTextCell(cell.char, cell.guide));
         grid.append(createRubyCell(cell.reading));
       }
     }
@@ -449,9 +480,10 @@ function roundMm(value) {
   return Math.round(value * 1000) / 1000;
 }
 
-function createTextCell(char) {
+function createTextCell(char, guide = false) {
   const cell = document.createElement("div");
   cell.className = "cell text-cell";
+  cell.classList.toggle("guide-cell", guide);
   if (punctuation.has(char)) {
     cell.classList.add("punctuation-mark");
   } else if (verticalLineMarks.has(char)) {
@@ -466,6 +498,20 @@ function createTextCell(char) {
     cell.append(span);
   }
   return cell;
+}
+
+function markSelectedTextAsGuide() {
+  const start = els.sourceText.selectionStart ?? els.sourceText.value.length;
+  const end = els.sourceText.selectionEnd ?? start;
+  const selected = els.sourceText.value.slice(start, end);
+  const marked = `[[${selected}]]`;
+
+  els.sourceText.setRangeText(marked, start, end, "end");
+  const selectionStart = start + 2;
+  const selectionEnd = selectionStart + selected.length;
+  els.sourceText.setSelectionRange(selectionStart, selectionEnd);
+  els.sourceText.focus();
+  render();
 }
 
 function createRubyCell(reading = "") {
@@ -845,6 +891,7 @@ function bindEvents() {
   });
 
   els.copyLinkBtn.addEventListener("click", copyShareUrl);
+  els.markGuideTextBtn.addEventListener("click", markSelectedTextAsGuide);
   els.extractReadingsBtn.addEventListener("click", extractReadingsFromText);
   els.addReadings.addEventListener("change", () => {
     if (els.addReadings.checked && !els.readingText.value.trim()) {
