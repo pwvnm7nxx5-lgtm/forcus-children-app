@@ -244,23 +244,28 @@ function normalizeText(text, cols, rows) {
 function parseMarkedCharacters(source) {
   const characters = [];
   let index = 0;
-  let guide = false;
+  let closingMarker = "";
 
   while (index < source.length) {
-    if (!guide && source.startsWith("[[", index) && source.indexOf("]]", index + 2) !== -1) {
-      guide = true;
+    if (!closingMarker && source[index] === "'" && source.indexOf("'", index + 1) !== -1) {
+      closingMarker = "'";
+      index += 1;
+      continue;
+    }
+    if (!closingMarker && source.startsWith("[[", index) && source.indexOf("]]", index + 2) !== -1) {
+      closingMarker = "]]";
       index += 2;
       continue;
     }
-    if (guide && source.startsWith("]]", index)) {
-      guide = false;
-      index += 2;
+    if (closingMarker && source.startsWith(closingMarker, index)) {
+      index += closingMarker.length;
+      closingMarker = "";
       continue;
     }
 
     const codePoint = source.codePointAt(index);
     const char = String.fromCodePoint(codePoint);
-    characters.push({ char, guide });
+    characters.push({ char, guide: Boolean(closingMarker) });
     index += char.length;
   }
 
@@ -504,10 +509,10 @@ function markSelectedTextAsGuide() {
   const start = els.sourceText.selectionStart ?? els.sourceText.value.length;
   const end = els.sourceText.selectionEnd ?? start;
   const selected = els.sourceText.value.slice(start, end);
-  const marked = `[[${selected}]]`;
+  const marked = `'${selected}'`;
 
   els.sourceText.setRangeText(marked, start, end, "end");
-  const selectionStart = start + 2;
+  const selectionStart = start + 1;
   const selectionEnd = selectionStart + selected.length;
   els.sourceText.setSelectionRange(selectionStart, selectionEnd);
   els.sourceText.focus();

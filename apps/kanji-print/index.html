@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>漢字なぞりプリント</title>
-  <link rel="stylesheet" href="styles.css?v=guide-text-markers">
+  <link rel="stylesheet" href="styles.css?v=simple-guide-markers">
 </head>
 <body>
   <div class="app-shell">
@@ -27,7 +27,7 @@
 早起きする。</textarea>
         </label>
         <div class="editor-toolbar" role="toolbar" aria-label="文章の文字設定">
-          <button id="markGuideTextBtn" class="editor-tool" type="button" title="選択した部分を濃い見本文字にする" aria-label="選択した部分を濃い見本文字にする"><strong aria-hidden="true">B</strong></button>
+          <button id="markGuideTextBtn" class="editor-tool" type="button" title="選択した部分を '...' で囲んで濃い見本文字にする" aria-label="選択した部分を濃い見本文字にする"><strong aria-hidden="true">B</strong></button>
         </div>
         <div class="check-row">
           <label><input id="stripSpaces" type="checkbox" checked> 空白を詰める</label>
@@ -206,6 +206,6 @@
     </section>
   </template>
 
-  <script src="app.js?v=guide-text-markers"></script>
+  <script src="app.js?v=simple-guide-markers"></script>
 </body>
 </html>
