@@ -200,6 +200,29 @@ textarea {
   resize: vertical;
 }
 
+.text-editor-field {
+  margin-bottom: 8px;
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  margin: 0 0 14px;
+}
+
+.editor-toolbar .editor-tool {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  min-height: 32px;
+  padding: 0;
+  border-color: #b9c5d0;
+  background: #ffffff;
+  color: var(--ink);
+  font-size: 17px;
+}
+
 #readingText {
   min-height: 112px;
 }
@@ -473,6 +496,15 @@ button:hover {
   transform: translate(-50%, -50%);
   opacity: var(--trace-weight-opacity);
   z-index: 2;
+}
+
+.guide-cell {
+  color: #1f2933;
+}
+
+.guide-cell .trace-char {
+  opacity: 1;
+  font-weight: 600;
 }
 
 .cell::before,

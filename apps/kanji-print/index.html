@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>漢字なぞりプリント</title>
-  <link rel="stylesheet" href="styles.css?v=stable-weight-modes">
+  <link rel="stylesheet" href="styles.css?v=guide-text-markers">
 </head>
 <body>
   <div class="app-shell">
@@ -19,13 +19,16 @@
 
       <section class="control-section">
         <h2>文章</h2>
-        <label class="field">
+        <label class="field text-editor-field">
           <span>文章</span>
           <textarea id="sourceText" rows="10" spellcheck="false">大陸を横断する。
 紙の中央、九州へたびに出る。
 じゅうにようを練習する。
 早起きする。</textarea>
         </label>
+        <div class="editor-toolbar" role="toolbar" aria-label="文章の文字設定">
+          <button id="markGuideTextBtn" class="editor-tool" type="button" title="選択した部分を濃い見本文字にする" aria-label="選択した部分を濃い見本文字にする"><strong aria-hidden="true">B</strong></button>
+        </div>
         <div class="check-row">
           <label><input id="stripSpaces" type="checkbox" checked> 空白を詰める</label>
           <label><input id="lineBreakColumn" type="checkbox" checked> 改行で次の列</label>
@@ -203,6 +206,6 @@
     </section>
   </template>
 
-  <script src="app.js?v=stable-weight-modes"></script>
+  <script src="app.js?v=guide-text-markers"></script>
 </body>
 </html>
