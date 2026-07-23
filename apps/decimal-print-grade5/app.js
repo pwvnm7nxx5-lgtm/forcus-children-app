@@ -29,7 +29,6 @@ function makeDivide(randomInt, formatScaled, vertical) {
         dividend: workDividend,
         quotient,
         divisorDigits: 2,
-        dividendDecimalAfterIndex: String(normalizedDividend).length - 1,
         quotientDecimalAfterIndex: String(quotient).length - 2,
       },
     };
