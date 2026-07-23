@@ -93,6 +93,13 @@
     const index = digits.findIndex((digit) => digit !== " ");
     return index > 0 ? Array(index).fill("var(--digit-size)").join(" + ") : "0mm";
   }
+  function widestDigitData(...rows) {
+    return rows.reduce((widest, row) => {
+      const widestIndex = widest.digits.findIndex((digit) => digit !== " ");
+      const rowIndex = row.digits.findIndex((digit) => digit !== " ");
+      return rowIndex < widestIndex ? row : widest;
+    });
+  }
   function makeCell(digit, carry, blank, hasDecimalAfter) {
     const cell = document.createElement("span"); cell.className = "digit-cell";
     if (carry) { const helper = document.createElement("span"); helper.className = "helper-box"; cell.append(helper); }
@@ -109,8 +116,9 @@
     const formula = document.createElement("span"); formula.className = "vertical-formula";
     const firstRow = formatDigitData(problem.a);
     const secondRow = formatDigitData(problem.b);
+    const operatorAnchor = widestDigitData(firstRow, secondRow);
     formula.append(makeRow(firstRow, "", settings.showCarryBoxes));
-    formula.append(makeRow(secondRow, problem.op, settings.showCarryBoxes, false, problem.op === "×" ? firstRow : secondRow));
+    formula.append(makeRow(secondRow, problem.op, settings.showCarryBoxes, false, operatorAnchor));
     const line = document.createElement("span"); line.className = "vertical-line"; formula.append(line);
     const blankAnswerPlaces = settings.showAnswerDecimalPoint ? problem.answerPlaces : 0;
     formula.append(showAnswer ? makeRow(formatDigitData(problem.answer), "", settings.showCarryBoxes) : makeRow(blankDigitData(blankAnswerPlaces), "", settings.showCarryBoxes, true));
