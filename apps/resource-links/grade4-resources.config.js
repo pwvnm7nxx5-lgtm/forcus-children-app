@@ -96,16 +96,4 @@ window.PRINT_RESOURCES = [
     unit: "図形・面積",
     tags: ["4年生", "図形", "面積", "角度", "直方体"],
   },
-  {
-    id: "jakka-kanji-grade4",
-    title: "小学4年生 漢字練習・テスト",
-    description: "4年生で習う漢字のなぞり、読み、書き取り、送り仮名、書き順を探せます。",
-    url: "https://www.jakka.jp/main/4.htm",
-    siteId: "jakka",
-    siteTitle: "JAKKA",
-    subject: "国語",
-    grades: ["4"],
-    unit: "漢字",
-    tags: ["4年生", "漢字", "なぞり", "書き取り", "書き順"],
-  },
 ];
