@@ -177,6 +177,12 @@
     decimal.style.gridColumn = String(column);
     board.append(decimal);
   }
+  function addBoardValue(board, value, row, startColumn, className) {
+    const [whole, fraction] = String(value).split(".");
+    const digits = `${whole}${fraction || ""}`.split("");
+    digits.forEach((digit, index) => addBoardDigit(board, digit, row, startColumn + index, className));
+    if (fraction !== undefined) addBoardDecimal(board, row, startColumn + whole.length - 1);
+  }
   function addAlignedBoardNumber(board, value, row, endIndex, divisorDigits, className) {
     const digits = String(value).split("");
     const startIndex = endIndex - digits.length + 1;
@@ -215,13 +221,17 @@
       for (let column = 1; column <= boardColumns; column += 1) addBoardCell(board, row, column);
     }
     addDivisionFrame(board, details.divisorDigits, boardColumns);
-    String(details.divisor).split("").forEach((digit, index) => addBoardDigit(board, digit, 2, index + 1, "given-digit"));
-    trace.dividendDigits.forEach((digit, index) => addBoardDigit(board, digit, 2, details.divisorDigits + index + 1, "given-digit"));
-    addBoardDecimal(board, 2, details.divisorDigits + details.dividendDecimalAfterIndex + 1);
+    if (showAnswer) {
+      addBoardValue(board, details.divisor, 2, 1, "given-digit");
+      addBoardValue(board, details.dividend, 2, details.divisorDigits + 1, "given-digit");
+    } else {
+      addBoardValue(board, problem.b, 2, 1, "given-digit");
+      addBoardValue(board, problem.a, 2, details.divisorDigits + 1, "given-digit");
+    }
 
     if (showAnswer) {
       trace.quotientDigits.forEach((digit, index) => addBoardDigit(board, digit, 1, details.divisorDigits + trace.quotientOffset + index + 1, "answer-digit"));
-      addBoardDecimal(board, 1, details.divisorDigits + trace.quotientOffset + details.quotientDecimalAfterIndex + 1, true);
+      if (details.quotientDecimalAfterIndex >= 0) addBoardDecimal(board, 1, details.divisorDigits + trace.quotientOffset + details.quotientDecimalAfterIndex + 1, true);
       trace.rows.slice(0, boardRows - 2).forEach((traceRow, index) => {
         const row = index + 3;
         addAlignedBoardNumber(board, traceRow.value, row, traceRow.endIndex, details.divisorDigits, "answer-digit");
@@ -233,7 +243,7 @@
           board.append(line);
         }
       });
-    } else if (settings.showAnswerDecimalPoint) {
+    } else if (settings.showAnswerDecimalPoint && details.quotientDecimalAfterIndex >= 0) {
       addBoardDecimal(board, 1, details.divisorDigits + trace.quotientOffset + details.quotientDecimalAfterIndex + 1);
     }
     wrapper.append(board);
