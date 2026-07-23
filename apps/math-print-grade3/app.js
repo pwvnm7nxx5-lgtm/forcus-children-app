@@ -297,6 +297,14 @@ function operatorShift(digits) {
   return Array.from({ length: firstDigitIndex }, () => "var(--digit-size)").join(" + ");
 }
 
+function widestDigitData(...rows) {
+  return rows.reduce((widest, row) => {
+    const widestIndex = widest.digits.findIndex((digit) => digit !== " ");
+    const rowIndex = row.digits.findIndex((digit) => digit !== " ");
+    return rowIndex < widestIndex ? row : widest;
+  });
+}
+
 function makeDigitCell(digit, showCarryBoxes, isBlank = false, hasDecimalAfter = false) {
   const cell = document.createElement("span");
   cell.className = "digit-cell";
@@ -320,10 +328,10 @@ function makeDigitCell(digit, showCarryBoxes, isBlank = false, hasDecimalAfter =
   return cell;
 }
 
-function makeDigitRow(digitData, operator = "", showCarryBoxes = true, blank = false) {
+function makeDigitRow(digitData, operator = "", showCarryBoxes = true, blank = false, operatorAnchorData = digitData) {
   const row = document.createElement("span");
   row.className = "digit-row";
-  row.style.setProperty("--operator-shift", operatorShift(digitData.digits));
+  row.style.setProperty("--operator-shift", operatorShift(operatorAnchorData.digits));
 
   const op = document.createElement("span");
   op.className = "operator";
@@ -342,8 +350,11 @@ function makeVerticalFormula(problem, showAnswer, settings) {
   formula.className = "vertical-formula";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
   const width = verticalDigitWidth;
-  formula.append(makeDigitRow(formatDigitData(problem.a, width), "", settings.showCarryBoxes));
-  formula.append(makeDigitRow(formatDigitData(problem.b, width), problem.op, settings.showCarryBoxes));
+  const firstRow = formatDigitData(problem.a, width);
+  const secondRow = formatDigitData(problem.b, width);
+  const operatorAnchor = widestDigitData(firstRow, secondRow);
+  formula.append(makeDigitRow(firstRow, "", settings.showCarryBoxes));
+  formula.append(makeDigitRow(secondRow, problem.op, settings.showCarryBoxes, false, operatorAnchor));
 
   const line = document.createElement("span");
   line.className = "vertical-line";
