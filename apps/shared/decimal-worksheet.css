@@ -116,3 +116,99 @@
 .answer-page .decimal-mark {
   background: var(--answer);
 }
+
+.has-decimal-division .problem-card {
+  gap: 1mm;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.decimal-division-wrapper {
+  display: grid;
+  justify-self: start;
+  gap: 0.8mm;
+}
+
+.decimal-division-source {
+  color: #425466;
+  font-size: calc(var(--division-cell-size, 6mm) * 0.52);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.decimal-long-division-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--division-board-columns), var(--division-cell-size));
+  grid-template-rows: repeat(var(--division-board-rows), var(--division-cell-size));
+  width: calc(var(--division-board-columns) * var(--division-cell-size));
+  height: calc(var(--division-board-rows) * var(--division-cell-size));
+  border-top: 1px solid #bcc8d4;
+  border-left: 1px solid #bcc8d4;
+  background: #ffffff;
+}
+
+.division-board-cell {
+  z-index: 0;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid #bcc8d4;
+  border-bottom: 1px solid #bcc8d4;
+}
+
+.division-board-digit {
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  color: #425466;
+  font-size: calc(var(--division-cell-size) * 0.58);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.division-board-decimal {
+  z-index: 5;
+  place-self: end;
+  width: calc(var(--division-cell-size) * 0.16);
+  height: calc(var(--division-cell-size) * 0.16);
+  border-radius: 50%;
+  background: #425466;
+  transform: translate(50%, 50%);
+}
+
+.decimal-division-frame {
+  position: absolute;
+  z-index: 4;
+  top: var(--division-cell-size);
+  left: 0;
+  width: calc(var(--division-board-columns) * var(--division-cell-size));
+  height: var(--division-cell-size);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.decimal-division-frame path {
+  fill: none;
+  stroke: #425466;
+  stroke-width: 1.8px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.division-work-line {
+  z-index: 4;
+  align-self: end;
+  height: 0;
+  border-bottom: 1.8px solid #425466;
+  pointer-events: none;
+}
+
+.answer-page .division-board-digit.answer-digit {
+  color: var(--answer);
+}
+
+.answer-page .division-board-decimal.answer-point {
+  background: var(--answer);
+}

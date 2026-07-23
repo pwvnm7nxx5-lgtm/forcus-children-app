@@ -31,13 +31,25 @@
   function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   function choice(values) { return values[randomInt(0, values.length - 1)]; }
   function formatScaled(value, places) { return (value / (10 ** places)).toFixed(places); }
+  function getProblemCountMax(type, layout) {
+    const longDivisionTypes = app.verticalLongDivisionTypes || [];
+    if (layout === "vertical" && longDivisionTypes.includes(type)) return app.longDivisionCountMax || 18;
+    return app.countMax || 60;
+  }
+  function getColumnsMax(type, layout) {
+    const longDivisionTypes = app.verticalLongDivisionTypes || [];
+    if (layout === "vertical" && longDivisionTypes.includes(type)) return app.longDivisionColumnsMax || 3;
+    return 6;
+  }
   function getSettings() {
+    const type = clampChoice(els.problemType.value, types, app.defaultType || types[0]);
+    const layout = clampChoice(els.layoutMode.value, ["horizontal", "vertical"], "horizontal");
     return {
       name: els.studentName.value, date: els.worksheetDate.value, title: els.worksheetTitle.value || app.title,
-      type: clampChoice(els.problemType.value, types, app.defaultType || types[0]),
-      layout: clampChoice(els.layoutMode.value, ["horizontal", "vertical"], "horizontal"),
-      count: clampNumber(els.problemCount.value, 1, app.countMax || 60, app.defaultCount || 24),
-      columns: clampNumber(els.columns.value, 1, 6, app.defaultColumns || 3),
+      type,
+      layout,
+      count: clampNumber(els.problemCount.value, 1, getProblemCountMax(type, layout), app.defaultCount || 24),
+      columns: clampNumber(els.columns.value, 1, getColumnsMax(type, layout), app.defaultColumns || 3),
       showCarryBoxes: els.showCarryBoxes.checked,
       showAnswerDecimalPoint: els.showAnswerDecimalPoint?.checked !== false,
     };
@@ -50,6 +62,12 @@
     if (!allowed && els.layoutMode.value === "vertical") els.layoutMode.value = "horizontal";
     els.showCarryBoxes.disabled = els.layoutMode.value !== "vertical";
     if (els.showAnswerDecimalPoint) els.showAnswerDecimalPoint.disabled = els.layoutMode.value !== "vertical";
+    const max = getProblemCountMax(els.problemType.value, els.layoutMode.value);
+    els.problemCount.max = String(max);
+    if (Number(els.problemCount.value) > max) els.problemCount.value = String(max);
+    const columnsMax = getColumnsMax(els.problemType.value, els.layoutMode.value);
+    els.columns.max = String(columnsMax);
+    if (Number(els.columns.value) > columnsMax) els.columns.value = String(columnsMax);
   }
   function applySettings(settings) {
     if (!settings) return;
@@ -57,8 +75,8 @@
     els.worksheetTitle.value = settings.title || app.title;
     els.problemType.value = clampChoice(settings.type, types, app.defaultType || types[0]);
     els.layoutMode.value = clampChoice(settings.layout, ["horizontal", "vertical"], "horizontal");
-    els.problemCount.value = String(clampNumber(settings.count, 1, app.countMax || 60, app.defaultCount || 24));
-    els.columns.value = String(clampNumber(settings.columns, 1, 6, app.defaultColumns || 3));
+    els.problemCount.value = String(clampNumber(settings.count, 1, getProblemCountMax(els.problemType.value, els.layoutMode.value), app.defaultCount || 24));
+    els.columns.value = String(clampNumber(settings.columns, 1, getColumnsMax(els.problemType.value, els.layoutMode.value), app.defaultColumns || 3));
     els.showCarryBoxes.checked = settings.showCarryBoxes !== false;
     if (els.showAnswerDecimalPoint) els.showAnswerDecimalPoint.checked = settings.showAnswerDecimalPoint !== false;
     updateLayoutAvailability();
@@ -112,7 +130,116 @@
     const op = document.createElement("span"); op.className = "operator"; op.textContent = operator; row.append(op);
     digitData.digits.forEach((digit, index) => row.append(makeCell(digit, carry, blank, index === digitData.decimalAfterIndex))); return row;
   }
+  function buildDivisionTrace(dividend, divisor) {
+    const dividendDigits = String(dividend).split("").map(Number);
+    const quotient = Math.floor(dividend / divisor);
+    const quotientDigits = String(quotient).split("").map(Number);
+    const quotientOffset = dividendDigits.length - quotientDigits.length;
+    const rows = [];
+    let remainder = 0;
+    let started = false;
+
+    dividendDigits.forEach((digit, index) => {
+      const current = remainder * 10 + digit;
+      const quotientDigit = Math.floor(current / divisor);
+      if (!started && quotientDigit === 0) {
+        remainder = current;
+        return;
+      }
+      started = true;
+      const product = quotientDigit * divisor;
+      rows.push({ value: product, endIndex: index, lineAfter: true });
+      remainder = current - product;
+      rows.push({ value: index < dividendDigits.length - 1 ? remainder * 10 + dividendDigits[index + 1] : remainder, endIndex: index < dividendDigits.length - 1 ? index + 1 : index });
+    });
+    return { dividendDigits, quotientDigits, quotientOffset, rows };
+  }
+  function addBoardCell(board, row, column) {
+    const cell = document.createElement("span");
+    cell.className = "division-board-cell";
+    cell.style.gridRow = String(row);
+    cell.style.gridColumn = String(column);
+    board.append(cell);
+  }
+  function addBoardDigit(board, value, row, column, className = "") {
+    const digit = document.createElement("span");
+    digit.className = `division-board-digit ${className}`.trim();
+    digit.textContent = String(value);
+    digit.style.gridRow = String(row);
+    digit.style.gridColumn = String(column);
+    board.append(digit);
+  }
+  function addBoardDecimal(board, row, column, answer = false) {
+    const decimal = document.createElement("span");
+    decimal.className = `division-board-decimal${answer ? " answer-point" : ""}`;
+    decimal.style.gridRow = String(row);
+    decimal.style.gridColumn = String(column);
+    board.append(decimal);
+  }
+  function addAlignedBoardNumber(board, value, row, endIndex, divisorDigits, className) {
+    const digits = String(value).split("");
+    const startIndex = endIndex - digits.length + 1;
+    digits.forEach((digit, index) => addBoardDigit(board, digit, row, divisorDigits + startIndex + index + 1, className));
+  }
+  function addDivisionFrame(board, divisorDigits, boardColumns) {
+    const frame = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    frame.classList.add("decimal-division-frame");
+    frame.setAttribute("viewBox", `0 0 ${boardColumns * 100} 100`);
+    frame.setAttribute("preserveAspectRatio", "none");
+    frame.setAttribute("aria-hidden", "true");
+    const boundary = divisorDigits * 100;
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", `M ${boardColumns * 100} 1 H ${boundary - 24} C ${boundary - 4} 13, ${boundary - 4} 87, ${boundary - 24} 99`);
+    path.setAttribute("vector-effect", "non-scaling-stroke");
+    frame.append(path);
+    board.append(frame);
+  }
+  function makeLongDivision(problem, showAnswer, settings) {
+    const details = problem.longDivision;
+    const trace = buildDivisionTrace(details.dividend, details.divisor);
+    const boardRows = 7;
+    const boardColumns = 6;
+    const wrapper = document.createElement("span");
+    wrapper.className = "decimal-division-wrapper";
+    const source = document.createElement("span");
+    source.className = "decimal-division-source";
+    source.textContent = `${problem.a} ${problem.op} ${problem.b}`;
+    wrapper.append(source);
+
+    const board = document.createElement("span");
+    board.className = "decimal-long-division-board";
+    board.style.setProperty("--division-board-rows", String(boardRows));
+    board.style.setProperty("--division-board-columns", String(boardColumns));
+    for (let row = 1; row <= boardRows; row += 1) {
+      for (let column = 1; column <= boardColumns; column += 1) addBoardCell(board, row, column);
+    }
+    addDivisionFrame(board, details.divisorDigits, boardColumns);
+    String(details.divisor).split("").forEach((digit, index) => addBoardDigit(board, digit, 2, index + 1, "given-digit"));
+    trace.dividendDigits.forEach((digit, index) => addBoardDigit(board, digit, 2, details.divisorDigits + index + 1, "given-digit"));
+    addBoardDecimal(board, 2, details.divisorDigits + details.dividendDecimalAfterIndex + 1);
+
+    if (showAnswer) {
+      trace.quotientDigits.forEach((digit, index) => addBoardDigit(board, digit, 1, details.divisorDigits + trace.quotientOffset + index + 1, "answer-digit"));
+      addBoardDecimal(board, 1, details.divisorDigits + trace.quotientOffset + details.quotientDecimalAfterIndex + 1, true);
+      trace.rows.slice(0, boardRows - 2).forEach((traceRow, index) => {
+        const row = index + 3;
+        addAlignedBoardNumber(board, traceRow.value, row, traceRow.endIndex, details.divisorDigits, "answer-digit");
+        if (traceRow.lineAfter) {
+          const line = document.createElement("span");
+          line.className = "division-work-line";
+          line.style.gridRow = String(row);
+          line.style.gridColumn = `${details.divisorDigits + 1} / ${boardColumns + 1}`;
+          board.append(line);
+        }
+      });
+    } else if (settings.showAnswerDecimalPoint) {
+      addBoardDecimal(board, 1, details.divisorDigits + trace.quotientOffset + details.quotientDecimalAfterIndex + 1);
+    }
+    wrapper.append(board);
+    return wrapper;
+  }
   function makeVertical(problem, showAnswer, settings) {
+    if (problem.longDivision) return makeLongDivision(problem, showAnswer, settings);
     const formula = document.createElement("span"); formula.className = "vertical-formula";
     const firstRow = formatDigitData(problem.a);
     const secondRow = formatDigitData(problem.b);
@@ -130,9 +257,16 @@
     const answer = document.createElement("span"); answer.className = showAnswer ? "horizontal-answer-value answer-value" : "horizontal-answer-space";
     answer.textContent = showAnswer ? problem.answer : "□"; formula.append(answer); return formula;
   }
-  function applyDensity(list, settings) {
+  function applyDensity(list, settings, hasLongDivision) {
     const rows = Math.ceil(settings.count / settings.columns); let rowGap = 5; let min = settings.layout === "vertical" ? 38 : 22; let font = 20;
-    if (rows > 12) { rowGap = 2; min = settings.layout === "vertical" ? 27 : 14; font = 15; }
+    if (hasLongDivision) {
+      rowGap = rows > 4 ? 2.5 : 4;
+      const availableHeight = 239 - Math.max(0, rows - 1) * rowGap;
+      const cell = Math.max(3.8, Math.min(7, (availableHeight / rows - 4) / 7));
+      min = cell * 7 + 4;
+      list.style.setProperty("--division-cell-size", `${cell.toFixed(2)}mm`);
+      list.classList.add("has-decimal-division");
+    } else if (rows > 12) { rowGap = 2; min = settings.layout === "vertical" ? 27 : 14; font = 15; }
     else if (rows > 8) { rowGap = 3; min = settings.layout === "vertical" ? 32 : 18; font = 17; }
     list.style.setProperty("--row-gap", `${rowGap}mm`); list.style.setProperty("--problem-min", `${min}mm`); list.style.setProperty("--problem-font", `${font}px`);
   }
@@ -141,7 +275,7 @@
     page.classList.toggle("answer-page", showAnswer); page.classList.toggle("vertical-layout", settings.layout === "vertical");
     page.querySelector("[data-name]").textContent = settings.name; page.querySelector("[data-date]").textContent = settings.date; page.querySelector("[data-title]").textContent = settings.title;
     const label = page.querySelector("[data-kind]"); label.textContent = kind; label.classList.toggle("answer", showAnswer);
-    const list = page.querySelector("[data-problems]"); list.style.setProperty("--cols", settings.columns); applyDensity(list, settings);
+    const list = page.querySelector("[data-problems]"); list.style.setProperty("--cols", settings.columns); applyDensity(list, settings, set.some((problem) => problem.longDivision));
     set.forEach((problem) => { const item = document.createElement("li"); item.className = "problem"; const card = document.createElement("span"); card.className = "problem-card"; card.append(settings.layout === "vertical" ? makeVertical(problem, showAnswer, settings) : makeHorizontal(problem, showAnswer)); item.append(card); list.append(item); });
     return page;
   }

@@ -12,7 +12,29 @@ function makeMultiply(randomInt, formatScaled, vertical) {
   };
 }
 
-function makeDivide(randomInt, formatScaled) {
+function makeDivide(randomInt, formatScaled, vertical) {
+  if (vertical) {
+    const divisor = randomInt(6, 49) * 2;
+    const quotient = randomInt(1, 9) * 10 + 5;
+    const normalizedDividend = (divisor * quotient) / 10;
+    const workDividend = normalizedDividend * 10;
+    return {
+      a: formatScaled(normalizedDividend, 1),
+      b: formatScaled(divisor, 1),
+      op: "÷",
+      answer: formatScaled(quotient, 1),
+      answerPlaces: 1,
+      longDivision: {
+        divisor,
+        dividend: workDividend,
+        quotient,
+        divisorDigits: 2,
+        dividendDecimalAfterIndex: String(normalizedDividend).length - 1,
+        quotientDecimalAfterIndex: String(quotient).length - 2,
+      },
+    };
+  }
+
   const divisorPlaces = 1;
   const quotientPlaces = randomInt(1, 2);
   const divisor = randomInt(2, 99);
@@ -29,9 +51,12 @@ function makeDivide(randomInt, formatScaled) {
 
 window.DECIMAL_WORKSHEET_APP = {
   id: "decimal-print-grade5", title: "5年生 小数のかけ算・わり算", defaultType: "mixed", defaultCount: 18, defaultColumns: 3, digitCount: 8,
-  verticalTypes: ["multiply", "mixed"], types: [{ value: "multiply" }, { value: "divide" }, { value: "mixed" }],
+  verticalTypes: ["multiply", "divide", "mixed"], verticalLongDivisionTypes: ["divide", "mixed"], longDivisionCountMax: 18, longDivisionColumnsMax: 3,
+  types: [{ value: "multiply" }, { value: "divide" }, { value: "mixed" }],
   generate(type, { randomInt, choice, formatScaled }, settings) {
-    const selected = type === "mixed" ? choice(settings.layout === "vertical" ? ["multiply"] : ["multiply", "divide"]) : type;
-    return selected === "multiply" ? makeMultiply(randomInt, formatScaled, settings.layout === "vertical") : makeDivide(randomInt, formatScaled);
+    const selected = type === "mixed" ? choice(settings.layout === "vertical" ? ["multiply", "divide"] : ["multiply", "divide"]) : type;
+    return selected === "multiply"
+      ? makeMultiply(randomInt, formatScaled, settings.layout === "vertical")
+      : makeDivide(randomInt, formatScaled, settings.layout === "vertical");
   },
 };
