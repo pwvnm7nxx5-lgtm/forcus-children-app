@@ -74,16 +74,20 @@
 
 .decimal-mark {
   position: absolute;
-  right: -1px;
-  bottom: -1px;
-  z-index: 3;
-  width: 1.1mm;
-  height: 1.1mm;
-  border-radius: 50%;
-  background: #425466;
-  color: transparent;
-  font-size: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: grid;
+  width: 2.4mm;
+  height: 2.4mm;
+  place-items: center;
+  color: #425466;
+  font-family: Arial, sans-serif;
+  font-size: 2.5mm;
+  font-weight: 700;
+  line-height: 1;
   transform: translate(50%, 50%);
+  pointer-events: none;
 }
 
 .helper-box {
@@ -114,7 +118,7 @@
 }
 
 .answer-page .decimal-mark {
-  background: var(--answer);
+  color: var(--answer);
 }
 
 .has-decimal-division .problem-card {
@@ -169,13 +173,19 @@
 }
 
 .division-board-decimal {
-  z-index: 5;
+  z-index: 6;
+  display: grid;
   place-self: end;
-  width: calc(var(--division-cell-size) * 0.16);
-  height: calc(var(--division-cell-size) * 0.16);
-  border-radius: 50%;
-  background: #425466;
+  width: calc(var(--division-cell-size) * 0.46);
+  height: calc(var(--division-cell-size) * 0.46);
+  place-items: center;
+  color: #425466;
+  font-family: Arial, sans-serif;
+  font-size: calc(var(--division-cell-size) * 0.48);
+  font-weight: 700;
+  line-height: 1;
   transform: translate(50%, 50%);
+  pointer-events: none;
 }
 
 .decimal-division-frame {
@@ -210,5 +220,5 @@
 }
 
 .answer-page .division-board-decimal.answer-point {
-  background: var(--answer);
+  color: var(--answer);
 }
