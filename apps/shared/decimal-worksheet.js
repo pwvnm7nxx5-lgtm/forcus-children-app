@@ -78,16 +78,67 @@
     while (selected.length < settings.count) selected.push(makeProblem(settings));
     return selected;
   }
-  function formatDigitData(value) {
+  function formatDigitData(value, width = digitCount) {
     const [whole, fraction] = String(value).split(".");
-    const digits = `${whole}${fraction || ""}`.padStart(digitCount, " ").slice(-digitCount).split("");
-    return { digits, decimalAfterIndex: fraction === undefined ? -1 : digitCount - fraction.length - 1 };
+    const digits = `${whole}${fraction || ""}`.padStart(width, " ").slice(-width).split("");
+    return { digits, decimalAfterIndex: fraction === undefined ? -1 : width - fraction.length - 1 };
   }
-  function blankDigitData(decimalPlaces = 0) {
+  function blankDigitData(decimalPlaces = 0, width = digitCount) {
     return {
-      digits: Array(digitCount).fill(" "),
-      decimalAfterIndex: decimalPlaces > 0 ? digitCount - decimalPlaces - 1 : -1,
+      digits: Array(width).fill(" "),
+      decimalAfterIndex: decimalPlaces > 0 ? width - decimalPlaces - 1 : -1,
     };
+  }
+  function getDisplayDigitCount(problems) {
+    const lengths = problems.flatMap((problem) => [problem.a, problem.b, problem.answer]
+      .map((value) => String(value).replace(/\D/g, "").length));
+    return Math.max(app.minDigitCount || 4, ...lengths);
+  }
+  function getDivisionTrace(problem, width) {
+    const dividendDigits = String(problem.a).replace(/\D/g, "");
+    const divisor = Number.parseInt(String(problem.b).replace(/\D/g, ""), 10);
+    if (!dividendDigits || !Number.isFinite(divisor) || divisor <= 0) return [];
+
+    const startIndex = width - dividendDigits.length;
+    const steps = [];
+    let partial = 0;
+    let hasStarted = false;
+
+    Array.from(dividendDigits).forEach((digit, index) => {
+      partial = partial * 10 + Number.parseInt(digit, 10);
+      if (!hasStarted && partial < divisor) return;
+
+      hasStarted = true;
+      const product = Math.floor(partial / divisor) * divisor;
+      const remainder = partial - product;
+      steps.push({ partial, product, remainder, endIndex: startIndex + index });
+      partial = remainder;
+    });
+
+    const rows = [];
+    steps.forEach((step, index) => {
+      rows.push({ value: step.product, endIndex: step.endIndex, lineAfter: true });
+      const nextStep = steps[index + 1];
+      rows.push(nextStep
+        ? { value: nextStep.partial, endIndex: nextStep.endIndex, lineAfter: false }
+        : { value: step.remainder, endIndex: step.endIndex, lineAfter: false });
+    });
+    return rows;
+  }
+  function getDivisionWorkRowCount(problems, width) {
+    const counts = problems.filter((problem) => problem.op === "÷")
+      .map((problem) => getDivisionTrace(problem, width).length);
+    return Math.max(4, ...counts);
+  }
+  function formatAlignedIntegerData(value, width, endIndex) {
+    const digits = Array(width).fill(" ");
+    const valueDigits = Array.from(String(value));
+    const startIndex = Math.max(0, endIndex - valueDigits.length + 1);
+    valueDigits.forEach((digit, index) => {
+      const position = startIndex + index;
+      if (position >= 0 && position < width) digits[position] = digit;
+    });
+    return { digits, decimalAfterIndex: -1 };
   }
   function operatorShift(digits) {
     const index = digits.findIndex((digit) => digit !== " ");
@@ -100,20 +151,58 @@
     if (hasDecimalAfter) { const decimal = document.createElement("span"); decimal.className = "decimal-mark"; decimal.textContent = "."; cell.append(decimal); }
     return cell;
   }
+  function appendDigitCells(row, digitData, carry, blank = false) {
+    digitData.digits.forEach((digit, index) => row.append(makeCell(digit, carry, blank, index === digitData.decimalAfterIndex)));
+  }
   function makeRow(digitData, operator, carry, blank = false, operatorAnchorData = digitData) {
     const row = document.createElement("span"); row.className = "digit-row"; row.style.setProperty("--operator-shift", operatorShift(operatorAnchorData.digits));
     const op = document.createElement("span"); op.className = "operator"; op.textContent = operator; row.append(op);
-    digitData.digits.forEach((digit, index) => row.append(makeCell(digit, carry, blank, index === digitData.decimalAfterIndex))); return row;
+    appendDigitCells(row, digitData, carry, blank); return row;
+  }
+  function makeDivisionVertical(problem, showAnswer, settings) {
+    const formula = document.createElement("span"); formula.className = "vertical-formula division-formula";
+    const width = settings.displayDigitCount;
+    const trace = getDivisionTrace(problem, width);
+    const blankAnswerPlaces = settings.showAnswerDecimalPoint ? problem.answerPlaces : 0;
+    const quotientRow = showAnswer
+      ? makeRow(formatDigitData(problem.answer, width), "", false)
+      : makeRow(blankDigitData(blankAnswerPlaces, width), "", false, true);
+    quotientRow.classList.add("division-quotient-row");
+    formula.append(quotientRow);
+
+    const divisionRow = document.createElement("span"); divisionRow.className = "division-row";
+    const divisor = document.createElement("span"); divisor.className = "division-divisor"; divisor.textContent = problem.b;
+    const sign = document.createElement("span"); sign.className = "division-sign"; sign.textContent = ")";
+    const dividend = document.createElement("span"); dividend.className = "division-dividend";
+    appendDigitCells(dividend, formatDigitData(problem.a, width), false);
+    const bracket = document.createElement("span"); bracket.className = "division-bracket";
+    divisionRow.append(divisor, sign, dividend, bracket);
+    formula.append(divisionRow);
+
+    for (let index = 0; index < settings.divisionWorkRows; index += 1) {
+      const traceRow = showAnswer ? trace[index] : null;
+      const workRow = makeRow(
+        traceRow ? formatAlignedIntegerData(traceRow.value, width, traceRow.endIndex) : blankDigitData(0, width),
+        "",
+        false,
+        !traceRow,
+      );
+      workRow.classList.add("division-work-row");
+      if ((traceRow?.lineAfter ?? index % 2 === 0) && index + 1 < settings.divisionWorkRows) workRow.classList.add("division-work-row-lined");
+      formula.append(workRow);
+    }
+    return formula;
   }
   function makeVertical(problem, showAnswer, settings) {
+    if (problem.op === "÷") return makeDivisionVertical(problem, showAnswer, settings);
     const formula = document.createElement("span"); formula.className = "vertical-formula";
-    const firstRow = formatDigitData(problem.a);
-    const secondRow = formatDigitData(problem.b);
+    const firstRow = formatDigitData(problem.a, settings.displayDigitCount);
+    const secondRow = formatDigitData(problem.b, settings.displayDigitCount);
     formula.append(makeRow(firstRow, "", settings.showCarryBoxes));
     formula.append(makeRow(secondRow, problem.op, settings.showCarryBoxes, false, problem.op === "×" ? firstRow : secondRow));
     const line = document.createElement("span"); line.className = "vertical-line"; formula.append(line);
     const blankAnswerPlaces = settings.showAnswerDecimalPoint ? problem.answerPlaces : 0;
-    formula.append(showAnswer ? makeRow(formatDigitData(problem.answer), "", settings.showCarryBoxes) : makeRow(blankDigitData(blankAnswerPlaces), "", settings.showCarryBoxes, true));
+    formula.append(showAnswer ? makeRow(formatDigitData(problem.answer, settings.displayDigitCount), "", settings.showCarryBoxes) : makeRow(blankDigitData(blankAnswerPlaces, settings.displayDigitCount), "", settings.showCarryBoxes, true));
     return formula;
   }
   function makeHorizontal(problem, showAnswer) {
@@ -122,18 +211,25 @@
     const answer = document.createElement("span"); answer.className = showAnswer ? "horizontal-answer-value answer-value" : "horizontal-answer-space";
     answer.textContent = showAnswer ? problem.answer : "□"; formula.append(answer); return formula;
   }
-  function applyDensity(list, settings) {
+  function applyDensity(list, settings, problemsForPage) {
     const rows = Math.ceil(settings.count / settings.columns); let rowGap = 5; let min = settings.layout === "vertical" ? 38 : 22; let font = 20;
     if (rows > 12) { rowGap = 2; min = settings.layout === "vertical" ? 27 : 14; font = 15; }
     else if (rows > 8) { rowGap = 3; min = settings.layout === "vertical" ? 32 : 18; font = 17; }
+    const hasLongDivision = settings.layout === "vertical" && problemsForPage.some((problem) => problem.op === "÷");
+    if (hasLongDivision && rows > 5) { rowGap = 1.5; min = 33; font = 16; list.style.setProperty("--vertical-digit-size", "4.8mm"); }
+    else if (hasLongDivision && rows > 4) { rowGap = 2; min = 36; font = 17; list.style.setProperty("--vertical-digit-size", "5.6mm"); }
+    else if (hasLongDivision) list.style.setProperty("--vertical-digit-size", "6.5mm");
     list.style.setProperty("--row-gap", `${rowGap}mm`); list.style.setProperty("--problem-min", `${min}mm`); list.style.setProperty("--problem-font", `${font}px`);
   }
   function renderPage(kind, showAnswer, set) {
-    const settings = getSettings(); const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
+    const displayDigitCount = getDisplayDigitCount(set);
+    const settings = { ...getSettings(), displayDigitCount, divisionWorkRows: getDivisionWorkRowCount(set, displayDigitCount) };
+    const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
+    page.style.setProperty("--digit-count", String(settings.displayDigitCount));
     page.classList.toggle("answer-page", showAnswer); page.classList.toggle("vertical-layout", settings.layout === "vertical");
     page.querySelector("[data-name]").textContent = settings.name; page.querySelector("[data-date]").textContent = settings.date; page.querySelector("[data-title]").textContent = settings.title;
     const label = page.querySelector("[data-kind]"); label.textContent = kind; label.classList.toggle("answer", showAnswer);
-    const list = page.querySelector("[data-problems]"); list.style.setProperty("--cols", settings.columns); applyDensity(list, settings);
+    const list = page.querySelector("[data-problems]"); list.style.setProperty("--cols", settings.columns); applyDensity(list, settings, set);
     set.forEach((problem) => { const item = document.createElement("li"); item.className = "problem"; const card = document.createElement("span"); card.className = "problem-card"; card.append(settings.layout === "vertical" ? makeVertical(problem, showAnswer, settings) : makeHorizontal(problem, showAnswer)); item.append(card); list.append(item); });
     return page;
   }
