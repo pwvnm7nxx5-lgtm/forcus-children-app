@@ -1,5 +1,10 @@
 window.UPDATE_HISTORY = [
   {
+    date: "7月23日",
+    title: "4年生 わり算の筆算プリントを追加",
+    isNew: true,
+  },
+  {
     date: "6月1日",
     title: "3年生 重さプリントを追加",
     isNew: true,
