@@ -72,16 +72,4 @@ window.PRINT_RESOURCES = [
     unit: "5年生まとめ",
     tags: ["5年生", "算数", "単元一覧", "無料", "復習"],
   },
-  {
-    id: "jakka-kanji-grade5",
-    title: "小学5年生 漢字練習・テスト",
-    description: "5年生で習う漢字のなぞり、読み、書き取り、送り仮名、書き順を探せます。",
-    url: "https://www.jakka.jp/main/5.htm",
-    siteId: "jakka",
-    siteTitle: "JAKKA",
-    subject: "国語",
-    grades: ["5"],
-    unit: "漢字",
-    tags: ["5年生", "漢字", "なぞり", "書き取り", "書き順"],
-  },
 ];

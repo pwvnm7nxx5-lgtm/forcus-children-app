@@ -60,16 +60,6 @@ window.RESOURCE_LINKS = [
     note: "計算練習の量を確保したいときに向いています。利用範囲はサイト側の案内を確認してください。",
   },
   {
-    id: "jakka",
-    title: "JAKKA",
-    description: "漢字・国語・ひらがな・カタカナなどのPDFプリントを探せます。",
-    url: "https://www.jakka.jp/",
-    subjects: ["国語"],
-    grades: ["pre", "1", "2", "3", "4", "5", "6"],
-    tags: ["漢字", "国語", "ひらがな", "カタカナ", "PDF"],
-    note: "文字練習や漢字ドリルの補助教材を探す入口に使えます。",
-  },
-  {
     id: "mugen-print",
     title: "むげんプリント",
     description: "小学1年生から6年生の算数・国語プリントを探せます。",
