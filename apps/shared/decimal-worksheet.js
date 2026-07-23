@@ -6,7 +6,8 @@
     worksheetTitle: document.querySelector("#worksheetTitle"), problemType: document.querySelector("#problemType"),
     layoutMode: document.querySelector("#layoutMode"), problemCount: document.querySelector("#problemCount"),
     problemCountPreset: document.querySelector("#problemCountPreset"), columns: document.querySelector("#columns"),
-    showCarryBoxes: document.querySelector("#showCarryBoxes"), includeAnswers: document.querySelector("#includeAnswers"),
+    showCarryBoxes: document.querySelector("#showCarryBoxes"), showAnswerDecimalPoint: document.querySelector("#showAnswerDecimalPoint"),
+    includeAnswers: document.querySelector("#includeAnswers"),
     printBtn: document.querySelector("#printBtn"), regenerateBtn: document.querySelector("#regenerateBtn"),
     copyLinkBtn: document.querySelector("#copyLinkBtn"), pageCount: document.querySelector("#pageCount"),
     pages: document.querySelector("#pages"), pageTemplate: document.querySelector("#pageTemplate"), status: document.querySelector("#status"),
@@ -38,6 +39,7 @@
       count: clampNumber(els.problemCount.value, 1, app.countMax || 60, app.defaultCount || 24),
       columns: clampNumber(els.columns.value, 1, 6, app.defaultColumns || 3),
       showCarryBoxes: els.showCarryBoxes.checked,
+      showAnswerDecimalPoint: els.showAnswerDecimalPoint?.checked !== false,
     };
   }
   function verticalAllowed(type) { return verticalTypes.includes(type); }
@@ -47,6 +49,7 @@
     verticalOption.disabled = !allowed;
     if (!allowed && els.layoutMode.value === "vertical") els.layoutMode.value = "horizontal";
     els.showCarryBoxes.disabled = els.layoutMode.value !== "vertical";
+    if (els.showAnswerDecimalPoint) els.showAnswerDecimalPoint.disabled = els.layoutMode.value !== "vertical";
   }
   function applySettings(settings) {
     if (!settings) return;
@@ -57,6 +60,7 @@
     els.problemCount.value = String(clampNumber(settings.count, 1, app.countMax || 60, app.defaultCount || 24));
     els.columns.value = String(clampNumber(settings.columns, 1, 6, app.defaultColumns || 3));
     els.showCarryBoxes.checked = settings.showCarryBoxes !== false;
+    if (els.showAnswerDecimalPoint) els.showAnswerDecimalPoint.checked = settings.showAnswerDecimalPoint !== false;
     updateLayoutAvailability();
   }
   function setStatus(message) {
@@ -108,7 +112,8 @@
     formula.append(makeRow(firstRow, "", settings.showCarryBoxes));
     formula.append(makeRow(secondRow, problem.op, settings.showCarryBoxes, false, problem.op === "×" ? firstRow : secondRow));
     const line = document.createElement("span"); line.className = "vertical-line"; formula.append(line);
-    formula.append(showAnswer ? makeRow(formatDigitData(problem.answer), "", settings.showCarryBoxes) : makeRow(blankDigitData(problem.answerPlaces), "", settings.showCarryBoxes, true));
+    const blankAnswerPlaces = settings.showAnswerDecimalPoint ? problem.answerPlaces : 0;
+    formula.append(showAnswer ? makeRow(formatDigitData(problem.answer), "", settings.showCarryBoxes) : makeRow(blankDigitData(blankAnswerPlaces), "", settings.showCarryBoxes, true));
     return formula;
   }
   function makeHorizontal(problem, showAnswer) {
@@ -165,7 +170,8 @@
     els.problemType.addEventListener("change", generate); els.layoutMode.addEventListener("change", generate);
     els.problemCount.addEventListener("input", () => { if (els.problemCount.value !== "") generate(); });
     els.problemCountPreset.addEventListener("change", () => { if (els.problemCountPreset.value) { els.problemCount.value = els.problemCountPreset.value; els.problemCountPreset.value = ""; generate(); } });
-    els.columns.addEventListener("input", () => { if (els.columns.value !== "") render(); }); els.showCarryBoxes.addEventListener("change", render); els.includeAnswers.addEventListener("change", render);
+    els.columns.addEventListener("input", () => { if (els.columns.value !== "") render(); }); els.showCarryBoxes.addEventListener("change", render);
+    els.showAnswerDecimalPoint?.addEventListener("change", render); els.includeAnswers.addEventListener("change", render);
     els.printBtn.addEventListener("click", () => { render(); window.print(); }); els.regenerateBtn.addEventListener("click", generate); els.copyLinkBtn.addEventListener("click", copyUrl);
   }
   load(); bind(); window.__printAdjustmentsGenerateSheets = ({ sheetCount, includeAnswers }) => { renderSheets(sheetCount, includeAnswers); return true; };
