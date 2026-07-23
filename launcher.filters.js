@@ -21,7 +21,7 @@ window.LauncherFilters = (() => {
   }
 
   function getCategories(apps) {
-    return ["all", ...new Set(apps.map((app) => app.category).filter(Boolean))];
+    return ["all", ...new Set(apps.filter((app) => !app.hidden).map((app) => app.category).filter(Boolean))];
   }
 
   function matchesGrade(app, selectedGrade) {
@@ -60,6 +60,9 @@ window.LauncherFilters = (() => {
     selectedFolder,
   }) {
     return apps.filter((app) => {
+      if (app.hidden) {
+        return false;
+      }
       const categoryMatches = selectedCategory === "all" || app.category === selectedCategory;
       const favoriteMatches = !showFavoritesOnly || favorites.has(app.id);
       const bookmarkMatches = !showBookmarksOnly || (selectedFolder ? selectedFolder.appIds.includes(app.id) : false);

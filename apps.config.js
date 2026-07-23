@@ -226,6 +226,7 @@
     actionLabel: "がい数を練習する",
     status: "ready",
     accent: "#c2410c",
+    hidden: true,
   },
   {
     id: "decimal-print-grade5",
