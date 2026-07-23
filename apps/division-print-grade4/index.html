@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>4年生 わり算の筆算</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="controls" aria-label="プリント設定">
+      <div class="brand">
+        <h1>4年生 わり算の筆算</h1>
+        <div class="brand-actions">
+          <a class="home-link" href="../../index.html">入口に戻る</a>
+          <span id="pageCount">2枚</span>
+        </div>
+      </div>
+
+      <div class="row-fields">
+        <label class="field">
+          <span>名前</span>
+          <input id="studentName" type="text" autocomplete="off">
+        </label>
+        <label class="field">
+          <span>日付</span>
+          <input id="worksheetDate" type="text" autocomplete="off" placeholder="7 / 11">
+        </label>
+      </div>
+
+      <label class="field">
+        <span>プリント名</span>
+        <input id="worksheetTitle" type="text" autocomplete="off" value="4年生 わり算の筆算">
+      </label>
+
+      <div class="settings-grid">
+        <label class="field">
+          <span>問題タイプ</span>
+          <select id="problemType">
+            <option value="zeroQuotient" selected>商の一の位が0</option>
+            <option value="noRemainder">3桁÷1桁 あまりなし</option>
+            <option value="withRemainder">3桁÷1桁 あまりあり</option>
+            <option value="mixed">ミックス</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>問題数</span>
+          <span class="combo-input">
+            <input id="problemCount" type="number" min="1" max="24" step="1" value="9" inputmode="numeric">
+            <select id="problemCountPreset" aria-label="問題数の候補">
+              <option value="">候補</option>
+              <option value="6">6問</option>
+              <option value="9">9問</option>
+              <option value="12">12問</option>
+              <option value="18">18問</option>
+            </select>
+          </span>
+        </label>
+        <label class="field">
+          <span>列数</span>
+          <input id="columns" type="number" min="1" max="6" step="1" value="3" inputmode="numeric">
+        </label>
+      </div>
+
+      <div class="check-row">
+        <label><input id="includeAnswers" type="checkbox" checked> 答えページをつける</label>
+      </div>
+
+      <div class="actions">
+        <button id="printBtn" type="button">印刷 / PDF保存</button>
+        <button id="regenerateBtn" type="button">作り直す</button>
+        <button id="copyLinkBtn" type="button">共有URLをコピー</button>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </aside>
+
+    <main class="preview-wrap" aria-label="印刷プレビュー">
+      <div id="pages" class="pages"></div>
+    </main>
+  </div>
+
+  <template id="pageTemplate">
+    <section class="print-page vertical-layout">
+      <header class="sheet-header">
+        <div class="name-line">なまえ <span class="value" data-name></span></div>
+        <div class="title" data-title></div>
+        <div class="date-line">ひづけ <span class="value" data-date></span></div>
+        <div class="sheet-kind" data-kind></div>
+      </header>
+      <p class="instruction">計算をしましょう。</p>
+      <ol class="problem-grid" data-problems></ol>
+    </section>
+  </template>
+
+  <script src="../shared/columns-number-control.js?v=1"></script>
+  <script src="app.js?v=1"></script>
+  <script src="../shared/print-adjustments.js?v=1"></script>
+</body>
+</html>
