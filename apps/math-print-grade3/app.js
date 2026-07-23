@@ -8,6 +8,7 @@ const els = {
   problemCountPreset: document.querySelector("#problemCountPreset"),
   columns: document.querySelector("#columns"),
   showCarryBoxes: document.querySelector("#showCarryBoxes"),
+  showAnswerDecimalPoint: document.querySelector("#showAnswerDecimalPoint"),
   includeAnswers: document.querySelector("#includeAnswers"),
   printBtn: document.querySelector("#printBtn"),
   regenerateBtn: document.querySelector("#regenerateBtn"),
@@ -18,7 +19,7 @@ const els = {
   status: document.querySelector("#status"),
 };
 
-const stateStorageKey = "math-print-grade3-state-v2";
+const stateStorageKey = "math-print-grade3-state-v3";
 const problemCountMin = 1;
 const horizontalProblemCountMax = 60;
 const verticalProblemCountMax = 30;
@@ -103,6 +104,7 @@ function getSettings() {
     count: getProblemCount(),
     columns: getColumns(),
     showCarryBoxes: els.showCarryBoxes.checked,
+    showAnswerDecimalPoint: els.showAnswerDecimalPoint.checked,
   };
 }
 
@@ -121,6 +123,7 @@ function applySettings(settings) {
   els.problemCountPreset.value = "";
   els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, 3));
   els.showCarryBoxes.checked = settings.showCarryBoxes !== false;
+  els.showAnswerDecimalPoint.checked = settings.showAnswerDecimalPoint !== false;
   updateLayoutAvailability();
 }
 
@@ -134,6 +137,7 @@ function setStatus(message) {
 
 function updateLayoutAvailability() {
   els.showCarryBoxes.disabled = els.layoutMode.value !== "vertical";
+  els.showAnswerDecimalPoint.disabled = els.layoutMode.value !== "vertical";
   updateProblemCountAvailability();
 }
 
@@ -348,7 +352,8 @@ function makeVerticalFormula(problem, showAnswer, settings) {
   if (showAnswer) {
     formula.append(makeDigitRow(formatDigitData(problem.answer, width), "", settings.showCarryBoxes));
   } else {
-    formula.append(makeDigitRow(formatBlankDigitData(width, problem.decimalPlaces), "", settings.showCarryBoxes, true));
+    const answerDecimalPlaces = settings.showAnswerDecimalPoint ? problem.decimalPlaces : 0;
+    formula.append(makeDigitRow(formatBlankDigitData(width, answerDecimalPlaces), "", settings.showCarryBoxes, true));
   }
 
   return formula;
@@ -582,6 +587,7 @@ function bindEvents() {
     render();
   });
   els.showCarryBoxes.addEventListener("change", render);
+  els.showAnswerDecimalPoint.addEventListener("change", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") {
       return;
