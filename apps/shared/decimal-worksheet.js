@@ -89,6 +89,21 @@
       decimalAfterIndex: decimalPlaces > 0 ? width - decimalPlaces - 1 : -1,
     };
   }
+  function formatDivisionDigitData(value, width = digitCount) {
+    const [whole, fraction] = String(value).split(".");
+    const rawDigits = `${whole}${fraction || ""}`.slice(0, width);
+    return {
+      digits: rawDigits.padEnd(width, " ").split(""),
+      decimalAfterIndex: fraction === undefined ? -1 : Math.min(width - 1, whole.length - 1),
+    };
+  }
+  function blankDivisionDigitData(value, width, showDecimalPoint) {
+    const data = formatDivisionDigitData(value, width);
+    return {
+      digits: Array(width).fill(" "),
+      decimalAfterIndex: showDecimalPoint ? data.decimalAfterIndex : -1,
+    };
+  }
   function getDisplayDigitCount(problems) {
     const lengths = problems.flatMap((problem) => [problem.a, problem.b, problem.answer]
       .map((value) => String(value).replace(/\D/g, "").length));
@@ -99,7 +114,7 @@
     const divisor = Number.parseInt(String(problem.b).replace(/\D/g, ""), 10);
     if (!dividendDigits || !Number.isFinite(divisor) || divisor <= 0) return [];
 
-    const startIndex = width - dividendDigits.length;
+    const startIndex = 0;
     const steps = [];
     let partial = 0;
     let hasStarted = false;
@@ -130,6 +145,11 @@
       .map((problem) => getDivisionTrace(problem, width).length);
     return Math.max(4, ...counts);
   }
+  function getDivisionDivisorCellCount(problems) {
+    const counts = problems.filter((problem) => problem.op === "÷")
+      .map((problem) => String(problem.b).replace(/\D/g, "").length);
+    return Math.max(1, ...counts);
+  }
   function formatAlignedIntegerData(value, width, endIndex) {
     const digits = Array(width).fill(" ");
     const valueDigits = Array.from(String(value));
@@ -154,6 +174,41 @@
   function appendDigitCells(row, digitData, carry, blank = false) {
     digitData.digits.forEach((digit, index) => row.append(makeCell(digit, carry, blank, index === digitData.decimalAfterIndex)));
   }
+  function appendDivisionEntry(board, {
+    row,
+    column,
+    columnCount,
+    digitData,
+    blank = false,
+    answer = false,
+    className = "",
+  }) {
+    const entry = document.createElement("span");
+    entry.className = `division-entry ${className}`.trim();
+    entry.style.gridRow = String(row);
+    entry.style.gridColumn = `${column} / span ${columnCount}`;
+    entry.style.setProperty("--division-entry-columns", String(columnCount));
+    if (answer) entry.classList.add("division-answer");
+    digitData.digits.forEach((digit, index) => {
+      const value = document.createElement("span");
+      value.className = "division-entry-value";
+      if (!blank && digit !== " ") value.textContent = digit;
+      if (index === digitData.decimalAfterIndex) {
+        const decimal = document.createElement("span");
+        decimal.className = "division-decimal-mark";
+        value.append(decimal);
+      }
+      entry.append(value);
+    });
+    board.append(entry);
+  }
+  function appendDivisionLine(board, row, column, columnCount) {
+    const line = document.createElement("span");
+    line.className = "division-work-line";
+    line.style.gridRow = String(row);
+    line.style.gridColumn = `${column} / span ${columnCount}`;
+    board.append(line);
+  }
   function makeRow(digitData, operator, carry, blank = false, operatorAnchorData = digitData) {
     const row = document.createElement("span"); row.className = "digit-row"; row.style.setProperty("--operator-shift", operatorShift(operatorAnchorData.digits));
     const op = document.createElement("span"); op.className = "operator"; op.textContent = operator; row.append(op);
@@ -163,34 +218,73 @@
     const formula = document.createElement("span"); formula.className = "vertical-formula division-formula";
     const width = settings.displayDigitCount;
     const trace = getDivisionTrace(problem, width);
-    const blankAnswerPlaces = settings.showAnswerDecimalPoint ? problem.answerPlaces : 0;
-    const quotientRow = showAnswer
-      ? makeRow(formatDigitData(problem.answer, width), "", false)
-      : makeRow(blankDigitData(blankAnswerPlaces, width), "", false, true);
-    quotientRow.classList.add("division-quotient-row");
-    formula.append(quotientRow);
+    const prefixColumns = settings.divisionDivisorCells + 1;
+    const boardColumns = prefixColumns + width;
+    const boardRows = settings.divisionWorkRows + 2;
+    const board = document.createElement("span");
+    board.className = "division-board";
+    board.style.setProperty("--division-board-columns", String(boardColumns));
+    board.style.setProperty("--division-board-rows", String(boardRows));
+    for (let row = 1; row <= boardRows; row += 1) {
+      for (let column = 1; column <= boardColumns; column += 1) {
+        const cell = document.createElement("span");
+        cell.className = "division-board-cell";
+        cell.style.gridRow = String(row);
+        cell.style.gridColumn = String(column);
+        board.append(cell);
+      }
+    }
 
-    const divisionRow = document.createElement("span"); divisionRow.className = "division-row";
-    const divisor = document.createElement("span"); divisor.className = "division-divisor"; divisor.textContent = problem.b;
-    const sign = document.createElement("span"); sign.className = "division-sign"; sign.textContent = ")";
-    const dividend = document.createElement("span"); dividend.className = "division-dividend";
-    appendDigitCells(dividend, formatDigitData(problem.a, width), false);
-    const bracket = document.createElement("span"); bracket.className = "division-bracket";
-    divisionRow.append(divisor, sign, dividend, bracket);
-    formula.append(divisionRow);
+    appendDivisionEntry(board, {
+      row: 1,
+      column: prefixColumns + 1,
+      columnCount: width,
+      digitData: showAnswer ? formatDivisionDigitData(problem.answer, width) : blankDivisionDigitData(problem.answer, width, settings.showAnswerDecimalPoint),
+      blank: !showAnswer,
+      answer: showAnswer,
+      className: "division-quotient",
+    });
+    appendDivisionEntry(board, {
+      row: 2,
+      column: 1,
+      columnCount: settings.divisionDivisorCells,
+      digitData: formatDivisionDigitData(problem.b, settings.divisionDivisorCells),
+      className: "division-divisor",
+    });
+    const sign = document.createElement("span");
+    sign.className = "division-sign";
+    sign.textContent = ")";
+    sign.style.gridRow = "2";
+    sign.style.gridColumn = String(prefixColumns);
+    board.append(sign);
+    appendDivisionEntry(board, {
+      row: 2,
+      column: prefixColumns + 1,
+      columnCount: width,
+      digitData: formatDivisionDigitData(problem.a, width),
+      className: "division-dividend",
+    });
+    const bracket = document.createElement("span");
+    bracket.className = "division-bracket";
+    bracket.style.gridRow = "2";
+    bracket.style.gridColumn = `${prefixColumns + 1} / span ${width}`;
+    board.append(bracket);
 
     for (let index = 0; index < settings.divisionWorkRows; index += 1) {
       const traceRow = showAnswer ? trace[index] : null;
-      const workRow = makeRow(
-        traceRow ? formatAlignedIntegerData(traceRow.value, width, traceRow.endIndex) : blankDigitData(0, width),
-        "",
-        false,
-        !traceRow,
-      );
-      workRow.classList.add("division-work-row");
-      if ((traceRow?.lineAfter ?? index % 2 === 0) && index + 1 < settings.divisionWorkRows) workRow.classList.add("division-work-row-lined");
-      formula.append(workRow);
+      const row = index + 3;
+      appendDivisionEntry(board, {
+        row,
+        column: prefixColumns + 1,
+        columnCount: width,
+        digitData: traceRow ? formatAlignedIntegerData(traceRow.value, width, traceRow.endIndex) : blankDigitData(0, width),
+        blank: !traceRow,
+        answer: Boolean(traceRow),
+        className: "division-work-row",
+      });
+      if ((traceRow?.lineAfter ?? index % 2 === 0) && index + 1 < settings.divisionWorkRows) appendDivisionLine(board, row, prefixColumns + 1, width);
     }
+    formula.append(board);
     return formula;
   }
   function makeVertical(problem, showAnswer, settings) {
@@ -223,9 +317,11 @@
   }
   function renderPage(kind, showAnswer, set) {
     const displayDigitCount = getDisplayDigitCount(set);
-    const settings = { ...getSettings(), displayDigitCount, divisionWorkRows: getDivisionWorkRowCount(set, displayDigitCount) };
+    const divisionDivisorCells = getDivisionDivisorCellCount(set);
+    const settings = { ...getSettings(), displayDigitCount, divisionWorkRows: getDivisionWorkRowCount(set, displayDigitCount), divisionDivisorCells };
     const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
     page.style.setProperty("--digit-count", String(settings.displayDigitCount));
+    page.style.setProperty("--division-divisor-cells", String(settings.divisionDivisorCells));
     page.classList.toggle("answer-page", showAnswer); page.classList.toggle("vertical-layout", settings.layout === "vertical");
     page.querySelector("[data-name]").textContent = settings.name; page.querySelector("[data-date]").textContent = settings.date; page.querySelector("[data-title]").textContent = settings.title;
     const label = page.querySelector("[data-kind]"); label.textContent = kind; label.classList.toggle("answer", showAnswer);
