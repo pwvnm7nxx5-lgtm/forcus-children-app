@@ -14,6 +14,6 @@
 
 サイト情報は `sites.config.js` の `window.RESOURCE_LINKS` で管理します。
 
-学年別のプリント候補は、必要に応じて `grade2-resources.config.js`、`grade3-resources.config.js`、`grade4-resources.config.js` のように分けて追加します。
+学年別のプリント候補は、必要に応じて `grade2-resources.config.js` から `grade6-resources.config.js` のように分けて追加します。
 
 教材そのものはコピーせず、各サイトへのリンクだけを掲載します。URLや利用条件は変わる可能性があるため、追加・修正時は各サイトの現在の表示を確認してください。
