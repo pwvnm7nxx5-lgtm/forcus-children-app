@@ -12,11 +12,11 @@ function makeMultiply(randomInt, formatScaled, vertical) {
   };
 }
 
-function makeDivide(randomInt, formatScaled) {
+function makeDivide(randomInt, formatScaled, vertical) {
   const divisorPlaces = 1;
-  const quotientPlaces = randomInt(1, 2);
+  const quotientPlaces = vertical ? 1 : randomInt(1, 2);
   const divisor = randomInt(2, 99);
-  const quotient = randomInt(2, quotientPlaces === 1 ? 499 : 4999);
+  const quotient = randomInt(11, vertical ? 99 : (quotientPlaces === 1 ? 499 : 4999));
   const dividendPlaces = divisorPlaces + quotientPlaces;
   return {
     a: formatScaled(divisor * quotient, dividendPlaces),
@@ -28,10 +28,10 @@ function makeDivide(randomInt, formatScaled) {
 }
 
 window.DECIMAL_WORKSHEET_APP = {
-  id: "decimal-print-grade5", title: "5年生 小数のかけ算・わり算", defaultType: "mixed", defaultCount: 18, defaultColumns: 3, digitCount: 8,
-  verticalTypes: ["multiply", "mixed"], types: [{ value: "multiply" }, { value: "divide" }, { value: "mixed" }],
+  id: "decimal-print-grade5", title: "5年生 小数のかけ算・わり算", defaultType: "mixed", defaultCount: 18, defaultColumns: 3, digitCount: 8, minDigitCount: 5,
+  verticalTypes: ["multiply", "divide", "mixed"], types: [{ value: "multiply" }, { value: "divide" }, { value: "mixed" }],
   generate(type, { randomInt, choice, formatScaled }, settings) {
-    const selected = type === "mixed" ? choice(settings.layout === "vertical" ? ["multiply"] : ["multiply", "divide"]) : type;
-    return selected === "multiply" ? makeMultiply(randomInt, formatScaled, settings.layout === "vertical") : makeDivide(randomInt, formatScaled);
+    const selected = type === "mixed" ? choice(["multiply", "divide"]) : type;
+    return selected === "multiply" ? makeMultiply(randomInt, formatScaled, settings.layout === "vertical") : makeDivide(randomInt, formatScaled, settings.layout === "vertical");
   },
 };
