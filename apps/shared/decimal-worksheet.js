@@ -122,7 +122,7 @@
     const cell = document.createElement("span"); cell.className = "digit-cell";
     if (carry) { const helper = document.createElement("span"); helper.className = "helper-box"; cell.append(helper); }
     if (!blank && digit !== " ") { const value = document.createElement("span"); value.className = "digit-value"; value.textContent = digit; cell.append(value); }
-    if (hasDecimalAfter) { const decimal = document.createElement("span"); decimal.className = "decimal-mark"; decimal.textContent = "."; cell.append(decimal); }
+    if (hasDecimalAfter) { const decimal = document.createElement("span"); decimal.className = "decimal-mark"; decimal.textContent = "\u25cf"; cell.append(decimal); }
     return cell;
   }
   function makeRow(digitData, operator, carry, blank = false, operatorAnchorData = digitData) {
@@ -172,6 +172,7 @@
   function addBoardDecimal(board, row, column, answer = false) {
     const decimal = document.createElement("span");
     decimal.className = `division-board-decimal${answer ? " answer-point" : ""}`;
+    decimal.textContent = "\u25cf";
     decimal.style.gridRow = String(row);
     decimal.style.gridColumn = String(column);
     board.append(decimal);

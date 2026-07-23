@@ -432,16 +432,20 @@ button:hover {
 
 .decimal-mark {
   position: absolute;
-  right: -1px;
-  bottom: -1px;
-  z-index: 3;
-  width: 1.1mm;
-  height: 1.1mm;
-  border-radius: 50%;
-  background: #425466;
-  color: transparent;
-  font-size: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: grid;
+  width: 2.4mm;
+  height: 2.4mm;
+  place-items: center;
+  color: #425466;
+  font-family: Arial, sans-serif;
+  font-size: 2.5mm;
+  font-weight: 700;
+  line-height: 1;
   transform: translate(50%, 50%);
+  pointer-events: none;
 }
 
 .helper-box {
@@ -471,7 +475,7 @@ button:hover {
 }
 
 .answer-page .decimal-mark {
-  background: var(--answer);
+  color: var(--answer);
 }
 
 

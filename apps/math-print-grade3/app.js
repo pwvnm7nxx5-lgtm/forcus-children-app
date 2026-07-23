@@ -322,7 +322,7 @@ function makeDigitCell(digit, showCarryBoxes, isBlank = false, hasDecimalAfter =
   if (hasDecimalAfter) {
     const decimal = document.createElement("span");
     decimal.className = "decimal-mark";
-    decimal.textContent = ".";
+    decimal.textContent = "\u25cf";
     cell.append(decimal);
   }
   return cell;
