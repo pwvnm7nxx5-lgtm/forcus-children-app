@@ -342,10 +342,10 @@ button:hover {
   --board-cell-size: min(var(--digit-size), var(--layout-cell-cap, 40mm));
   position: relative;
   display: grid;
-  grid-template-columns: repeat(4, var(--board-cell-size));
+  grid-template-columns: repeat(var(--board-columns), var(--board-cell-size));
   grid-template-rows: repeat(var(--board-rows), var(--board-cell-size));
   justify-self: start;
-  width: calc(var(--board-cell-size) * 4);
+  width: calc(var(--board-cell-size) * var(--board-columns));
   height: calc(var(--board-cell-size) * var(--board-rows));
   border-top: 1px solid var(--grid-line);
   border-left: 1px solid var(--grid-line);
@@ -386,7 +386,7 @@ button:hover {
   z-index: 4;
   top: var(--board-cell-size);
   left: 0;
-  width: calc(var(--board-cell-size) * 4);
+  width: calc(var(--board-cell-size) * var(--board-columns));
   height: var(--board-cell-size);
   overflow: visible;
   pointer-events: none;
