@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>3年生 計算プリント</title>
-  <link rel="stylesheet" href="styles.css?v=decimal-point-no-gap">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css?v=decimal-point-grid-intersection">
 </head>
 <body>
   <div class="app-shell">
@@ -20,6 +21,7 @@
       </div>
       <div class="check-row">
         <label><input id="showCarryBoxes" type="checkbox" checked> 繰り上がり・くり下がりのマスをつける</label>
+        <label><input id="showAnswerDecimalPoint" type="checkbox" checked> 答えの小数点をつける</label>
         <label><input id="includeAnswers" type="checkbox" checked> 答えページをつける</label>
       </div>
 
@@ -43,7 +45,7 @@
       <ol class="problem-grid" data-problems></ol>
     </section>
   </template>
-  <script src="app.js?v=decimal-point-no-gap"></script>
+  <script src="app.js?v=answer-decimal-point-toggle"></script>
   <script src="../shared/print-adjustments.js?v=answer-line-none"></script>
 </body>
 </html>

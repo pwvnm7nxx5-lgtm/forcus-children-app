@@ -432,8 +432,8 @@ button:hover {
 
 .decimal-mark {
   position: absolute;
-  right: 0.8mm;
-  bottom: 0.7mm;
+  right: -1px;
+  bottom: -1px;
   z-index: 3;
   width: 1.1mm;
   height: 1.1mm;
@@ -441,6 +441,7 @@ button:hover {
   background: #425466;
   color: transparent;
   font-size: 0;
+  transform: translate(50%, 50%);
 }
 
 .helper-box {
