@@ -58,4 +58,14 @@ window.DECIMAL_WORKSHEET_APP = {
       ? makeMultiply(randomInt, formatScaled, settings.layout === "vertical")
       : makeDivide(randomInt, formatScaled, settings.layout === "vertical");
   },
+  getVerticalDigitCount(set, settings) {
+    if (settings.type === "divide") return 8;
+    const multiplicationProblems = set.filter((problem) => problem.op === "×");
+    if (!multiplicationProblems.length) return 8;
+    return Math.max(...multiplicationProblems.map((problem) => Math.max(
+      String(problem.a).replace(".", "").length,
+      String(problem.b).replace(".", "").length,
+      String(problem.answer).replace(".", "").length,
+    )));
+  },
 };

@@ -96,15 +96,15 @@
     while (selected.length < settings.count) selected.push(makeProblem(settings));
     return selected;
   }
-  function formatDigitData(value) {
+  function formatDigitData(value, count = digitCount) {
     const [whole, fraction] = String(value).split(".");
-    const digits = `${whole}${fraction || ""}`.padStart(digitCount, " ").slice(-digitCount).split("");
-    return { digits, decimalAfterIndex: fraction === undefined ? -1 : digitCount - fraction.length - 1 };
+    const digits = `${whole}${fraction || ""}`.padStart(count, " ").slice(-count).split("");
+    return { digits, decimalAfterIndex: fraction === undefined ? -1 : count - fraction.length - 1 };
   }
-  function blankDigitData(decimalPlaces = 0) {
+  function blankDigitData(decimalPlaces = 0, count = digitCount) {
     return {
-      digits: Array(digitCount).fill(" "),
-      decimalAfterIndex: decimalPlaces > 0 ? digitCount - decimalPlaces - 1 : -1,
+      digits: Array(count).fill(" "),
+      decimalAfterIndex: decimalPlaces > 0 ? count - decimalPlaces - 1 : -1,
     };
   }
   function operatorShift(digits) {
@@ -249,17 +249,18 @@
     wrapper.append(board);
     return wrapper;
   }
-  function makeVertical(problem, showAnswer, settings) {
+  function makeVertical(problem, showAnswer, settings, formulaDigitCount = digitCount) {
     if (problem.longDivision) return makeLongDivision(problem, showAnswer, settings);
     const formula = document.createElement("span"); formula.className = "vertical-formula";
-    const firstRow = formatDigitData(problem.a);
-    const secondRow = formatDigitData(problem.b);
+    formula.style.setProperty("--digit-count", String(formulaDigitCount));
+    const firstRow = formatDigitData(problem.a, formulaDigitCount);
+    const secondRow = formatDigitData(problem.b, formulaDigitCount);
     const operatorAnchor = widestDigitData(firstRow, secondRow);
     formula.append(makeRow(firstRow, "", settings.showCarryBoxes));
     formula.append(makeRow(secondRow, problem.op, settings.showCarryBoxes, false, operatorAnchor));
     const line = document.createElement("span"); line.className = "vertical-line"; formula.append(line);
     const blankAnswerPlaces = settings.showAnswerDecimalPoint ? problem.answerPlaces : 0;
-    formula.append(showAnswer ? makeRow(formatDigitData(problem.answer), "", settings.showCarryBoxes) : makeRow(blankDigitData(blankAnswerPlaces), "", settings.showCarryBoxes, true));
+    formula.append(showAnswer ? makeRow(formatDigitData(problem.answer, formulaDigitCount), "", settings.showCarryBoxes) : makeRow(blankDigitData(blankAnswerPlaces, formulaDigitCount), "", settings.showCarryBoxes, true));
     return formula;
   }
   function makeHorizontal(problem, showAnswer) {
@@ -287,7 +288,10 @@
     page.querySelector("[data-name]").textContent = settings.name; page.querySelector("[data-date]").textContent = settings.date; page.querySelector("[data-title]").textContent = settings.title;
     const label = page.querySelector("[data-kind]"); label.textContent = kind; label.classList.toggle("answer", showAnswer);
     const list = page.querySelector("[data-problems]"); list.style.setProperty("--cols", settings.columns); applyDensity(list, settings, set.some((problem) => problem.longDivision));
-    set.forEach((problem) => { const item = document.createElement("li"); item.className = "problem"; const card = document.createElement("span"); card.className = "problem-card"; card.append(settings.layout === "vertical" ? makeVertical(problem, showAnswer, settings) : makeHorizontal(problem, showAnswer)); item.append(card); list.append(item); });
+    const formulaDigitCount = settings.layout === "vertical" && typeof app.getVerticalDigitCount === "function"
+      ? app.getVerticalDigitCount(set, settings)
+      : digitCount;
+    set.forEach((problem) => { const item = document.createElement("li"); item.className = "problem"; const card = document.createElement("span"); card.className = "problem-card"; card.append(settings.layout === "vertical" ? makeVertical(problem, showAnswer, settings, formulaDigitCount) : makeHorizontal(problem, showAnswer)); item.append(card); list.append(item); });
     return page;
   }
   function signature(settings) { return JSON.stringify({ type: settings.type, layout: settings.layout, count: settings.count, columns: settings.columns }); }
