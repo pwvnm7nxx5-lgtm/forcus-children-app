@@ -21,7 +21,18 @@ window.LauncherFilters = (() => {
   }
 
   function getCategories(apps) {
-    return ["all", ...new Set(apps.filter((app) => !app.hidden).map((app) => app.category).filter(Boolean))];
+    const categories = [];
+
+    apps.filter((app) => !app.hidden).forEach((app) => {
+      categories.push(...getAppCategories(app));
+    });
+
+    return ["all", ...new Set(categories)];
+  }
+
+  function getAppCategories(app) {
+    const categories = Array.isArray(app.categories) ? app.categories : [app.category];
+    return [...new Set(categories.filter(Boolean))];
   }
 
   function matchesGrade(app, selectedGrade) {
@@ -41,7 +52,7 @@ window.LauncherFilters = (() => {
     const searchable = [
       app.title,
       app.description,
-      app.category,
+      ...getAppCategories(app),
       getGradeLabel(app),
       ...(Array.isArray(app.tags) ? app.tags : []),
     ].join(" ");
@@ -63,7 +74,7 @@ window.LauncherFilters = (() => {
       if (app.hidden) {
         return false;
       }
-      const categoryMatches = selectedCategory === "all" || app.category === selectedCategory;
+      const categoryMatches = selectedCategory === "all" || getAppCategories(app).includes(selectedCategory);
       const favoriteMatches = !showFavoritesOnly || favorites.has(app.id);
       const bookmarkMatches = !showBookmarksOnly || (selectedFolder ? selectedFolder.appIds.includes(app.id) : false);
       return matchesGrade(app, selectedGrade) && categoryMatches && favoriteMatches && bookmarkMatches && matchesApp(app, query);
