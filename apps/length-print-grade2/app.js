@@ -305,43 +305,97 @@ function addText(svg, x, y, text, attrs = {}) {
   svg.append(node);
 }
 
-function makeRulerSvg(figure) {
-  const width = 300;
-  const height = 92;
+function makeRulerSvg(figure, answer) {
+  const width = 360;
+  const height = 132;
   const left = 22;
-  const right = 278;
-  const y = 46;
+  const right = 338;
+  const rulerTop = 68;
+  const rulerBottom = 108;
   const scale = (right - left) / figure.max;
+  const arrowY = 34;
+  const accentColors = ["#7ba526", "#d24383", "#159bb2"];
+  const accent = accentColors[Math.floor(figure.end / 10) % accentColors.length];
   const svg = svgEl("svg", { viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "ものさし" });
-  svg.append(svgEl("rect", { x: 10, y: 18, width: 280, height: 42, rx: 6, fill: "#fff7ed", stroke: "#d6a36e" }));
-  svg.append(svgEl("line", { x1: left, y1: y, x2: right, y2: y, stroke: "#344054", "stroke-width": 1.5 }));
 
-  for (let mm = 0; mm <= figure.max; mm += 5) {
+  svg.append(svgEl("rect", {
+    x: 10,
+    y: rulerTop,
+    width: width - 20,
+    height: rulerBottom - rulerTop,
+    rx: 2,
+    fill: "#f4d64a",
+    stroke: "#ddbd2d",
+    "stroke-width": 1,
+  }));
+
+  for (let mm = 0; mm <= figure.max; mm += 1) {
     const x = left + mm * scale;
-    const big = mm % 10 === 0;
-    svg.append(svgEl("line", { x1: x, y1: y, x2: x, y2: big ? 24 : 31, stroke: "#344054", "stroke-width": big ? 1.3 : 0.8 }));
-    if (big) {
-      addText(svg, x, 72, String(mm / 10), { "text-anchor": "middle", "font-size": 9, fill: "#344054" });
+    const isCentimeter = mm % 10 === 0;
+    const isHalfCentimeter = mm % 5 === 0;
+    const tickEnd = rulerTop + (isCentimeter ? 29 : isHalfCentimeter ? 21 : 13);
+    svg.append(svgEl("line", {
+      x1: x,
+      y1: rulerTop + 1,
+      x2: x,
+      y2: tickEnd,
+      stroke: "#303840",
+      "stroke-width": isCentimeter ? 1.7 : isHalfCentimeter ? 1.2 : 0.75,
+    }));
+    if (isCentimeter) {
+      addText(svg, x, 124, String(mm / 10), {
+        "text-anchor": "middle",
+        "font-size": 11,
+        "font-weight": 700,
+        fill: "#303840",
+      });
     }
   }
-  addText(svg, right + 6, 72, "cm", { "font-size": 9, fill: "#667085" });
 
   const x1 = left + figure.start * scale;
   const x2 = left + figure.end * scale;
-  svg.append(svgEl("line", { x1, y1: 12, x2, y2: 12, stroke: "#b85c38", "stroke-width": 3, "stroke-linecap": "round" }));
-  [x1, x2].forEach((x, index) => {
-    svg.append(svgEl("line", { x1: x, y1: 12, x2: x, y2: 46, stroke: "#b85c38", "stroke-width": 1.7 }));
-    const label = figure.labels?.[index] || (index === 0 ? "0" : "?" );
-    addText(svg, x, 10, label, { "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#8a3f24" });
+  const arrowHead = 7;
+  svg.append(svgEl("line", {
+    x1,
+    y1: arrowY,
+    x2,
+    y2: arrowY,
+    stroke: accent,
+    "stroke-width": 2.5,
+    "stroke-linecap": "round",
+  }));
+  svg.append(svgEl("polyline", {
+    points: `${x2 - arrowHead},${arrowY - arrowHead} ${x2},${arrowY} ${x2 - arrowHead},${arrowY + arrowHead}`,
+    fill: "none",
+    stroke: accent,
+    "stroke-width": 2.5,
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+  }));
+  [x1, x2].forEach((x) => {
+    svg.append(svgEl("line", {
+      x1: x,
+      y1: arrowY - 8,
+      x2: x,
+      y2: rulerTop + 4,
+      stroke: accent,
+      "stroke-width": 1.8,
+    }));
+  });
+  addText(svg, (x1 + x2) / 2, 23, answer ? `（${answer}）` : "（　　　　　）", {
+    "text-anchor": "middle",
+    "font-size": 15,
+    "font-weight": 700,
+    fill: answer ? "#0f7b5f" : "#303840",
   });
   return svg;
 }
 
-function makeFigure(figure) {
+function makeFigure(figure, answer) {
   if (!figure) {
     return null;
   }
-  return makeRulerSvg(figure);
+  return makeRulerSvg(figure, answer);
 }
 
 function makeAnswer(problem, showAnswer) {
@@ -384,7 +438,7 @@ function makeProblemNode(problem, showAnswer) {
   prompt.textContent = problem.prompt;
   body.append(prompt);
 
-  const figure = makeFigure(problem.figure);
+  const figure = makeFigure(problem.figure, showAnswer ? problem.answer : "");
   if (figure) {
     const figureWrap = document.createElement("div");
     figureWrap.className = "figure";
@@ -392,7 +446,9 @@ function makeProblemNode(problem, showAnswer) {
     body.append(figureWrap);
   }
 
-  body.append(makeAnswer(problem, showAnswer));
+  if (!problem.figure) {
+    body.append(makeAnswer(problem, showAnswer));
+  }
   return body;
 }
 
