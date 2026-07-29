@@ -378,6 +378,37 @@ button:hover {
   border-bottom: 0;
 }
 
+.calculation-workspace-layout .problem {
+  align-items: start;
+}
+
+.calculation-workspace {
+  display: grid;
+  justify-self: start;
+  gap: 2.5mm;
+}
+
+.calculation-workspace-board {
+  --digit-size: 8mm;
+  --operator-width: 7mm;
+}
+
+.calculation-workspace-layout.answer-page .problem {
+  font-size: min(var(--problem-font), 18px);
+}
+
+.calculation-workspace-layout.answer-page .formula {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1mm;
+  white-space: normal;
+}
+
+.calculation-workspace-layout.answer-page .answer-value {
+  justify-self: start;
+}
+
 .vertical-layout .problem-grid {
   gap: var(--row-gap) 10mm;
 }
