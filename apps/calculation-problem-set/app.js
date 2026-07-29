@@ -59,6 +59,9 @@ const operationOptions = {
     ["mix", "たし算・ひき算ミックス"],
     ["multiply", "かけ算"],
     ["divide", "わり算（あまりなし）"],
+    ["decimalAdd", "小数のたし算"],
+    ["decimalSub", "小数のひき算"],
+    ["decimalMix", "小数のたし算・ひき算ミックス"],
   ],
   4: [
     ["add", "たし算"],
@@ -66,13 +69,18 @@ const operationOptions = {
     ["mix", "たし算・ひき算ミックス"],
     ["multiply", "かけ算"],
     ["divide", "わり算（あまりなし）"],
-  ],
-  5: [
     ["decimalAdd", "小数のたし算"],
     ["decimalSub", "小数のひき算"],
-    ["decimalMix", "小数計算ミックス"],
+    ["decimalAddSubMix", "小数のたし算・ひき算ミックス"],
+    ["decimalMultiplyInteger", "小数 × 整数"],
+    ["decimalDivideInteger", "小数 ÷ 整数"],
+    ["integerDivideDecimal", "整数 ÷ 小数"],
+    ["decimalAllMix", "小数計算ミックス"],
+  ],
+  5: [
     ["decimalMultiply", "小数のかけ算"],
     ["decimalDivide", "小数のわり算"],
+    ["decimalMix", "小数のかけ算・わり算ミックス"],
   ],
   6: [
     ["fractionMultiply", "分数のかけ算"],
@@ -105,7 +113,9 @@ function getOperation() {
 }
 
 function digitOptions(grade = getGrade(), operation = getOperation()) {
-  if (grade === "5") return [["tenths", "小数第1位まで"]];
+  if (operation.startsWith("decimal") || operation === "integerDivideDecimal") {
+    return [["decimal", grade === "3" ? "小数第1位まで" : "小数第1位・第2位まで"]];
+  }
   if (grade === "6") return [["proper-fractions", "真分数どうし"]];
   if (operation === "multiply") {
     if (grade === "2") return [["one-one", "1桁 × 1桁"]];
@@ -141,17 +151,19 @@ function getDigits() {
 
 function supportsSimpleVerticalLayout() {
   return (Number(getGrade()) <= 4 && ["add", "sub", "mix"].includes(getOperation()))
-    || (getGrade() === "5" && ["decimalAdd", "decimalSub"].includes(getOperation()));
+    || (["3", "4"].includes(getGrade()) && ["decimalAdd", "decimalSub", "decimalMix", "decimalAddSubMix"].includes(getOperation()));
 }
 
 function supportsMultiplicationVerticalLayout() {
   return (Number(getGrade()) >= 2 && Number(getGrade()) <= 4 && getOperation() === "multiply")
-    || (getGrade() === "5" && getOperation() === "decimalMultiply");
+    || (getGrade() === "4" && ["decimalMultiplyInteger", "decimalAllMix"].includes(getOperation()))
+    || (getGrade() === "5" && ["decimalMultiply", "decimalMix"].includes(getOperation()));
 }
 
 function supportsLongDivisionLayout() {
   return (Number(getGrade()) >= 3 && Number(getGrade()) <= 4 && getOperation() === "divide")
-    || (getGrade() === "5" && getOperation() === "decimalDivide");
+    || (getGrade() === "4" && ["decimalDivideInteger", "integerDivideDecimal", "decimalAllMix"].includes(getOperation()))
+    || (getGrade() === "5" && ["decimalDivide", "decimalMix"].includes(getOperation()));
 }
 
 function getActiveLayout() {
@@ -229,7 +241,7 @@ function syncSettingsControls() {
   const simpleVertical = supportsSimpleVerticalLayout();
   const multiplicationVertical = supportsMultiplicationVerticalLayout();
   const layoutSupported = simpleVertical || multiplicationVertical || supportsLongDivisionLayout();
-  const carryModeSupported = Number(getGrade()) <= 4 && ["add", "sub", "mix"].includes(getOperation()) && !(
+  const carryModeSupported = (Number(getGrade()) <= 4 && ["add", "sub", "mix", "decimalAdd", "decimalSub", "decimalMix", "decimalAddSubMix"].includes(getOperation())) && !(
     getGrade() === "1" && getDigits() === "one-one" && getOperation() !== "add"
   );
   const carryOption = els.carryMode.querySelector('option[value="with"]');
@@ -325,9 +337,11 @@ function hasBorrow(a, b) {
 
 function matchesCarryMode(problem, settings) {
   if (settings.carryMode === "any") return true;
+  const a = problem.carryA ?? problem.a;
+  const b = problem.carryB ?? problem.b;
   const carries = problem.op === "+"
-    ? hasCarry(problem.a, problem.b)
-    : hasBorrow(problem.a, problem.b);
+    ? hasCarry(a, b)
+    : hasBorrow(a, b);
   return settings.carryMode === "with" ? carries : !carries;
 }
 
@@ -419,66 +433,139 @@ function formatDecimal(value, places, trim = false) {
 
 function makeDecimalCandidates(settings) {
   const easy = settings.difficulty === "easy";
-  const max = easy ? 499 : 999;
-  const maxMultiplier = easy ? 49 : 99;
   return buildRandomPool(settings, () => {
-    const type = settings.operation === "decimalMix"
-      ? ["decimalAdd", "decimalSub", "decimalMultiply", "decimalDivide"][randomInt(0, 3)]
-      : settings.operation;
+    const type = decimalOperationType(settings.operation, settings.grade);
+    const places = settings.grade === "3" ? 1 : randomInt(1, 2);
+    const max = easy ? (places === 1 ? 499 : 999) : (places === 1 ? 999 : 9999);
 
     if (type === "decimalAdd" || type === "decimalSub") {
       let a = randomInt(10, max);
       let b = randomInt(10, max);
       if (type === "decimalSub" && b > a) [a, b] = [b, a];
-      return {
+      const problem = {
         a: formatDecimal(a, 1),
         b: formatDecimal(b, 1),
         op: type === "decimalAdd" ? "+" : "-",
-        answer: formatDecimal(type === "decimalAdd" ? a + b : a - b, 1),
+        answer: formatDecimal(type === "decimalAdd" ? a + b : a - b, places),
+        carryA: a,
+        carryB: b,
+      };
+      problem.a = formatDecimal(a, places);
+      problem.b = formatDecimal(b, places);
+      return matchesCarryMode(problem, settings) ? problem : null;
+    }
+
+    if (type === "decimalMultiplyInteger") {
+      const a = randomInt(10, max);
+      const b = randomInt(2, easy ? 5 : 9);
+      return {
+        a: formatDecimal(a, places),
+        b: String(b),
+        op: "×",
+        answer: formatDecimal(a * b, places),
       };
     }
 
     if (type === "decimalMultiply") {
       const a = randomInt(10, max);
-      const b = randomInt(2, maxMultiplier);
+      const bPlaces = settings.layout === "vertical" ? 1 : randomInt(1, 2);
+      const bMax = bPlaces === 1 ? (easy ? 49 : 99) : (easy ? 499 : 999);
+      const b = randomInt(2, bMax);
       return {
-        a: formatDecimal(a, 1),
-        b: formatDecimal(b, 1),
+        a: formatDecimal(a, places),
+        b: formatDecimal(b, bPlaces),
         op: "×",
-        answer: formatDecimal(a * b, 2),
+        answer: formatDecimal(a * b, places + bPlaces),
       };
     }
 
-    if (settings.layout === "vertical") {
+    if (type === "decimalDivideInteger") {
       const divisor = randomInt(2, easy ? 5 : 9);
-      const quotient = randomInt(10, easy ? 99 : 299);
+      const quotient = randomInt(10, places === 1 ? (easy ? 99 : 299) : (easy ? 999 : 9999));
       const dividend = divisor * quotient;
-      return {
-        a: formatDecimal(dividend, 1),
+      const problem = {
+        a: formatDecimal(dividend, places),
         b: String(divisor),
         op: "÷",
-        answer: formatDecimal(quotient, 1),
-        longDivision: {
+        answer: formatDecimal(quotient, places),
+      };
+      if (settings.layout === "vertical") {
+        problem.longDivision = {
           divisor,
           dividend,
           quotient,
           divisorDigits: 1,
-          dividendDecimalAfterIndex: String(dividend).length - 2,
-          quotientDecimalAfterIndex: String(quotient).length - 2,
-        },
-      };
+          dividendDecimalAfterIndex: String(dividend).length - places - 1,
+          quotientDecimalAfterIndex: String(quotient).length - places - 1,
+        };
+      }
+      return problem;
     }
 
-    const divisor = randomInt(10, maxMultiplier);
-    const quotient = randomInt(10, easy ? 99 : 299);
+    if (type === "integerDivideDecimal") {
+      const divisor = randomInt(12, easy ? 38 : 98);
+      const quotient = randomInt(2, easy ? 20 : 90);
+      const dividend = (divisor * quotient) / 10;
+      if (!Number.isInteger(dividend)) return null;
+      const problem = {
+        a: String(dividend),
+        b: formatDecimal(divisor, 1),
+        op: "÷",
+        answer: String(quotient),
+      };
+      if (settings.layout === "vertical") {
+        problem.longDivision = {
+          divisor,
+          dividend: dividend * 10,
+          quotient,
+          divisorDigits: String(divisor).length,
+          divisorDecimalAfterIndex: String(divisor).length - 2,
+          displayDividend: String(dividend),
+          displayDivisor: String(divisor),
+          dividendDecimalAfterIndex: -1,
+          quotientDecimalAfterIndex: -1,
+        };
+      }
+      return problem;
+    }
+
+    const divisorPlaces = 1;
+    const divisor = randomInt(10, easy ? 49 : 99);
+    const quotientPlaces = randomInt(1, 2);
+    const quotient = randomInt(10, quotientPlaces === 1 ? (easy ? 99 : 299) : (easy ? 999 : 9999));
     const dividend = divisor * quotient;
-    return {
-      a: formatDecimal(dividend, 2, true),
-      b: formatDecimal(divisor, 1),
+    const problem = {
+      a: formatDecimal(dividend, divisorPlaces + quotientPlaces),
+      b: formatDecimal(divisor, divisorPlaces),
       op: "÷",
-      answer: formatDecimal(quotient, 1, true),
+      answer: formatDecimal(quotient, quotientPlaces),
     };
+    if (settings.layout === "vertical") {
+      problem.longDivision = {
+        divisor,
+        dividend,
+        quotient,
+        divisorDigits: String(divisor).length,
+        divisorDecimalAfterIndex: String(divisor).length - divisorPlaces - 1,
+        dividendDecimalAfterIndex: String(dividend).length - divisorPlaces - quotientPlaces - 1,
+        quotientDecimalAfterIndex: String(quotient).length - quotientPlaces - 1,
+      };
+    }
+    return problem;
   });
+}
+
+function decimalOperationType(operation, grade) {
+  if (operation === "decimalMix") {
+    return grade === "3"
+      ? (Math.random() < 0.5 ? "decimalAdd" : "decimalSub")
+      : (Math.random() < 0.5 ? "decimalMultiply" : "decimalDivide");
+  }
+  if (operation === "decimalAddSubMix") return Math.random() < 0.5 ? "decimalAdd" : "decimalSub";
+  if (operation === "decimalAllMix") {
+    return ["decimalAdd", "decimalSub", "decimalMultiplyInteger", "decimalDivideInteger", "integerDivideDecimal"][randomInt(0, 4)];
+  }
+  return operation;
 }
 
 function greatestCommonDivisor(a, b) {
@@ -521,7 +608,7 @@ function makeFractionCandidates(settings) {
 }
 
 function makeCandidatePool(settings) {
-  if (settings.operation.startsWith("decimal")) return makeDecimalCandidates(settings);
+  if (settings.operation.startsWith("decimal") || settings.operation === "integerDivideDecimal") return makeDecimalCandidates(settings);
   if (settings.operation.startsWith("fraction")) return makeFractionCandidates(settings);
   if (settings.operation === "multiply") return makeMultiplyCandidates(settings);
   if (settings.operation === "divide") return makeDivideCandidates(settings);
@@ -828,10 +915,17 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns) {
   }
 
   addDivisionFrame(board, details.divisorDigits, boardColumns);
-  addDivisionBoardValue(board, details.divisor, 2, 1, -1, "given-digit");
   addDivisionBoardValue(
     board,
-    details.dividend,
+    details.displayDivisor ?? details.divisor,
+    2,
+    1,
+    details.divisorDecimalAfterIndex ?? -1,
+    "given-digit",
+  );
+  addDivisionBoardValue(
+    board,
+    details.displayDividend ?? details.dividend,
     2,
     details.divisorDigits + 1,
     details.dividendDecimalAfterIndex,
