@@ -112,6 +112,22 @@
         border-radius: 0;
         background: transparent;
       }
+      .problem-grid.problem-block-grid {
+        grid-auto-rows: var(--problem-block-height);
+        align-items: stretch;
+      }
+      .problem-grid.problem-block-grid > .problem {
+        min-height: 0;
+        height: 100%;
+        align-self: stretch;
+      }
+      .problem-grid.problem-block-grid > .problem > .problem-card,
+      .problem-grid.problem-block-grid > .problem > .practice-formula,
+      .problem-grid.problem-block-grid > .problem > .formula,
+      .problem-grid.problem-block-grid > .problem > .vertical-formula {
+        min-height: 0;
+        height: 100%;
+      }
       .problem-card {
         gap: var(--problem-card-gap, 3mm);
         padding-bottom: var(--problem-card-pad, 3mm);
@@ -479,6 +495,30 @@
       || window.getComputedStyle(element).getPropertyValue(cssVar).trim();
   }
 
+  function syncProblemBlocks() {
+    const pages = document.querySelector("#pages");
+    const previousZoom = pages?.style.zoom || "";
+    if (pages) pages.style.zoom = "";
+
+    visiblePrintPages().forEach((page) => {
+      page.querySelectorAll(".problem-grid").forEach((grid) => {
+        const problems = Array.from(grid.querySelectorAll(":scope > .problem"));
+        if (!problems.length) return;
+
+        grid.classList.remove("problem-block-grid");
+        grid.style.removeProperty("--problem-block-height");
+
+        const tallest = Math.max(...problems.map((problem) => problem.getBoundingClientRect().height));
+        if (!Number.isFinite(tallest) || tallest <= 0) return;
+
+        grid.style.setProperty("--problem-block-height", `${Math.ceil(tallest)}px`);
+        grid.classList.add("problem-block-grid");
+      });
+    });
+
+    if (pages) pages.style.zoom = previousZoom;
+  }
+
   function baseCssMm(element, dataKey, cssVar, fallback) {
     const attr = `printBase${dataKey}`;
     if (!element.dataset[attr]) {
@@ -535,6 +575,8 @@
       formula.style.setProperty("--operator-width", `${(baseOperatorWidth * scale).toFixed(1)}mm`);
       formula.style.setProperty("--formula-gap", `${(baseFormulaGap * scale).toFixed(1)}mm`);
     });
+
+    syncProblemBlocks();
   }
 
   function pageFits(page) {
@@ -642,6 +684,7 @@
     applying = true;
     try {
       syncPrintPages(settings);
+      syncProblemBlocks();
       if (options.autoFit !== false) applyAutoFit(settings);
       if (options.previewZoom !== false) applyPreviewZoom();
     } finally {
@@ -654,6 +697,7 @@
     applying = true;
     try {
       syncPrintPages(settings);
+      syncProblemBlocks();
     } finally {
       applying = false;
     }

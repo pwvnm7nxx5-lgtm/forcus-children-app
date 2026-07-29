@@ -375,8 +375,7 @@ function makeDigitRow(digits, operator = "", showCarryBoxes = true, blank = fals
   return row;
 }
 
-function makeVerticalFormula(problem, showAnswer, settings) {
-  const width = Math.max(2, String(problem.a).length, String(problem.b).length, String(problem.answer).length);
+function makeVerticalFormula(problem, showAnswer, settings, width) {
   const formula = document.createElement("span");
   formula.className = "vertical-formula";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
@@ -390,8 +389,14 @@ function makeVerticalFormula(problem, showAnswer, settings) {
   return formula;
 }
 
-function makeFormula(problem, showAnswer, settings) {
-  return settings.layout === "vertical" ? makeVerticalFormula(problem, showAnswer, settings) : makeHorizontalFormula(problem, showAnswer);
+function getVerticalDigitCount(problems) {
+  return Math.max(2, ...problems.map((problem) => Math.max(String(problem.a).length, String(problem.b).length, String(problem.answer).length)));
+}
+
+function makeFormula(problem, showAnswer, settings, verticalDigitCount) {
+  return settings.layout === "vertical"
+    ? makeVerticalFormula(problem, showAnswer, settings, verticalDigitCount)
+    : makeHorizontalFormula(problem, showAnswer);
 }
 
 function applyGridDensity(list, settings) {
@@ -434,10 +439,11 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
   const list = page.querySelector("[data-problems]");
   list.style.setProperty("--cols", settings.columns);
   applyGridDensity(list, settings);
+  const verticalDigitCount = settings.layout === "vertical" ? getVerticalDigitCount(pageProblems) : 0;
   pageProblems.forEach((problem) => {
     const item = document.createElement("li");
     item.className = "problem";
-    item.append(makeFormula(problem, showAnswer, settings));
+    item.append(makeFormula(problem, showAnswer, settings, verticalDigitCount));
     list.append(item);
   });
   return page;
