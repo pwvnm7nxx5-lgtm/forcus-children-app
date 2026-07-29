@@ -72,6 +72,18 @@
     accent: "#2563eb",
   },
   {
+    id: "custom-calculation-problem-builder",
+    title: "計算問題作成",
+    description: "四則計算と2つの桁数を自由に選んで、計算プリントを作成できます。",
+    category: "教材",
+    grades: ["all"],
+    tags: ["計算", "たし算", "ひき算", "かけ算", "わり算", "筆算", "印刷"],
+    href: "apps/custom-calculation-problem-builder/index.html",
+    actionLabel: "自由に計算問題を作る",
+    status: "ready",
+    accent: "#7c3aed",
+  },
+  {
     id: "math-print-grade2",
     title: "2年生 計算プリント",
     description: "小学2年生向けの2けた計算と九九のプリントを自動作成して印刷できます。",
