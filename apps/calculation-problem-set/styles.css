@@ -455,6 +455,87 @@ button:hover {
   color: var(--answer);
 }
 
+.long-division-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--division-board-columns), var(--division-cell-size));
+  grid-template-rows: repeat(var(--division-board-rows), var(--division-cell-size));
+  width: calc(var(--division-board-columns) * var(--division-cell-size));
+  height: calc(var(--division-board-rows) * var(--division-cell-size));
+  justify-self: start;
+  border-top: 1px solid #bcc8d4;
+  border-left: 1px solid #bcc8d4;
+  background: #ffffff;
+}
+
+.division-board-cell {
+  z-index: 0;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid #bcc8d4;
+  border-bottom: 1px solid #bcc8d4;
+}
+
+.division-board-digit {
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  color: #425466;
+  font-size: calc(var(--division-cell-size) * 0.58);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.division-board-decimal {
+  z-index: 6;
+  display: grid;
+  place-self: end;
+  width: calc(var(--division-cell-size) * 0.46);
+  height: calc(var(--division-cell-size) * 0.46);
+  place-items: center;
+  color: #425466;
+  font-family: Arial, sans-serif;
+  font-size: calc(var(--division-cell-size) * 0.48);
+  font-weight: 700;
+  line-height: 1;
+  transform: translate(50%, 50%);
+  pointer-events: none;
+}
+
+.division-frame {
+  position: absolute;
+  z-index: 4;
+  top: var(--division-cell-size);
+  left: 0;
+  width: calc(var(--division-board-columns) * var(--division-cell-size));
+  height: var(--division-cell-size);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.division-frame path {
+  fill: none;
+  stroke: #425466;
+  stroke-width: 1.8px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.division-work-line {
+  z-index: 4;
+  align-self: end;
+  height: 0;
+  border-bottom: 1.8px solid #425466;
+  pointer-events: none;
+}
+
+.answer-page .division-board-digit.answer-digit,
+.answer-page .division-board-decimal.answer-point {
+  color: var(--answer);
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
