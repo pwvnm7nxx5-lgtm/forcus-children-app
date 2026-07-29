@@ -10,6 +10,8 @@
   };
   const featureOptions = window.__printAdjustmentsOptions || {};
   const autoFitAvailable = featureOptions.autoFit !== false;
+  const autoFitControlVisible = autoFitAvailable && featureOptions.showAutoFitControl !== false;
+  const forceAutoFit = featureOptions.forceAutoFit === true;
   const lightweightPrint = featureOptions.lightweightPrint !== false;
   const legacyScale = { compact: 88, normal: 100, large: 118 };
   let applying = false;
@@ -35,7 +37,7 @@
       scalePct: clampNumber(saved.scalePct ?? legacyScale[saved.scale], 70, 200, defaults.scalePct),
       sheetCount: clampNumber(saved.sheetCount, 1, 30, defaults.sheetCount),
       includeAnswers: saved.includeAnswers !== false,
-      autoFitEnabled: autoFitAvailable && saved.autoFitEnabled !== false,
+      autoFitEnabled: forceAutoFit || (autoFitAvailable && saved.autoFitEnabled !== false),
       orientation,
       punchGuide,
     };
@@ -419,7 +421,7 @@
       unit: "%",
     });
     upsertSheetCountControl(settings);
-    if (autoFitAvailable) {
+    if (autoFitControlVisible) {
       upsertAutoFitControl(settings);
     }
   }
@@ -721,7 +723,7 @@
     bindRangeNumber("printProblemScale", "scalePct", settings);
 
     const autoFit = document.querySelector("#printAutoFit");
-    if (autoFitAvailable && autoFit) {
+    if (autoFitControlVisible && autoFit) {
       autoFit.addEventListener("change", () => {
         settings.autoFitEnabled = autoFit.checked;
         saveSettings(settings);
