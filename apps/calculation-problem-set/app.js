@@ -75,12 +75,10 @@ const operationOptions = {
     ["decimalMultiplyInteger", "小数 × 整数"],
     ["decimalDivideInteger", "小数 ÷ 整数"],
     ["integerDivideDecimal", "整数 ÷ 小数"],
-    ["decimalAllMix", "小数計算ミックス"],
   ],
   5: [
     ["decimalMultiply", "小数のかけ算"],
     ["decimalDivide", "小数のわり算"],
-    ["decimalMix", "小数のかけ算・わり算ミックス"],
   ],
   6: [
     ["fractionMultiply", "分数のかけ算"],
@@ -156,14 +154,14 @@ function supportsSimpleVerticalLayout() {
 
 function supportsMultiplicationVerticalLayout() {
   return (Number(getGrade()) >= 2 && Number(getGrade()) <= 4 && getOperation() === "multiply")
-    || (getGrade() === "4" && ["decimalMultiplyInteger", "decimalAllMix"].includes(getOperation()))
-    || (getGrade() === "5" && ["decimalMultiply", "decimalMix"].includes(getOperation()));
+    || (getGrade() === "4" && getOperation() === "decimalMultiplyInteger")
+    || (getGrade() === "5" && getOperation() === "decimalMultiply");
 }
 
 function supportsLongDivisionLayout() {
   return (Number(getGrade()) >= 3 && Number(getGrade()) <= 4 && getOperation() === "divide")
-    || (getGrade() === "4" && ["decimalDivideInteger", "integerDivideDecimal", "decimalAllMix"].includes(getOperation()))
-    || (getGrade() === "5" && ["decimalDivide", "decimalMix"].includes(getOperation()));
+    || (getGrade() === "4" && ["decimalDivideInteger", "integerDivideDecimal"].includes(getOperation()))
+    || (getGrade() === "5" && getOperation() === "decimalDivide");
 }
 
 function getActiveLayout() {
@@ -434,7 +432,7 @@ function formatDecimal(value, places, trim = false) {
 function makeDecimalCandidates(settings) {
   const easy = settings.difficulty === "easy";
   return buildRandomPool(settings, () => {
-    const type = decimalOperationType(settings.operation, settings.grade);
+    const type = decimalOperationType(settings.operation);
     const places = settings.grade === "3" ? 1 : randomInt(1, 2);
     const max = easy ? (places === 1 ? 499 : 999) : (places === 1 ? 999 : 9999);
 
@@ -555,16 +553,11 @@ function makeDecimalCandidates(settings) {
   });
 }
 
-function decimalOperationType(operation, grade) {
+function decimalOperationType(operation) {
   if (operation === "decimalMix") {
-    return grade === "3"
-      ? (Math.random() < 0.5 ? "decimalAdd" : "decimalSub")
-      : (Math.random() < 0.5 ? "decimalMultiply" : "decimalDivide");
+    return Math.random() < 0.5 ? "decimalAdd" : "decimalSub";
   }
   if (operation === "decimalAddSubMix") return Math.random() < 0.5 ? "decimalAdd" : "decimalSub";
-  if (operation === "decimalAllMix") {
-    return ["decimalAdd", "decimalSub", "decimalMultiplyInteger", "decimalDivideInteger", "integerDivideDecimal"][randomInt(0, 4)];
-  }
   return operation;
 }
 
