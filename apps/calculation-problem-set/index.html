@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="app-release" content="20260729-5">
+  <meta name="app-release" content="20260729-6">
   <title>計算問題集</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="styles.css?v=20260729-5">
+  <link rel="stylesheet" href="styles.css?v=20260729-6">
 </head>
 <body>
   <div class="app-shell">
@@ -25,7 +25,7 @@
         <label class="field"><span>計算</span><select id="operation"></select></label>
         <label class="field"><span>桁数</span><select id="digits"></select></label>
         <label class="field"><span>繰り上がり・繰り下がり</span><select id="carryMode"><option value="any">指定なし</option><option value="with">あり</option><option value="without">なし</option></select></label>
-        <label class="field"><span>表示</span><select id="layoutMode"><option value="horizontal" selected>横式</option><option value="vertical">筆算</option></select></label>
+        <label class="field"><span>表示</span><select id="layoutMode"><option value="horizontal" selected>横式</option><option value="horizontal-workspace">横式＋計算スペース</option><option value="vertical">筆算</option></select></label>
         <label class="field"><span>難しさ</span><select id="difficulty"><option value="standard" selected>標準</option><option value="easy">やさしめ</option></select></label>
         <label class="field"><span>問題数</span><span class="combo-input"><input id="problemCount" type="number" min="1" max="60" step="1" value="30" inputmode="numeric"><select id="problemCountPreset" aria-label="問題数の候補"><option value="">候補</option><option value="20">20問</option><option value="30">30問</option><option value="40">40問</option><option value="60">60問</option></select></span></label>
         <label class="field"><span>列数</span><input id="columns" type="number" min="1" max="6" step="1" value="3" inputmode="numeric"></label>
@@ -55,7 +55,7 @@
     </section>
   </template>
   <script src="release-check.js"></script>
-  <script src="app.js?v=20260729-5"></script>
-  <script src="../shared/print-adjustments.js?v=20260729-5"></script>
+  <script src="app.js?v=20260729-6"></script>
+  <script src="../shared/print-adjustments.js?v=20260729-6"></script>
 </body>
 </html>
