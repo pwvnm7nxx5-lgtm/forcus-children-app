@@ -11,6 +11,9 @@ window.LauncherFilters = (() => {
     if (text.includes("1年")) return ["1"];
     if (text.includes("2年")) return ["2"];
     if (text.includes("3年")) return ["3"];
+    if (text.includes("4年")) return ["4"];
+    if (text.includes("5年")) return ["5"];
+    if (text.includes("6年")) return ["6"];
     return ["all"];
   }
 
