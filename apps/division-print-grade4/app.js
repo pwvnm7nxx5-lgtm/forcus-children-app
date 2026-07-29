@@ -245,9 +245,8 @@ function addDivisionFrame(board, boardColumns) {
   board.append(frame);
 }
 
-function makeLongDivisionBoard(problem, showAnswer, boardRows) {
+function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns) {
   const trace = buildLongDivisionTrace(problem);
-  const boardColumns = trace.dividendDigits.length + 1;
   const board = document.createElement("span");
   board.className = "vertical-formula long-division-board";
   board.style.setProperty("--board-rows", String(boardRows));
@@ -317,7 +316,7 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
   pageProblems.forEach((problem) => {
     const item = document.createElement("li");
     item.className = "problem";
-    item.append(makeLongDivisionBoard(problem, showAnswer, boardRows));
+    item.append(makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns));
     list.append(item);
   });
   return page;
