@@ -22,7 +22,7 @@ const els = {
   status: document.querySelector("#status"),
 };
 
-const stateStorageKey = "calculation-problem-set-state-v1";
+const stateStorageKey = "calculation-problem-set-state-v2";
 const problemCountMin = 1;
 const horizontalProblemCountMax = 60;
 const verticalProblemCountMax = 30;
@@ -45,6 +45,20 @@ const operationOptions = {
     ["mix", "たし算・ひき算ミックス"],
     ["multiply", "かけ算（九九）"],
   ],
+  3: [
+    ["add", "たし算"],
+    ["sub", "ひき算"],
+    ["mix", "たし算・ひき算ミックス"],
+    ["multiply", "かけ算"],
+    ["divide", "わり算（あまりなし）"],
+  ],
+  4: [
+    ["add", "たし算"],
+    ["sub", "ひき算"],
+    ["mix", "たし算・ひき算ミックス"],
+    ["multiply", "かけ算"],
+    ["divide", "わり算（あまりなし）"],
+  ],
 };
 
 function clampChoice(value, allowed, fallback) {
@@ -58,7 +72,7 @@ function clampNumber(value, min, max, fallback) {
 }
 
 function getGrade() {
-  return clampChoice(els.grade.value, ["1", "2"], "2");
+  return clampChoice(els.grade.value, ["1", "2", "3", "4"], "2");
 }
 
 function allowedOperations(grade = getGrade()) {
@@ -72,13 +86,25 @@ function getOperation() {
 
 function digitOptions(grade = getGrade(), operation = getOperation()) {
   if (operation === "multiply") {
-    return [["one-one", "1桁 × 1桁"]];
+    if (grade === "2") return [["one-one", "1桁 × 1桁"]];
+    if (grade === "3") return [["one-one", "1桁 × 1桁"], ["two-one", "2桁 × 1桁"]];
+    return [["three-two", "3桁 × 2桁"], ["four-two", "4桁 × 2桁"], ["three-three", "3桁 × 3桁"]];
+  }
+  if (operation === "divide") {
+    if (grade === "3") return [["two-one", "2桁 ÷ 1桁"], ["three-one", "3桁 ÷ 1桁"]];
+    return [["three-one", "3桁 ÷ 1桁"]];
   }
   if (grade === "1") {
     return [
       ["one-one", "1桁と1桁"],
       ["two-one", "2桁と1桁"],
     ];
+  }
+  if (grade === "3") {
+    return [["three-two", "3桁と2桁"], ["three-three", "3桁と3桁"], ["four-three", "4桁と3桁"]];
+  }
+  if (grade === "4") {
+    return [["four-three", "4桁と3桁"], ["four-four", "4桁と4桁"], ["five-four", "5桁と4桁"]];
   }
   return [
     ["two-one", "2桁と1桁"],
@@ -92,7 +118,7 @@ function getDigits() {
 }
 
 function getActiveLayout() {
-  return getOperation() === "multiply" ? "horizontal" : clampChoice(els.layoutMode.value, ["horizontal", "vertical"], "horizontal");
+  return ["multiply", "divide"].includes(getOperation()) ? "horizontal" : clampChoice(els.layoutMode.value, ["horizontal", "vertical"], "horizontal");
 }
 
 function getProblemCountMax(layout = getActiveLayout()) {
@@ -145,19 +171,19 @@ function syncSettingsControls() {
   const currentDigits = els.digits.value;
   replaceOptions(els.digits, digitOptions(), currentDigits);
 
-  const multiplication = getOperation() === "multiply";
-  const carrySupported = !multiplication && !(
+  const equationOnly = ["multiply", "divide"].includes(getOperation());
+  const carrySupported = !equationOnly && !(
     getGrade() === "1" && getDigits() === "one-one" && getOperation() !== "add"
   );
   const carryOption = els.carryMode.querySelector('option[value="with"]');
   carryOption.disabled = !carrySupported;
   carryOption.hidden = !carrySupported;
-  els.carryMode.disabled = multiplication;
+  els.carryMode.disabled = equationOnly;
   if (!carrySupported && els.carryMode.value === "with") els.carryMode.value = "any";
-  if (multiplication) els.carryMode.value = "any";
+  if (equationOnly) els.carryMode.value = "any";
 
-  els.layoutMode.disabled = multiplication;
-  if (multiplication) els.layoutMode.value = "horizontal";
+  els.layoutMode.disabled = equationOnly;
+  if (equationOnly) els.layoutMode.value = "horizontal";
   els.showCarryBoxes.disabled = getActiveLayout() !== "vertical";
 
   const max = getProblemCountMax();
@@ -176,7 +202,7 @@ function applySettings(settings) {
   els.studentName.value = settings.name || "";
   els.worksheetDate.value = settings.date || "";
   els.worksheetTitle.value = settings.title || "計算問題集";
-  els.grade.value = clampChoice(settings.grade, ["1", "2"], "2");
+  els.grade.value = clampChoice(settings.grade, ["1", "2", "3", "4"], "2");
   syncSettingsControls();
   els.operation.value = clampChoice(settings.operation, allowedOperations(), allowedOperations()[0]);
   syncSettingsControls();
@@ -204,62 +230,121 @@ function numberBounds(settings, position) {
     if (settings.digits === "one-one") return { min: 1, max: easy ? 5 : 9 };
     return position === "a" ? { min: 10, max: easy ? 15 : 19 } : { min: 1, max: easy ? 5 : 9 };
   }
-  if (settings.digits === "two-one") {
+  if (settings.grade === "2" && settings.digits === "two-one") {
     return position === "a" ? { min: 10, max: easy ? 49 : 99 } : { min: 1, max: easy ? 5 : 9 };
   }
-  return { min: 10, max: easy ? 49 : 99 };
+  if (settings.grade === "2") return { min: 10, max: easy ? 49 : 99 };
+
+  const digitWord = settings.digits.split("-")[position === "a" ? 0 : 1];
+  const digitCount = { one: 1, two: 2, three: 3, four: 4, five: 5 }[digitWord] || 1;
+  const min = digitCount === 1 ? 1 : 10 ** (digitCount - 1);
+  const max = 10 ** digitCount - 1;
+  return { min, max: easy ? Math.floor(max / 2) : max };
+}
+
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function hasCarry(a, b) {
+  while (a > 0 || b > 0) {
+    if ((a % 10) + (b % 10) >= 10) return true;
+    a = Math.floor(a / 10);
+    b = Math.floor(b / 10);
+  }
+  return false;
+}
+
+function hasBorrow(a, b) {
+  while (a > 0 || b > 0) {
+    if (a % 10 < b % 10) return true;
+    a = Math.floor(a / 10);
+    b = Math.floor(b / 10);
+  }
+  return false;
 }
 
 function matchesCarryMode(problem, settings) {
-  if (settings.carryMode === "any" || problem.op === "×") return true;
+  if (settings.carryMode === "any") return true;
   const carries = problem.op === "+"
-    ? (problem.a % 10) + (problem.b % 10) >= 10
-    : problem.a % 10 < problem.b % 10;
+    ? hasCarry(problem.a, problem.b)
+    : hasBorrow(problem.a, problem.b);
   return settings.carryMode === "with" ? carries : !carries;
 }
 
-function makeAddCandidates(settings) {
+function buildRandomPool(settings, makeProblem) {
+  const target = Math.max(240, settings.count * 8);
   const candidates = [];
-  const aBounds = numberBounds(settings, "a");
-  const bBounds = numberBounds(settings, "b");
-  for (let a = aBounds.min; a <= aBounds.max; a += 1) {
-    for (let b = bBounds.min; b <= bBounds.max; b += 1) {
-      const answer = a + b;
-      if (settings.grade === "1" && answer > 20) continue;
-      const problem = { a, b, op: "+", answer };
-      if (matchesCarryMode(problem, settings)) candidates.push(problem);
-    }
+  const keys = new Set();
+  for (let attempt = 0; attempt < target * 80 && candidates.length < target; attempt += 1) {
+    const problem = makeProblem();
+    if (!problem) continue;
+    const key = problemKey(problem);
+    if (keys.has(key)) continue;
+    keys.add(key);
+    candidates.push(problem);
   }
   return candidates;
+}
+
+function makeAddCandidates(settings) {
+  const aBounds = numberBounds(settings, "a");
+  const bBounds = numberBounds(settings, "b");
+  return buildRandomPool(settings, () => {
+    const a = randomInt(aBounds.min, aBounds.max);
+    const b = randomInt(bBounds.min, bBounds.max);
+    const problem = { a, b, op: "+", answer: a + b };
+    if (settings.grade === "1" && problem.answer > 20) return null;
+    return matchesCarryMode(problem, settings) ? problem : null;
+  });
 }
 
 function makeSubCandidates(settings) {
-  const candidates = [];
   const aBounds = numberBounds(settings, "a");
   const bBounds = numberBounds(settings, "b");
-  for (let a = aBounds.min; a <= aBounds.max; a += 1) {
-    for (let b = bBounds.min; b <= bBounds.max; b += 1) {
-      if (b > a) continue;
-      const problem = { a, b, op: "−", answer: a - b };
-      if (matchesCarryMode(problem, settings)) candidates.push(problem);
-    }
-  }
-  return candidates;
+  return buildRandomPool(settings, () => {
+    const a = randomInt(aBounds.min, aBounds.max);
+    const b = randomInt(bBounds.min, Math.min(bBounds.max, a));
+    const problem = { a, b, op: "-", answer: a - b };
+    return matchesCarryMode(problem, settings) ? problem : null;
+  });
 }
 
 function makeMultiplyCandidates(settings) {
-  const max = settings.difficulty === "easy" ? 5 : 9;
-  const candidates = [];
-  for (let a = 1; a <= max; a += 1) {
-    for (let b = 1; b <= max; b += 1) {
-      candidates.push({ a, b, op: "×", answer: a * b });
-    }
+  if (settings.digits === "one-one") {
+    const max = settings.difficulty === "easy" ? 5 : 9;
+    return buildRandomPool(settings, () => {
+      const a = randomInt(1, max);
+      const b = randomInt(1, max);
+      return { a, b, op: "×", answer: a * b };
+    });
   }
-  return candidates;
+  const aBounds = numberBounds(settings, "a");
+  const bBounds = numberBounds(settings, "b");
+  return buildRandomPool(settings, () => {
+    const a = randomInt(aBounds.min, aBounds.max);
+    const b = randomInt(bBounds.min, bBounds.max);
+    return { a, b, op: "×", answer: a * b };
+  });
+}
+
+function makeDivideCandidates(settings) {
+  const dividendBounds = numberBounds(settings, "a");
+  const maxDivisor = settings.difficulty === "easy" ? 5 : 9;
+  return buildRandomPool(settings, () => {
+    const divisor = randomInt(2, maxDivisor);
+    const maxQuotient = Math.floor(dividendBounds.max / divisor);
+    if (maxQuotient < 2) return null;
+    const quotient = randomInt(2, maxQuotient);
+    const dividend = divisor * quotient;
+    if (dividend < dividendBounds.min) return null;
+    return { a: dividend, b: divisor, op: "÷", answer: quotient };
+  });
 }
 
 function makeCandidatePool(settings) {
   if (settings.operation === "multiply") return makeMultiplyCandidates(settings);
+  if (settings.operation === "divide") return makeDivideCandidates(settings);
   if (settings.operation === "add") return makeAddCandidates(settings);
   if (settings.operation === "sub") return makeSubCandidates(settings);
   return [...makeAddCandidates(settings), ...makeSubCandidates(settings)];
