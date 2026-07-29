@@ -1,3 +1,9 @@
+window.__printAdjustmentsOptions = {
+  ...(window.__printAdjustmentsOptions || {}),
+  forceAutoFit: true,
+  showAutoFitControl: false,
+};
+
 const els = {
   studentName: document.querySelector("#studentName"),
   worksheetDate: document.querySelector("#worksheetDate"),
@@ -22,7 +28,7 @@ const els = {
   status: document.querySelector("#status"),
 };
 
-const stateStorageKey = "calculation-problem-set-state-v2";
+const stateStorageKey = "calculation-problem-set-state-v3";
 const problemCountMin = 1;
 const horizontalProblemCountMax = 60;
 const verticalProblemCountMax = 30;
@@ -59,6 +65,18 @@ const operationOptions = {
     ["multiply", "かけ算"],
     ["divide", "わり算（あまりなし）"],
   ],
+  5: [
+    ["decimalAdd", "小数のたし算"],
+    ["decimalSub", "小数のひき算"],
+    ["decimalMix", "小数計算ミックス"],
+    ["decimalMultiply", "小数のかけ算"],
+    ["decimalDivide", "小数のわり算"],
+  ],
+  6: [
+    ["fractionMultiply", "分数のかけ算"],
+    ["fractionDivide", "分数のわり算"],
+    ["fractionMix", "分数計算ミックス"],
+  ],
 };
 
 function clampChoice(value, allowed, fallback) {
@@ -72,7 +90,7 @@ function clampNumber(value, min, max, fallback) {
 }
 
 function getGrade() {
-  return clampChoice(els.grade.value, ["1", "2", "3", "4"], "2");
+  return clampChoice(els.grade.value, ["1", "2", "3", "4", "5", "6"], "2");
 }
 
 function allowedOperations(grade = getGrade()) {
@@ -85,6 +103,8 @@ function getOperation() {
 }
 
 function digitOptions(grade = getGrade(), operation = getOperation()) {
+  if (grade === "5") return [["tenths", "小数第1位まで"]];
+  if (grade === "6") return [["proper-fractions", "真分数どうし"]];
   if (operation === "multiply") {
     if (grade === "2") return [["one-one", "1桁 × 1桁"]];
     if (grade === "3") return [["one-one", "1桁 × 1桁"], ["two-one", "2桁 × 1桁"]];
@@ -118,7 +138,8 @@ function getDigits() {
 }
 
 function getActiveLayout() {
-  return ["multiply", "divide"].includes(getOperation()) ? "horizontal" : clampChoice(els.layoutMode.value, ["horizontal", "vertical"], "horizontal");
+  const verticalSupported = Number(getGrade()) <= 4 && ["add", "sub", "mix"].includes(getOperation());
+  return verticalSupported ? clampChoice(els.layoutMode.value, ["horizontal", "vertical"], "horizontal") : "horizontal";
 }
 
 function getProblemCountMax(layout = getActiveLayout()) {
@@ -131,8 +152,12 @@ function getProblemCount() {
   return count;
 }
 
+function getColumnsMax() {
+  return Number(getGrade()) >= 5 ? 2 : columnsMax;
+}
+
 function getColumns() {
-  const columns = clampNumber(els.columns.value, columnsMin, columnsMax, 3);
+  const columns = clampNumber(els.columns.value, columnsMin, getColumnsMax(), 3);
   els.columns.value = String(columns);
   return columns;
 }
@@ -171,7 +196,7 @@ function syncSettingsControls() {
   const currentDigits = els.digits.value;
   replaceOptions(els.digits, digitOptions(), currentDigits);
 
-  const equationOnly = ["multiply", "divide"].includes(getOperation());
+  const equationOnly = !(["add", "sub", "mix"].includes(getOperation()) && Number(getGrade()) <= 4);
   const carrySupported = !equationOnly && !(
     getGrade() === "1" && getDigits() === "one-one" && getOperation() !== "add"
   );
@@ -187,6 +212,8 @@ function syncSettingsControls() {
   els.showCarryBoxes.disabled = getActiveLayout() !== "vertical";
 
   const max = getProblemCountMax();
+  els.columns.max = String(getColumnsMax());
+  getColumns();
   els.problemCount.max = String(max);
   Array.from(els.problemCountPreset.options).forEach((option) => {
     if (!option.value) return;
@@ -202,7 +229,7 @@ function applySettings(settings) {
   els.studentName.value = settings.name || "";
   els.worksheetDate.value = settings.date || "";
   els.worksheetTitle.value = settings.title || "計算問題集";
-  els.grade.value = clampChoice(settings.grade, ["1", "2", "3", "4"], "2");
+  els.grade.value = clampChoice(settings.grade, ["1", "2", "3", "4", "5", "6"], "2");
   syncSettingsControls();
   els.operation.value = clampChoice(settings.operation, allowedOperations(), allowedOperations()[0]);
   syncSettingsControls();
@@ -211,8 +238,8 @@ function applySettings(settings) {
   els.layoutMode.value = clampChoice(settings.layout, ["horizontal", "vertical"], "horizontal");
   els.difficulty.value = clampChoice(settings.difficulty, ["standard", "easy"], "standard");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, getProblemCountMax(), 30));
-  els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, 3));
-  els.showCarryBoxes.checked = settings.showCarryBoxes !== false;
+  els.columns.value = String(clampNumber(settings.columns, columnsMin, getColumnsMax(), 3));
+  els.showCarryBoxes.checked = settings.showCarryBoxes === true;
   syncSettingsControls();
 }
 
@@ -342,7 +369,97 @@ function makeDivideCandidates(settings) {
   });
 }
 
+function formatDecimal(value, places, trim = false) {
+  const text = (value / (10 ** places)).toFixed(places);
+  return trim ? text.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1") : text;
+}
+
+function makeDecimalCandidates(settings) {
+  const easy = settings.difficulty === "easy";
+  const max = easy ? 499 : 999;
+  const maxMultiplier = easy ? 49 : 99;
+  return buildRandomPool(settings, () => {
+    const type = settings.operation === "decimalMix"
+      ? ["decimalAdd", "decimalSub", "decimalMultiply", "decimalDivide"][randomInt(0, 3)]
+      : settings.operation;
+
+    if (type === "decimalAdd" || type === "decimalSub") {
+      let a = randomInt(10, max);
+      let b = randomInt(10, max);
+      if (type === "decimalSub" && b > a) [a, b] = [b, a];
+      return {
+        a: formatDecimal(a, 1),
+        b: formatDecimal(b, 1),
+        op: type === "decimalAdd" ? "+" : "-",
+        answer: formatDecimal(type === "decimalAdd" ? a + b : a - b, 1),
+      };
+    }
+
+    if (type === "decimalMultiply") {
+      const a = randomInt(10, max);
+      const b = randomInt(2, maxMultiplier);
+      return {
+        a: formatDecimal(a, 1),
+        b: formatDecimal(b, 1),
+        op: "×",
+        answer: formatDecimal(a * b, 2),
+      };
+    }
+
+    const divisor = randomInt(10, maxMultiplier);
+    const quotient = randomInt(10, easy ? 99 : 299);
+    const dividend = divisor * quotient;
+    return {
+      a: formatDecimal(dividend, 2, true),
+      b: formatDecimal(divisor, 1),
+      op: "÷",
+      answer: formatDecimal(quotient, 1, true),
+    };
+  });
+}
+
+function greatestCommonDivisor(a, b) {
+  while (b !== 0) [a, b] = [b, a % b];
+  return a;
+}
+
+function simplifyFraction(numerator, denominator) {
+  const divisor = greatestCommonDivisor(Math.abs(numerator), Math.abs(denominator));
+  return { numerator: numerator / divisor, denominator: denominator / divisor };
+}
+
+function fractionText({ numerator, denominator }) {
+  return `${numerator}/${denominator}`;
+}
+
+function randomProperFraction(maxDenominator) {
+  const denominator = randomInt(2, maxDenominator);
+  return { numerator: randomInt(1, denominator - 1), denominator };
+}
+
+function makeFractionCandidates(settings) {
+  const maxDenominator = settings.difficulty === "easy" ? 6 : 12;
+  return buildRandomPool(settings, () => {
+    const type = settings.operation === "fractionMix"
+      ? (Math.random() < 0.5 ? "fractionMultiply" : "fractionDivide")
+      : settings.operation;
+    const a = randomProperFraction(maxDenominator);
+    const b = randomProperFraction(maxDenominator);
+    const result = type === "fractionMultiply"
+      ? simplifyFraction(a.numerator * b.numerator, a.denominator * b.denominator)
+      : simplifyFraction(a.numerator * b.denominator, a.denominator * b.numerator);
+    return {
+      a: fractionText(a),
+      b: fractionText(b),
+      op: type === "fractionMultiply" ? "×" : "÷",
+      answer: fractionText(result),
+    };
+  });
+}
+
 function makeCandidatePool(settings) {
+  if (settings.operation.startsWith("decimal")) return makeDecimalCandidates(settings);
+  if (settings.operation.startsWith("fraction")) return makeFractionCandidates(settings);
   if (settings.operation === "multiply") return makeMultiplyCandidates(settings);
   if (settings.operation === "divide") return makeDivideCandidates(settings);
   if (settings.operation === "add") return makeAddCandidates(settings);
