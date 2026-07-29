@@ -63,10 +63,10 @@
   {
     id: "calculation-problem-set",
     title: "計算問題集",
-    description: "1年生・2年生のたし算、ひき算、九九を、桁数や繰り上がりから選んで印刷できます。",
+    description: "1〜5年生の四則計算と小数計算を、学年・桁数・繰り上がりから選んで印刷できます。",
     category: "教材",
-    grades: ["1", "2"],
-    tags: ["計算", "たし算", "ひき算", "かけ算", "九九", "筆算", "印刷"],
+    grades: ["1", "2", "3", "4", "5"],
+    tags: ["計算", "たし算", "ひき算", "かけ算", "わり算", "小数", "九九", "筆算", "印刷"],
     href: "apps/calculation-problem-set/index.html",
     actionLabel: "計算問題を作る",
     status: "ready",
