@@ -714,25 +714,21 @@ function getCalculationWorkspaceSize(pageProblems) {
     workspaceDigitCount(problem.b),
     workspaceDigitCount(problem.answer),
   )));
-  return { columns: digits + 1, rows: 3 };
+  return { columns: digits, rows: 3 };
 }
 
-function makeCalculationWorkspace(problem, showAnswer, size) {
+function makeCalculationWorkspace(problem, showAnswer, settings, size) {
   const workspace = document.createElement("span");
   workspace.className = "calculation-workspace";
   workspace.append(makeHorizontalFormula(problem, showAnswer));
   if (showAnswer) return workspace;
 
-  const grid = document.createElement("span");
-  grid.className = "calculation-workspace-grid";
-  grid.style.setProperty("--workspace-columns", String(size.columns));
-  grid.style.setProperty("--workspace-rows", String(size.rows));
-  for (let index = 0; index < size.columns * size.rows; index += 1) {
-    const cell = document.createElement("span");
-    cell.className = "calculation-workspace-cell";
-    grid.append(cell);
-  }
-  workspace.append(grid);
+  const board = makeVerticalFormula({ ...problem, a: "", b: "", answer: "" }, false, {
+    ...settings,
+    showCarryBoxes: false,
+  }, size.columns);
+  board.classList.add("calculation-workspace-board");
+  workspace.append(board);
   return workspace;
 }
 
@@ -1034,7 +1030,7 @@ function getMultiplicationBoardSize(pageProblems) {
 
 function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize, workspaceSize) {
   if (settings.layout === "horizontal-workspace") {
-    return makeCalculationWorkspace(problem, showAnswer, workspaceSize);
+    return makeCalculationWorkspace(problem, showAnswer, settings, workspaceSize);
   }
   if (settings.layout === "vertical" && problem.longDivision) {
     return makeLongDivisionBoard(problem, showAnswer, longDivisionBoardSize.rows, longDivisionBoardSize.columns);
@@ -1057,14 +1053,8 @@ function applyGridDensity(list, settings, longDivisionBoardSize = null, multipli
   let blankHeight = 9;
   if (workspaceSize) {
     rowGap = 4;
-    const availableHeight = 235 - Math.max(0, rows - 1) * rowGap;
-    const availableWidth = (184 - Math.max(0, settings.columns - 1) * 8) / settings.columns - 8;
-    const heightCellSize = (availableHeight / rows - 12) / workspaceSize.rows;
-    const widthCellSize = availableWidth / workspaceSize.columns;
-    const cellSize = Math.max(4.2, Math.min(8, heightCellSize, widthCellSize));
-    problemMin = 12 + cellSize * workspaceSize.rows;
-    fontSize = Math.max(16, Math.round(cellSize * 3));
-    list.style.setProperty("--workspace-cell-size", `${cellSize.toFixed(2)}mm`);
+    problemMin = 41;
+    fontSize = 21;
   } else if (longDivisionBoardSize) {
     rowGap = 4;
     const availableHeight = 235 - Math.max(0, rows - 1) * rowGap;

@@ -388,22 +388,9 @@ button:hover {
   gap: 2.5mm;
 }
 
-.calculation-workspace-grid {
-  display: grid;
-  grid-template-columns: repeat(var(--workspace-columns), var(--workspace-cell-size));
-  grid-template-rows: repeat(var(--workspace-rows), var(--workspace-cell-size));
-  width: calc(var(--workspace-columns) * var(--workspace-cell-size));
-  height: calc(var(--workspace-rows) * var(--workspace-cell-size));
-  border-top: 1px solid #bcc8d4;
-  border-left: 1px solid #bcc8d4;
-  background: #ffffff;
-}
-
-.calculation-workspace-cell {
-  min-width: 0;
-  min-height: 0;
-  border-right: 1px solid #bcc8d4;
-  border-bottom: 1px solid #bcc8d4;
+.calculation-workspace-board {
+  --digit-size: 8mm;
+  --operator-width: 7mm;
 }
 
 .calculation-workspace-layout.answer-page .problem {
