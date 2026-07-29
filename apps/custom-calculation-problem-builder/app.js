@@ -15,7 +15,6 @@ const els = {
   digitsBLabel: document.querySelector("#digitsBLabel"),
   carryMode: document.querySelector("#carryMode"),
   layoutMode: document.querySelector("#layoutMode"),
-  difficulty: document.querySelector("#difficulty"),
   problemCount: document.querySelector("#problemCount"),
   problemCountPreset: document.querySelector("#problemCountPreset"),
   columns: document.querySelector("#columns"),
@@ -217,7 +216,7 @@ function getSettings() {
     digitsB: getOperandDigits("b"),
     carryMode: clampChoice(els.carryMode.value, ["any", "with", "without"], "any"),
     layout: getActiveLayout(),
-    difficulty: clampChoice(els.difficulty.value, ["standard", "easy"], "standard"),
+    difficulty: "standard",
     count: getProblemCount(),
     columns: getColumns(),
     showCarryBoxes: els.showCarryBoxes.checked,
@@ -299,7 +298,6 @@ function applySettings(settings) {
   els.digitsB.value = String(clampNumber(settings.digitsB, 1, 5, 3));
   els.carryMode.value = clampChoice(settings.carryMode, ["any", "with", "without"], "any");
   els.layoutMode.value = clampChoice(settings.layout, ["horizontal", "vertical"], "horizontal");
-  els.difficulty.value = clampChoice(settings.difficulty, ["standard", "easy"], "standard");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, getProblemCountMax(), 30));
   els.columns.value = String(clampNumber(settings.columns, columnsMin, getColumnsMax(), 3));
   els.showCarryBoxes.checked = settings.showCarryBoxes === true;
@@ -627,7 +625,6 @@ function sheetSignature(settings) {
     digitsB: settings.digitsB,
     carryMode: settings.carryMode,
     layout: settings.layout,
-    difficulty: settings.difficulty,
     count: settings.count,
   });
 }
@@ -1166,7 +1163,7 @@ function bindEvents() {
       render();
     });
   });
-  [els.operation, els.digitsA, els.digitsB, els.carryMode, els.layoutMode, els.difficulty].forEach((control) => {
+  [els.operation, els.digitsA, els.digitsB, els.carryMode, els.layoutMode].forEach((control) => {
     control.addEventListener("change", generateProblems);
   });
   els.showCarryBoxes.addEventListener("change", render);
