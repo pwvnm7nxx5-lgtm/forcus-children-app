@@ -121,13 +121,6 @@
         height: 100%;
         align-self: stretch;
       }
-      .problem-grid.problem-block-grid > .problem > .problem-card,
-      .problem-grid.problem-block-grid > .problem > .practice-formula,
-      .problem-grid.problem-block-grid > .problem > .formula,
-      .problem-grid.problem-block-grid > .problem > .vertical-formula {
-        min-height: 0;
-        height: 100%;
-      }
       .problem-card {
         gap: var(--problem-card-gap, 3mm);
         padding-bottom: var(--problem-card-pad, 3mm);

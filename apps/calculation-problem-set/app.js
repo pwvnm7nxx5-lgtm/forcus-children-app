@@ -363,10 +363,10 @@ function operatorShift(digits) {
   return Array.from({ length: firstDigitIndex }, () => "var(--digit-size)").join(" + ");
 }
 
-function makeDigitRow(digits, operator = "", showCarryBoxes = true, blank = false) {
+function makeDigitRow(digits, operator = "", showCarryBoxes = true, blank = false, operatorAnchorDigits = digits) {
   const row = document.createElement("span");
   row.className = "digit-row";
-  row.style.setProperty("--operator-shift", operatorShift(digits));
+  row.style.setProperty("--operator-shift", operatorShift(operatorAnchorDigits));
   const operatorElement = document.createElement("span");
   operatorElement.className = "operator";
   operatorElement.textContent = operator;
@@ -380,8 +380,13 @@ function makeVerticalFormula(problem, showAnswer, settings, width) {
   formula.className = "vertical-formula";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
   formula.style.setProperty("--digit-count", String(width));
-  formula.append(makeDigitRow(formatDigits(problem.a, width), "", settings.showCarryBoxes));
-  formula.append(makeDigitRow(formatDigits(problem.b, width), problem.op, settings.showCarryBoxes));
+  const firstRow = formatDigits(problem.a, width);
+  const secondRow = formatDigits(problem.b, width);
+  const operatorAnchor = [firstRow, secondRow].reduce((widest, digits) => (
+    digits.findIndex((digit) => digit !== " ") < widest.findIndex((digit) => digit !== " ") ? digits : widest
+  ));
+  formula.append(makeDigitRow(firstRow, "", settings.showCarryBoxes));
+  formula.append(makeDigitRow(secondRow, problem.op, settings.showCarryBoxes, false, operatorAnchor));
   const line = document.createElement("span");
   line.className = "vertical-line";
   formula.append(line);
