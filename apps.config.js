@@ -34,6 +34,7 @@
     actionLabel: "計算プリントを作る",
     status: "ready",
     accent: "#b45f06",
+    hidden: true,
   },
   {
     id: "number-print-grade1",
@@ -94,6 +95,7 @@
     actionLabel: "2年生プリントを作る",
     status: "ready",
     accent: "#2f7d6d",
+    hidden: true,
   },
   {
     id: "time-print-grade2",
@@ -154,6 +156,7 @@
     actionLabel: "計算プリントを作る",
     status: "ready",
     accent: "#2563eb",
+    hidden: true,
   },
   {
     id: "weight-print-grade3",
@@ -190,6 +193,7 @@
     actionLabel: "わり算プリントを作る",
     status: "ready",
     accent: "#7c3aed",
+    hidden: true,
   },
   {
     id: "multiplication-print-grade3",
@@ -202,6 +206,7 @@
     actionLabel: "かけ算筆算を作る",
     status: "ready",
     accent: "#0f766e",
+    hidden: true,
   },
   {
     id: "division-print-grade4",
@@ -214,6 +219,7 @@
     actionLabel: "わり算筆算を作る",
     status: "ready",
     accent: "#0f766e",
+    hidden: true,
   },
   {
     id: "decimal-print-grade4",
@@ -226,6 +232,7 @@
     actionLabel: "小数計算を練習する",
     status: "ready",
     accent: "#0f766e",
+    hidden: true,
   },
   {
     id: "multiplication-print-grade4",
@@ -238,6 +245,7 @@
     actionLabel: "かけ算筆算を作る",
     status: "ready",
     accent: "#0f766e",
+    hidden: true,
   },
   {
     id: "rounding-print-grade4",
@@ -263,6 +271,7 @@
     actionLabel: "小数計算を練習する",
     status: "ready",
     accent: "#2563eb",
+    hidden: true,
   },
   {
     id: "number-properties-print-grade5",
