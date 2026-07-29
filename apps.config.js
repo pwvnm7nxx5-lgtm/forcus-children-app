@@ -63,7 +63,7 @@
   {
     id: "calculation-problem-set",
     title: "計算問題集",
-    description: "1〜5年生の四則計算と小数計算を、学年・桁数・繰り上がりから選んで印刷できます。",
+    description: "学年を選ぶだけで、その学年で学ぶ四則計算・小数計算を作れます。普段の計算練習はこちら。",
     category: "教材",
     grades: ["1", "2", "3", "4", "5"],
     tags: ["計算", "たし算", "ひき算", "かけ算", "わり算", "小数", "九九", "筆算", "印刷"],
@@ -71,11 +71,12 @@
     actionLabel: "計算問題を作る",
     status: "ready",
     accent: "#2563eb",
+    recommended: true,
   },
   {
     id: "custom-calculation-problem-builder",
     title: "計算問題作成",
-    description: "四則計算と2つの桁数を自由に選んで、計算プリントを作成できます。",
+    description: "学年に関係なく、四則計算と2つの桁数を自由に指定できます。個別に条件を決めたいときはこちら。",
     category: "教材",
     grades: ["all"],
     tags: ["計算", "たし算", "ひき算", "かけ算", "わり算", "筆算", "印刷"],
@@ -83,6 +84,7 @@
     actionLabel: "自由に計算問題を作る",
     status: "ready",
     accent: "#7c3aed",
+    recommended: true,
   },
   {
     id: "math-print-grade2",

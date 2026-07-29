@@ -2,6 +2,7 @@ window.LauncherCardUi = (() => {
   function makeAppCard({ app, gradeLabel, favoriteButton, bookmarkButton }) {
     const article = document.createElement("article");
     article.className = "app-card";
+    article.classList.toggle("recommended", app.recommended === true);
     article.style.setProperty("--accent", app.accent || "#2f6f8f");
 
     const mark = document.createElement("div");
@@ -14,6 +15,13 @@ window.LauncherCardUi = (() => {
 
     const meta = document.createElement("div");
     meta.className = "meta-row";
+
+    if (app.recommended) {
+      const recommended = document.createElement("span");
+      recommended.className = "recommended-badge";
+      recommended.textContent = "おすすめ";
+      meta.append(recommended);
+    }
 
     const grade = document.createElement("span");
     grade.className = "grade";

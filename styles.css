@@ -300,6 +300,11 @@ h1 {
   box-shadow: var(--shadow);
 }
 
+.app-card.recommended {
+  border: 2px solid #f59e0b;
+  box-shadow: 0 10px 26px rgba(180, 112, 0, 0.14);
+}
+
 .card-actions {
   position: absolute;
   top: 12px;
@@ -379,6 +384,7 @@ h1 {
 .category,
 .grade,
 .ready,
+.recommended-badge,
 .tag-row span {
   display: inline-flex;
   align-items: center;
@@ -404,6 +410,11 @@ h1 {
 .ready {
   background: #edf5ef;
   color: #245f3b;
+}
+
+.recommended-badge {
+  background: #f59e0b;
+  color: #ffffff;
 }
 
 .dev-status {
