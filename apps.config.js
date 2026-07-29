@@ -76,10 +76,10 @@
   {
     id: "custom-calculation-problem-builder",
     title: "計算問題作成",
-    description: "学年に関係なく、四則計算と2つの桁数を自由に指定できます。個別に条件を決めたいときはこちら。",
+    description: "学年に関係なく、四則計算・小数計算と2つの桁数を自由に指定できます。個別に条件を決めたいときはこちら。",
     category: "教材",
     grades: ["all"],
-    tags: ["計算", "たし算", "ひき算", "かけ算", "わり算", "筆算", "印刷"],
+    tags: ["計算", "たし算", "ひき算", "かけ算", "わり算", "小数", "筆算", "印刷"],
     href: "apps/custom-calculation-problem-builder/index.html",
     actionLabel: "自由に計算問題を作る",
     status: "ready",

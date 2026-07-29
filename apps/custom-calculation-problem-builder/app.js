@@ -88,6 +88,12 @@ const customOperationOptions = [
   ["sub", "ひき算"],
   ["multiply", "かけ算"],
   ["divide", "わり算（あまりなし）"],
+  ["decimalAdd", "小数のたし算"],
+  ["decimalSub", "小数のひき算"],
+  ["decimalMultiply", "小数のかけ算"],
+  ["decimalDivideInteger", "小数 ÷ 整数"],
+  ["integerDivideDecimal", "整数 ÷ 小数"],
+  ["decimalDivideDecimal", "小数 ÷ 小数"],
 ];
 
 function clampChoice(value, allowed, fallback) {
@@ -148,16 +154,20 @@ function getOperandDigits(position) {
   return clampNumber(control.value, 1, 5, position === "a" ? 2 : 3);
 }
 
+function isDecimalOperation(operation = getOperation()) {
+  return operation.startsWith("decimal") || operation === "integerDivideDecimal";
+}
+
 function supportsSimpleVerticalLayout() {
-  return ["add", "sub"].includes(getOperation());
+  return ["add", "sub", "decimalAdd", "decimalSub"].includes(getOperation());
 }
 
 function supportsMultiplicationVerticalLayout() {
-  return getOperation() === "multiply";
+  return ["multiply", "decimalMultiply"].includes(getOperation());
 }
 
 function supportsLongDivisionLayout() {
-  return getOperation() === "divide";
+  return ["divide", "decimalDivideInteger", "integerDivideDecimal", "decimalDivideDecimal"].includes(getOperation());
 }
 
 function getActiveLayout() {
@@ -230,10 +240,18 @@ function syncSettingsControls() {
   }
   els.operation.value = clampChoice(els.operation.value, allowedOperations(), "add");
 
-  const orderedOperands = ["sub", "divide"].includes(getOperation());
-  const division = getOperation() === "divide";
-  els.digitsALabel.textContent = division ? "わられる数の桁数" : (orderedOperands ? "大きい数の桁数" : "1つ目の桁数");
-  els.digitsBLabel.textContent = division ? "わる数の桁数" : (orderedOperands ? "小さい数の桁数" : "2つ目の桁数");
+  const operation = getOperation();
+  const decimalDivisionOperations = ["decimalDivideInteger", "integerDivideDecimal", "decimalDivideDecimal"];
+  const decimalDivision = decimalDivisionOperations.includes(operation);
+  const orderedOperands = ["sub", "divide", ...decimalDivisionOperations].includes(operation);
+  const division = operation === "divide";
+  if (isDecimalOperation(operation)) {
+    els.digitsALabel.textContent = decimalDivision && operation === "integerDivideDecimal" ? "わられる数の桁数" : "1つ目の整数部分の桁数";
+    els.digitsBLabel.textContent = decimalDivision && operation === "decimalDivideInteger" ? "わる数の桁数" : "2つ目の整数部分の桁数";
+  } else {
+    els.digitsALabel.textContent = division ? "わられる数の桁数" : (orderedOperands ? "大きい数の桁数" : "1つ目の桁数");
+    els.digitsBLabel.textContent = division ? "わる数の桁数" : (orderedOperands ? "小さい数の桁数" : "2つ目の桁数");
+  }
   Array.from(els.digitsB.options).forEach((option) => {
     option.disabled = orderedOperands && Number(option.value) > getOperandDigits("a");
   });
@@ -244,7 +262,7 @@ function syncSettingsControls() {
   const simpleVertical = supportsSimpleVerticalLayout();
   const multiplicationVertical = supportsMultiplicationVerticalLayout();
   const layoutSupported = simpleVertical || multiplicationVertical || supportsLongDivisionLayout();
-  const carryModeSupported = ["add", "sub"].includes(getOperation());
+  const carryModeSupported = ["add", "sub", "decimalAdd", "decimalSub"].includes(getOperation());
   const carryOption = els.carryMode.querySelector('option[value="with"]');
   carryOption.disabled = !carryModeSupported;
   carryOption.hidden = !carryModeSupported;
@@ -328,9 +346,11 @@ function hasBorrow(a, b) {
 
 function matchesCarryMode(problem, settings) {
   if (settings.carryMode === "any") return true;
+  const a = problem.carryA ?? problem.a;
+  const b = problem.carryB ?? problem.b;
   const carries = problem.op === "+"
-    ? hasCarry(problem.a, problem.b)
-    : hasBorrow(problem.a, problem.b);
+    ? hasCarry(a, b)
+    : hasBorrow(a, b);
   return settings.carryMode === "with" ? carries : !carries;
 }
 
@@ -413,29 +433,32 @@ function formatDecimal(value, places, trim = false) {
 }
 
 function makeDecimalCandidates(settings) {
-  const easy = settings.difficulty === "easy";
-  const max = easy ? 499 : 999;
-  const maxMultiplier = easy ? 49 : 99;
+  const aBounds = numberBounds(settings, "a");
+  const bBounds = numberBounds(settings, "b");
+  const scaledMin = (bounds) => bounds.min * 10;
+  const scaledMax = (bounds) => bounds.max * 10 + 9;
+
   return buildRandomPool(settings, () => {
-    const type = settings.operation === "decimalMix"
-      ? ["decimalAdd", "decimalSub", "decimalMultiply", "decimalDivide"][randomInt(0, 3)]
-      : settings.operation;
+    const type = settings.operation;
 
     if (type === "decimalAdd" || type === "decimalSub") {
-      let a = randomInt(10, max);
-      let b = randomInt(10, max);
+      let a = randomInt(scaledMin(aBounds), scaledMax(aBounds));
+      let b = randomInt(scaledMin(bBounds), scaledMax(bBounds));
       if (type === "decimalSub" && b > a) [a, b] = [b, a];
-      return {
+      const problem = {
         a: formatDecimal(a, 1),
         b: formatDecimal(b, 1),
         op: type === "decimalAdd" ? "+" : "-",
         answer: formatDecimal(type === "decimalAdd" ? a + b : a - b, 1),
+        carryA: a,
+        carryB: b,
       };
+      return matchesCarryMode(problem, settings) ? problem : null;
     }
 
     if (type === "decimalMultiply") {
-      const a = randomInt(10, max);
-      const b = randomInt(2, maxMultiplier);
+      const a = randomInt(scaledMin(aBounds), scaledMax(aBounds));
+      const b = randomInt(scaledMin(bBounds), scaledMax(bBounds));
       return {
         a: formatDecimal(a, 1),
         b: formatDecimal(b, 1),
@@ -444,35 +467,94 @@ function makeDecimalCandidates(settings) {
       };
     }
 
-    if (settings.layout === "vertical") {
-      const divisor = randomInt(2, easy ? 5 : 9);
-      const quotient = randomInt(10, easy ? 99 : 299);
+    if (type === "decimalDivideInteger") {
+      const divisor = randomInt(bBounds.min, bBounds.max);
+      const minQuotient = Math.max(1, Math.ceil(scaledMin(aBounds) / divisor));
+      const maxQuotient = Math.floor(scaledMax(aBounds) / divisor);
+      if (maxQuotient < minQuotient) return null;
+      const quotient = randomInt(minQuotient, maxQuotient);
       const dividend = divisor * quotient;
-      return {
+      const problem = {
         a: formatDecimal(dividend, 1),
         b: String(divisor),
         op: "÷",
         answer: formatDecimal(quotient, 1),
-        longDivision: {
+      };
+      if (settings.layout === "vertical") {
+        problem.longDivision = {
           divisor,
           dividend,
           quotient,
-          divisorDigits: 1,
+          divisorDigits: String(divisor).length,
           dividendDecimalAfterIndex: String(dividend).length - 2,
           quotientDecimalAfterIndex: String(quotient).length - 2,
-        },
-      };
+        };
+      }
+      return problem;
     }
 
-    const divisor = randomInt(10, maxMultiplier);
-    const quotient = randomInt(10, easy ? 99 : 299);
-    const dividend = divisor * quotient;
-    return {
-      a: formatDecimal(dividend, 2, true),
-      b: formatDecimal(divisor, 1),
-      op: "÷",
-      answer: formatDecimal(quotient, 1, true),
-    };
+    if (type === "integerDivideDecimal") {
+      const divisor = randomInt(scaledMin(bBounds), scaledMax(bBounds));
+      const minQuotient = Math.ceil((aBounds.min * 10) / divisor);
+      const maxQuotient = Math.floor((aBounds.max * 10) / divisor);
+      const quotients = [];
+      for (let quotient = Math.max(1, minQuotient); quotient <= maxQuotient; quotient += 1) {
+        if ((divisor * quotient) % 10 === 0) quotients.push(quotient);
+      }
+      if (!quotients.length) return null;
+      const quotient = quotients[randomInt(0, quotients.length - 1)];
+      const dividend = (divisor * quotient) / 10;
+      const problem = {
+        a: String(dividend),
+        b: formatDecimal(divisor, 1),
+        op: "÷",
+        answer: String(quotient),
+      };
+      if (settings.layout === "vertical") {
+        problem.longDivision = {
+          divisor,
+          dividend: dividend * 10,
+          quotient,
+          divisorDigits: String(divisor).length,
+          divisorDecimalAfterIndex: String(divisor).length - 2,
+          displayDivisor: String(divisor),
+          displayDividend: String(dividend),
+          dividendDecimalAfterIndex: -1,
+          quotientDecimalAfterIndex: -1,
+        };
+      }
+      return problem;
+    }
+
+    if (type === "decimalDivideDecimal") {
+      const divisor = randomInt(scaledMin(bBounds), scaledMax(bBounds));
+      const minQuotient = Math.max(1, Math.ceil(scaledMin(aBounds) / divisor));
+      const maxQuotient = Math.floor(scaledMax(aBounds) / divisor);
+      if (maxQuotient < minQuotient) return null;
+      const quotient = randomInt(minQuotient, maxQuotient);
+      const dividend = divisor * quotient;
+      const problem = {
+        a: formatDecimal(dividend, 1),
+        b: formatDecimal(divisor, 1),
+        op: "÷",
+        answer: String(quotient),
+      };
+      if (settings.layout === "vertical") {
+        problem.longDivision = {
+          divisor,
+          dividend,
+          quotient,
+          divisorDigits: String(divisor).length,
+          divisorDecimalAfterIndex: String(divisor).length - 2,
+          displayDivisor: String(divisor),
+          dividendDecimalAfterIndex: String(dividend).length - 2,
+          quotientDecimalAfterIndex: -1,
+        };
+      }
+      return problem;
+    }
+
+    return null;
   });
 }
 
@@ -516,7 +598,7 @@ function makeFractionCandidates(settings) {
 }
 
 function makeCandidatePool(settings) {
-  if (settings.operation.startsWith("decimal")) return makeDecimalCandidates(settings);
+  if (isDecimalOperation(settings.operation)) return makeDecimalCandidates(settings);
   if (settings.operation.startsWith("fraction")) return makeFractionCandidates(settings);
   if (settings.operation === "multiply") return makeMultiplyCandidates(settings);
   if (settings.operation === "divide") return makeDivideCandidates(settings);
@@ -823,10 +905,17 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns) {
   }
 
   addDivisionFrame(board, details.divisorDigits, boardColumns);
-  addDivisionBoardValue(board, details.divisor, 2, 1, -1, "given-digit");
   addDivisionBoardValue(
     board,
-    details.dividend,
+    details.displayDivisor ?? details.divisor,
+    2,
+    1,
+    details.divisorDecimalAfterIndex ?? -1,
+    "given-digit",
+  );
+  addDivisionBoardValue(
+    board,
+    details.displayDividend ?? details.dividend,
     2,
     details.divisorDigits + 1,
     details.dividendDecimalAfterIndex,
