@@ -32,6 +32,7 @@ const stateStorageKey = "calculation-problem-set-state-v3";
 const problemCountMin = 1;
 const horizontalProblemCountMax = 60;
 const verticalProblemCountMax = 30;
+const longDivisionProblemCountMax = 9;
 const columnsMin = 1;
 const columnsMax = 6;
 let statusTimer;
@@ -137,12 +138,27 @@ function getDigits() {
   return clampChoice(els.digits.value, options, options[0]);
 }
 
+function supportsStandardVerticalLayout() {
+  return Number(getGrade()) <= 4 && ["add", "sub", "mix"].includes(getOperation());
+}
+
+function supportsLongDivisionLayout() {
+  return (Number(getGrade()) >= 3 && Number(getGrade()) <= 4 && getOperation() === "divide")
+    || (getGrade() === "5" && getOperation() === "decimalDivide");
+}
+
 function getActiveLayout() {
-  const verticalSupported = Number(getGrade()) <= 4 && ["add", "sub", "mix"].includes(getOperation());
-  return verticalSupported ? clampChoice(els.layoutMode.value, ["horizontal", "vertical"], "horizontal") : "horizontal";
+  return supportsStandardVerticalLayout() || supportsLongDivisionLayout()
+    ? clampChoice(els.layoutMode.value, ["horizontal", "vertical"], "horizontal")
+    : "horizontal";
+}
+
+function isLongDivisionLayout() {
+  return getActiveLayout() === "vertical" && supportsLongDivisionLayout();
 }
 
 function getProblemCountMax(layout = getActiveLayout()) {
+  if (layout === "vertical" && supportsLongDivisionLayout()) return longDivisionProblemCountMax;
   return layout === "vertical" ? verticalProblemCountMax : horizontalProblemCountMax;
 }
 
@@ -153,6 +169,7 @@ function getProblemCount() {
 }
 
 function getColumnsMax() {
+  if (isLongDivisionLayout()) return 3;
   return Number(getGrade()) >= 5 ? 2 : columnsMax;
 }
 
@@ -196,20 +213,21 @@ function syncSettingsControls() {
   const currentDigits = els.digits.value;
   replaceOptions(els.digits, digitOptions(), currentDigits);
 
-  const equationOnly = !(["add", "sub", "mix"].includes(getOperation()) && Number(getGrade()) <= 4);
-  const carrySupported = !equationOnly && !(
+  const standardVertical = supportsStandardVerticalLayout();
+  const layoutSupported = standardVertical || supportsLongDivisionLayout();
+  const carrySupported = standardVertical && !(
     getGrade() === "1" && getDigits() === "one-one" && getOperation() !== "add"
   );
   const carryOption = els.carryMode.querySelector('option[value="with"]');
   carryOption.disabled = !carrySupported;
   carryOption.hidden = !carrySupported;
-  els.carryMode.disabled = equationOnly;
+  els.carryMode.disabled = !carrySupported;
   if (!carrySupported && els.carryMode.value === "with") els.carryMode.value = "any";
-  if (equationOnly) els.carryMode.value = "any";
+  if (!standardVertical) els.carryMode.value = "any";
 
-  els.layoutMode.disabled = equationOnly;
-  if (equationOnly) els.layoutMode.value = "horizontal";
-  els.showCarryBoxes.disabled = getActiveLayout() !== "vertical";
+  els.layoutMode.disabled = !layoutSupported;
+  if (!layoutSupported) els.layoutMode.value = "horizontal";
+  els.showCarryBoxes.disabled = !standardVertical || getActiveLayout() !== "vertical";
 
   const max = getProblemCountMax();
   els.columns.max = String(getColumnsMax());
@@ -365,7 +383,18 @@ function makeDivideCandidates(settings) {
     const quotient = randomInt(2, maxQuotient);
     const dividend = divisor * quotient;
     if (dividend < dividendBounds.min) return null;
-    return { a: dividend, b: divisor, op: "÷", answer: quotient };
+    const problem = { a: dividend, b: divisor, op: "÷", answer: quotient };
+    if (settings.layout === "vertical") {
+      problem.longDivision = {
+        divisor,
+        dividend,
+        quotient,
+        divisorDigits: String(divisor).length,
+        dividendDecimalAfterIndex: -1,
+        quotientDecimalAfterIndex: -1,
+      };
+    }
+    return problem;
   });
 }
 
@@ -403,6 +432,26 @@ function makeDecimalCandidates(settings) {
         b: formatDecimal(b, 1),
         op: "×",
         answer: formatDecimal(a * b, 2),
+      };
+    }
+
+    if (settings.layout === "vertical") {
+      const divisor = randomInt(2, easy ? 5 : 9);
+      const quotient = randomInt(10, easy ? 99 : 299);
+      const dividend = divisor * quotient;
+      return {
+        a: formatDecimal(dividend, 1),
+        b: String(divisor),
+        op: "÷",
+        answer: formatDecimal(quotient, 1),
+        longDivision: {
+          divisor,
+          dividend,
+          quotient,
+          divisorDigits: 1,
+          dividendDecimalAfterIndex: String(dividend).length - 2,
+          quotientDecimalAfterIndex: String(quotient).length - 2,
+        },
       };
     }
 
@@ -596,17 +645,168 @@ function makeVerticalFormula(problem, showAnswer, settings, width) {
   return formula;
 }
 
+function buildLongDivisionTrace(details) {
+  const dividendDigits = String(details.dividend).split("").map(Number);
+  const quotientDigits = String(details.quotient).split("").map(Number);
+  const quotientOffset = dividendDigits.length - quotientDigits.length;
+  const rows = [];
+  let remainder = 0;
+  let started = false;
+
+  dividendDigits.forEach((digit, index) => {
+    const current = remainder * 10 + digit;
+    const quotientDigit = Math.floor(current / details.divisor);
+    if (!started && quotientDigit === 0) {
+      remainder = current;
+      return;
+    }
+
+    started = true;
+    const product = quotientDigit * details.divisor;
+    rows.push({ value: product, endIndex: index, lineAfter: true });
+    remainder = current - product;
+    rows.push({
+      value: index < dividendDigits.length - 1 ? remainder * 10 + dividendDigits[index + 1] : remainder,
+      endIndex: index < dividendDigits.length - 1 ? index + 1 : index,
+    });
+  });
+
+  return { dividendDigits, quotientDigits, quotientOffset, rows };
+}
+
+function addDivisionBoardCell(board, row, column) {
+  const cell = document.createElement("span");
+  cell.className = "division-board-cell";
+  cell.style.gridRow = String(row);
+  cell.style.gridColumn = String(column);
+  board.append(cell);
+}
+
+function addDivisionBoardDigit(board, value, row, column, className = "") {
+  const digit = document.createElement("span");
+  digit.className = `division-board-digit ${className}`.trim();
+  digit.textContent = String(value);
+  digit.style.gridRow = String(row);
+  digit.style.gridColumn = String(column);
+  board.append(digit);
+}
+
+function addDivisionBoardDecimal(board, row, column, answer = false) {
+  const decimal = document.createElement("span");
+  decimal.className = `division-board-decimal${answer ? " answer-point" : ""}`;
+  decimal.textContent = "●";
+  decimal.style.gridRow = String(row);
+  decimal.style.gridColumn = String(column);
+  board.append(decimal);
+}
+
+function addDivisionBoardValue(board, value, row, startColumn, decimalAfterIndex, className) {
+  String(value).split("").forEach((digit, index) => {
+    addDivisionBoardDigit(board, digit, row, startColumn + index, className);
+  });
+  if (decimalAfterIndex >= 0) addDivisionBoardDecimal(board, row, startColumn + decimalAfterIndex);
+}
+
+function addAlignedDivisionNumber(board, value, row, endIndex, divisorDigits, className) {
+  const digits = String(value).split("");
+  const startIndex = endIndex - digits.length + 1;
+  digits.forEach((digit, index) => {
+    addDivisionBoardDigit(board, digit, row, divisorDigits + startIndex + index + 1, className);
+  });
+}
+
+function addDivisionFrame(board, divisorDigits, boardColumns) {
+  const frame = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  frame.classList.add("division-frame");
+  frame.setAttribute("viewBox", `0 0 ${boardColumns * 100} 100`);
+  frame.setAttribute("preserveAspectRatio", "none");
+  frame.setAttribute("aria-hidden", "true");
+  const boundary = divisorDigits * 100;
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", `M ${boardColumns * 100} 1 H ${boundary - 24} C ${boundary - 4} 13, ${boundary - 4} 87, ${boundary - 24} 99`);
+  path.setAttribute("vector-effect", "non-scaling-stroke");
+  frame.append(path);
+  board.append(frame);
+}
+
+function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns) {
+  const details = problem.longDivision;
+  const trace = buildLongDivisionTrace(details);
+  const board = document.createElement("span");
+  board.className = "long-division-board";
+  board.style.setProperty("--division-board-rows", String(boardRows));
+  board.style.setProperty("--division-board-columns", String(boardColumns));
+
+  for (let row = 1; row <= boardRows; row += 1) {
+    for (let column = 1; column <= boardColumns; column += 1) addDivisionBoardCell(board, row, column);
+  }
+
+  addDivisionFrame(board, details.divisorDigits, boardColumns);
+  addDivisionBoardValue(board, details.divisor, 2, 1, -1, "given-digit");
+  addDivisionBoardValue(
+    board,
+    details.dividend,
+    2,
+    details.divisorDigits + 1,
+    details.dividendDecimalAfterIndex,
+    "given-digit",
+  );
+
+  if (showAnswer) {
+    trace.quotientDigits.forEach((digit, index) => {
+      addDivisionBoardDigit(board, digit, 1, details.divisorDigits + trace.quotientOffset + index + 1, "answer-digit");
+    });
+    if (details.quotientDecimalAfterIndex >= 0) {
+      addDivisionBoardDecimal(
+        board,
+        1,
+        details.divisorDigits + trace.quotientOffset + details.quotientDecimalAfterIndex + 1,
+        true,
+      );
+    }
+    trace.rows.slice(0, boardRows - 2).forEach((traceRow, index) => {
+      const row = index + 3;
+      addAlignedDivisionNumber(board, traceRow.value, row, traceRow.endIndex, details.divisorDigits, "answer-digit");
+      if (traceRow.lineAfter) {
+        const line = document.createElement("span");
+        line.className = "division-work-line";
+        line.style.gridRow = String(row);
+        line.style.gridColumn = `${details.divisorDigits + 1} / ${boardColumns + 1}`;
+        board.append(line);
+      }
+    });
+  }
+  return board;
+}
+
+function getLongDivisionBoardSize(pageProblems) {
+  return pageProblems.reduce((size, problem) => {
+    const trace = buildLongDivisionTrace(problem.longDivision);
+    return {
+      rows: Math.max(size.rows, trace.rows.length + 2, 6),
+      columns: Math.max(
+        size.columns,
+        problem.longDivision.divisorDigits + String(problem.longDivision.dividend).length,
+        4,
+      ),
+    };
+  }, { rows: 6, columns: 4 });
+}
+
 function getVerticalDigitCount(problems) {
   return Math.max(2, ...problems.map((problem) => Math.max(String(problem.a).length, String(problem.b).length, String(problem.answer).length)));
 }
 
-function makeFormula(problem, showAnswer, settings, verticalDigitCount) {
+function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize) {
+  if (settings.layout === "vertical" && problem.longDivision) {
+    return makeLongDivisionBoard(problem, showAnswer, longDivisionBoardSize.rows, longDivisionBoardSize.columns);
+  }
   return settings.layout === "vertical"
     ? makeVerticalFormula(problem, showAnswer, settings, verticalDigitCount)
     : makeHorizontalFormula(problem, showAnswer);
 }
 
-function applyGridDensity(list, settings) {
+function applyGridDensity(list, settings, longDivisionBoardSize = null) {
   const rows = Math.ceil(settings.count / settings.columns);
   const vertical = settings.layout === "vertical";
   let rowGap = vertical ? 6 : 8;
@@ -614,7 +814,17 @@ function applyGridDensity(list, settings) {
   let fontSize = vertical ? 24 : 21;
   let blankWidth = 12;
   let blankHeight = 9;
-  if (!vertical && rows > 24) {
+  if (longDivisionBoardSize) {
+    rowGap = 4;
+    const availableHeight = 235 - Math.max(0, rows - 1) * rowGap;
+    const availableWidth = (184 - Math.max(0, settings.columns - 1) * 10) / settings.columns - 8;
+    const heightCellSize = (availableHeight / rows - 2) / longDivisionBoardSize.rows;
+    const widthCellSize = availableWidth / longDivisionBoardSize.columns;
+    const cellSize = Math.max(5.5, Math.min(10, heightCellSize, widthCellSize));
+    problemMin = cellSize * longDivisionBoardSize.rows + 2;
+    fontSize = Math.max(15, Math.round(cellSize * 3));
+    list.style.setProperty("--division-cell-size", `${cellSize.toFixed(2)}mm`);
+  } else if (!vertical && rows > 24) {
     [rowGap, problemMin, fontSize, blankWidth, blankHeight] = [1.5, 5.8, 16, 8, 5.5];
   } else if (!vertical && rows > 18) {
     [rowGap, problemMin, fontSize, blankWidth, blankHeight] = [3, 8.2, 18, 10, 7];
@@ -645,12 +855,15 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
   kindLabel.classList.toggle("answer", showAnswer);
   const list = page.querySelector("[data-problems]");
   list.style.setProperty("--cols", settings.columns);
-  applyGridDensity(list, settings);
+  const longDivisionBoardSize = settings.layout === "vertical" && pageProblems.some((problem) => problem.longDivision)
+    ? getLongDivisionBoardSize(pageProblems)
+    : null;
+  applyGridDensity(list, settings, longDivisionBoardSize);
   const verticalDigitCount = settings.layout === "vertical" ? getVerticalDigitCount(pageProblems) : 0;
   pageProblems.forEach((problem) => {
     const item = document.createElement("li");
     item.className = "problem";
-    item.append(makeFormula(problem, showAnswer, settings, verticalDigitCount));
+    item.append(makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize));
     list.append(item);
   });
   return page;
@@ -759,6 +972,9 @@ function bindEvents() {
       if (control === els.columns && control.value === "") return;
       render();
     });
+  });
+  els.layoutMode.addEventListener("change", () => {
+    if (isLongDivisionLayout() && Number(els.columns.value) === 2) els.columns.value = "3";
   });
   [els.grade, els.operation, els.digits, els.carryMode, els.layoutMode, els.difficulty].forEach((control) => {
     control.addEventListener("change", generateProblems);
