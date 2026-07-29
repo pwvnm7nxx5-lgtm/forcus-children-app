@@ -91,7 +91,7 @@ function clampNumber(value, min, max, fallback) {
 }
 
 function getGrade() {
-  return clampChoice(els.grade.value, ["1", "2", "3", "4", "5", "6"], "2");
+  return clampChoice(els.grade.value, ["1", "2", "3", "4", "5"], "2");
 }
 
 function allowedOperations(grade = getGrade()) {
@@ -247,7 +247,7 @@ function applySettings(settings) {
   els.studentName.value = settings.name || "";
   els.worksheetDate.value = settings.date || "";
   els.worksheetTitle.value = settings.title || "計算問題集";
-  els.grade.value = clampChoice(settings.grade, ["1", "2", "3", "4", "5", "6"], "2");
+  els.grade.value = clampChoice(settings.grade, ["1", "2", "3", "4", "5"], "2");
   syncSettingsControls();
   els.operation.value = clampChoice(settings.operation, allowedOperations(), allowedOperations()[0]);
   syncSettingsControls();
