@@ -413,10 +413,17 @@ button:hover {
 .operator {
   position: relative;
   z-index: 2;
-  justify-self: end;
+  display: grid;
+  width: var(--operator-width);
+  height: var(--digit-size);
+  place-items: center;
   color: #425466;
   font-weight: 700;
-  transform: translateX(calc(var(--operator-shift, 0mm) - 0.8mm));
+}
+
+.operator-cell {
+  border: 1px solid #bcc8d4;
+  background: #ffffff;
 }
 
 .digit-cell {
@@ -443,6 +450,23 @@ button:hover {
 .digit-value {
   position: relative;
   z-index: 1;
+}
+
+.formula-decimal {
+  position: absolute;
+  z-index: 4;
+  right: -1.5mm;
+  bottom: -1.75mm;
+  color: #425466;
+  font-family: Arial, sans-serif;
+  font-size: calc(var(--digit-size) * 0.5);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.multiplication-formula {
+  --digit-size: var(--multiplication-digit-size, 7mm);
+  --operator-width: var(--digit-size);
 }
 
 .vertical-line {

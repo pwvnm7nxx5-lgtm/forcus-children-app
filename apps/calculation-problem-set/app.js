@@ -33,6 +33,7 @@ const problemCountMin = 1;
 const horizontalProblemCountMax = 60;
 const verticalProblemCountMax = 30;
 const longDivisionProblemCountMax = 9;
+const multiplicationProblemCountMax = 9;
 const columnsMin = 1;
 const columnsMax = 6;
 let statusTimer;
@@ -138,8 +139,14 @@ function getDigits() {
   return clampChoice(els.digits.value, options, options[0]);
 }
 
-function supportsStandardVerticalLayout() {
-  return Number(getGrade()) <= 4 && ["add", "sub", "mix"].includes(getOperation());
+function supportsSimpleVerticalLayout() {
+  return (Number(getGrade()) <= 4 && ["add", "sub", "mix"].includes(getOperation()))
+    || (getGrade() === "5" && ["decimalAdd", "decimalSub"].includes(getOperation()));
+}
+
+function supportsMultiplicationVerticalLayout() {
+  return (Number(getGrade()) >= 2 && Number(getGrade()) <= 4 && getOperation() === "multiply")
+    || (getGrade() === "5" && getOperation() === "decimalMultiply");
 }
 
 function supportsLongDivisionLayout() {
@@ -148,7 +155,7 @@ function supportsLongDivisionLayout() {
 }
 
 function getActiveLayout() {
-  return supportsStandardVerticalLayout() || supportsLongDivisionLayout()
+  return supportsSimpleVerticalLayout() || supportsMultiplicationVerticalLayout() || supportsLongDivisionLayout()
     ? clampChoice(els.layoutMode.value, ["horizontal", "vertical"], "horizontal")
     : "horizontal";
 }
@@ -157,8 +164,13 @@ function isLongDivisionLayout() {
   return getActiveLayout() === "vertical" && supportsLongDivisionLayout();
 }
 
+function isMultiplicationVerticalLayout() {
+  return getActiveLayout() === "vertical" && supportsMultiplicationVerticalLayout();
+}
+
 function getProblemCountMax(layout = getActiveLayout()) {
   if (layout === "vertical" && supportsLongDivisionLayout()) return longDivisionProblemCountMax;
+  if (layout === "vertical" && supportsMultiplicationVerticalLayout()) return multiplicationProblemCountMax;
   return layout === "vertical" ? verticalProblemCountMax : horizontalProblemCountMax;
 }
 
@@ -170,6 +182,7 @@ function getProblemCount() {
 
 function getColumnsMax() {
   if (isLongDivisionLayout()) return 3;
+  if (isMultiplicationVerticalLayout()) return 3;
   return Number(getGrade()) >= 5 ? 2 : columnsMax;
 }
 
@@ -213,21 +226,22 @@ function syncSettingsControls() {
   const currentDigits = els.digits.value;
   replaceOptions(els.digits, digitOptions(), currentDigits);
 
-  const standardVertical = supportsStandardVerticalLayout();
-  const layoutSupported = standardVertical || supportsLongDivisionLayout();
-  const carrySupported = standardVertical && !(
+  const simpleVertical = supportsSimpleVerticalLayout();
+  const multiplicationVertical = supportsMultiplicationVerticalLayout();
+  const layoutSupported = simpleVertical || multiplicationVertical || supportsLongDivisionLayout();
+  const carryModeSupported = Number(getGrade()) <= 4 && ["add", "sub", "mix"].includes(getOperation()) && !(
     getGrade() === "1" && getDigits() === "one-one" && getOperation() !== "add"
   );
   const carryOption = els.carryMode.querySelector('option[value="with"]');
-  carryOption.disabled = !carrySupported;
-  carryOption.hidden = !carrySupported;
-  els.carryMode.disabled = !carrySupported;
-  if (!carrySupported && els.carryMode.value === "with") els.carryMode.value = "any";
-  if (!standardVertical) els.carryMode.value = "any";
+  carryOption.disabled = !carryModeSupported;
+  carryOption.hidden = !carryModeSupported;
+  els.carryMode.disabled = !carryModeSupported;
+  if (!carryModeSupported && els.carryMode.value === "with") els.carryMode.value = "any";
+  if (!carryModeSupported) els.carryMode.value = "any";
 
   els.layoutMode.disabled = !layoutSupported;
   if (!layoutSupported) els.layoutMode.value = "horizontal";
-  els.showCarryBoxes.disabled = !standardVertical || getActiveLayout() !== "vertical";
+  els.showCarryBoxes.disabled = !(simpleVertical || multiplicationVertical) || getActiveLayout() !== "vertical";
 
   const max = getProblemCountMax();
   els.columns.max = String(getColumnsMax());
@@ -587,11 +601,32 @@ function makeHorizontalFormula(problem, showAnswer) {
   return formula;
 }
 
-function formatDigits(value, width) {
-  return String(value).padStart(width, " ").slice(-width).split("");
+function digitCount(value) {
+  return String(value).replaceAll(".", "").length;
 }
 
-function makeDigitCell(digit, showCarryBoxes, blank = false) {
+function formatDigitData(value, width) {
+  const text = String(value);
+  const decimalIndex = text.indexOf(".");
+  const rawDigits = text.replaceAll(".", "");
+  const padding = Math.max(0, width - rawDigits.length);
+  const digits = rawDigits.padStart(width, " ").slice(-width).split("");
+  return {
+    digits,
+    decimalAfterIndex: decimalIndex < 0 ? -1 : padding + decimalIndex - 1,
+  };
+}
+
+function formatShiftedDigitData(value, width, shift) {
+  const places = Math.max(0, shift);
+  const availableWidth = Math.max(1, width - places);
+  const digits = `${String(value).padStart(availableWidth, " ").slice(-availableWidth)}${" ".repeat(places)}`
+    .slice(0, width)
+    .split("");
+  return { digits, decimalAfterIndex: -1 };
+}
+
+function makeDigitCell(digit, showCarryBoxes, blank = false, showDecimal = false) {
   const cell = document.createElement("span");
   cell.className = "digit-cell";
   if (showCarryBoxes) {
@@ -605,24 +640,29 @@ function makeDigitCell(digit, showCarryBoxes, blank = false) {
     value.textContent = digit;
     cell.append(value);
   }
+  if (showDecimal) {
+    const decimal = document.createElement("span");
+    decimal.className = "formula-decimal";
+    decimal.textContent = ".";
+    cell.append(decimal);
+  }
   return cell;
 }
 
-function operatorShift(digits) {
-  const firstDigitIndex = digits.findIndex((digit) => digit !== " ");
-  if (firstDigitIndex <= 0) return "0mm";
-  return Array.from({ length: firstDigitIndex }, () => "var(--digit-size)").join(" + ");
-}
-
-function makeDigitRow(digits, operator = "", showCarryBoxes = true, blank = false, operatorAnchorDigits = digits) {
+function makeDigitRow(digitData, operator = "", showCarryBoxes = true, blank = false) {
+  const { digits, decimalAfterIndex = -1 } = Array.isArray(digitData)
+    ? { digits: digitData }
+    : digitData;
   const row = document.createElement("span");
   row.className = "digit-row";
-  row.style.setProperty("--operator-shift", operatorShift(operatorAnchorDigits));
   const operatorElement = document.createElement("span");
   operatorElement.className = "operator";
+  operatorElement.classList.toggle("operator-cell", Boolean(operator));
   operatorElement.textContent = operator;
   row.append(operatorElement);
-  digits.forEach((digit) => row.append(makeDigitCell(digit, showCarryBoxes, blank)));
+  digits.forEach((digit, index) => {
+    row.append(makeDigitCell(digit, showCarryBoxes, blank, decimalAfterIndex === index));
+  });
   return row;
 }
 
@@ -631,17 +671,63 @@ function makeVerticalFormula(problem, showAnswer, settings, width) {
   formula.className = "vertical-formula";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
   formula.style.setProperty("--digit-count", String(width));
-  const firstRow = formatDigits(problem.a, width);
-  const secondRow = formatDigits(problem.b, width);
-  const operatorAnchor = [firstRow, secondRow].reduce((widest, digits) => (
-    digits.findIndex((digit) => digit !== " ") < widest.findIndex((digit) => digit !== " ") ? digits : widest
-  ));
+  const firstRow = formatDigitData(problem.a, width);
+  const secondRow = formatDigitData(problem.b, width);
   formula.append(makeDigitRow(firstRow, "", settings.showCarryBoxes));
-  formula.append(makeDigitRow(secondRow, problem.op, settings.showCarryBoxes, false, operatorAnchor));
+  formula.append(makeDigitRow(secondRow, problem.op, settings.showCarryBoxes));
   const line = document.createElement("span");
   line.className = "vertical-line";
   formula.append(line);
-  formula.append(makeDigitRow(formatDigits(showAnswer ? problem.answer : "", width), "", settings.showCarryBoxes, !showAnswer));
+  formula.append(makeDigitRow(formatDigitData(showAnswer ? problem.answer : "", width), "", settings.showCarryBoxes, !showAnswer));
+  return formula;
+}
+
+function multiplicationDigits(problem) {
+  return String(problem.b).replaceAll(".", "").split("").reverse().map((digit) => Number.parseInt(digit, 10));
+}
+
+function multiplicationInteger(value) {
+  return Number.parseInt(String(value).replaceAll(".", ""), 10);
+}
+
+function multiplicationFormulaRows(problem) {
+  const steps = multiplicationDigits(problem).length;
+  return steps === 1 ? 4 : steps + 5;
+}
+
+function multiplicationFormulaWidth(problem) {
+  const multiplicand = multiplicationInteger(problem.a);
+  const partials = multiplicationDigits(problem).map((digit) => multiplicand * digit);
+  return Math.max(2, digitCount(problem.a), digitCount(problem.b), digitCount(problem.answer), ...partials.map(digitCount));
+}
+
+function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width) {
+  const steps = multiplicationDigits(problem);
+  const multiplicand = multiplicationInteger(problem.a);
+  const formula = document.createElement("span");
+  formula.className = "vertical-formula multiplication-formula";
+  formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
+  formula.style.setProperty("--digit-count", String(width));
+  formula.append(makeDigitRow(formatDigitData(problem.a, width), "", settings.showCarryBoxes));
+  formula.append(makeDigitRow(formatDigitData(problem.b, width), "×", settings.showCarryBoxes));
+
+  const subtotalLine = document.createElement("span");
+  subtotalLine.className = "vertical-line";
+  formula.append(subtotalLine);
+
+  if (steps.length > 1) {
+    steps.forEach((digit, placeIndex) => {
+      const data = showAnswer
+        ? formatShiftedDigitData(multiplicand * digit, width, placeIndex)
+        : formatDigitData("", width);
+      formula.append(makeDigitRow(data, "", settings.showCarryBoxes, !showAnswer));
+    });
+    const answerLine = document.createElement("span");
+    answerLine.className = "vertical-line";
+    formula.append(answerLine);
+  }
+
+  formula.append(makeDigitRow(formatDigitData(showAnswer ? problem.answer : "", width), "", settings.showCarryBoxes, !showAnswer));
   return formula;
 }
 
@@ -794,19 +880,29 @@ function getLongDivisionBoardSize(pageProblems) {
 }
 
 function getVerticalDigitCount(problems) {
-  return Math.max(2, ...problems.map((problem) => Math.max(String(problem.a).length, String(problem.b).length, String(problem.answer).length)));
+  return Math.max(2, ...problems.map((problem) => Math.max(digitCount(problem.a), digitCount(problem.b), digitCount(problem.answer))));
 }
 
-function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize) {
+function getMultiplicationBoardSize(pageProblems) {
+  return pageProblems.reduce((size, problem) => ({
+    rows: Math.max(size.rows, multiplicationFormulaRows(problem)),
+    columns: Math.max(size.columns, multiplicationFormulaWidth(problem)),
+  }), { rows: 4, columns: 2 });
+}
+
+function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize) {
   if (settings.layout === "vertical" && problem.longDivision) {
     return makeLongDivisionBoard(problem, showAnswer, longDivisionBoardSize.rows, longDivisionBoardSize.columns);
+  }
+  if (settings.layout === "vertical" && problem.op === "×") {
+    return makeMultiplicationVerticalFormula(problem, showAnswer, settings, multiplicationBoardSize.columns);
   }
   return settings.layout === "vertical"
     ? makeVerticalFormula(problem, showAnswer, settings, verticalDigitCount)
     : makeHorizontalFormula(problem, showAnswer);
 }
 
-function applyGridDensity(list, settings, longDivisionBoardSize = null) {
+function applyGridDensity(list, settings, longDivisionBoardSize = null, multiplicationBoardSize = null) {
   const rows = Math.ceil(settings.count / settings.columns);
   const vertical = settings.layout === "vertical";
   let rowGap = vertical ? 6 : 8;
@@ -824,6 +920,16 @@ function applyGridDensity(list, settings, longDivisionBoardSize = null) {
     problemMin = cellSize * longDivisionBoardSize.rows + 2;
     fontSize = Math.max(15, Math.round(cellSize * 3));
     list.style.setProperty("--division-cell-size", `${cellSize.toFixed(2)}mm`);
+  } else if (multiplicationBoardSize) {
+    rowGap = 4;
+    const availableHeight = 235 - Math.max(0, rows - 1) * rowGap;
+    const availableWidth = (184 - Math.max(0, settings.columns - 1) * 10) / settings.columns - 8;
+    const heightCellSize = (availableHeight / rows - 2 - Math.max(0, multiplicationBoardSize.rows - 1)) / multiplicationBoardSize.rows;
+    const widthCellSize = availableWidth / (multiplicationBoardSize.columns + 1);
+    const cellSize = Math.max(5.4, Math.min(7.2, heightCellSize, widthCellSize));
+    problemMin = cellSize * multiplicationBoardSize.rows + Math.max(0, multiplicationBoardSize.rows - 1) + 2;
+    fontSize = Math.max(15, Math.round(cellSize * 3));
+    list.style.setProperty("--multiplication-digit-size", `${cellSize.toFixed(2)}mm`);
   } else if (!vertical && rows > 24) {
     [rowGap, problemMin, fontSize, blankWidth, blankHeight] = [1.5, 5.8, 16, 8, 5.5];
   } else if (!vertical && rows > 18) {
@@ -858,12 +964,15 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
   const longDivisionBoardSize = settings.layout === "vertical" && pageProblems.some((problem) => problem.longDivision)
     ? getLongDivisionBoardSize(pageProblems)
     : null;
-  applyGridDensity(list, settings, longDivisionBoardSize);
+  const multiplicationBoardSize = settings.layout === "vertical" && pageProblems.some((problem) => problem.op === "×")
+    ? getMultiplicationBoardSize(pageProblems.filter((problem) => problem.op === "×"))
+    : null;
+  applyGridDensity(list, settings, longDivisionBoardSize, multiplicationBoardSize);
   const verticalDigitCount = settings.layout === "vertical" ? getVerticalDigitCount(pageProblems) : 0;
   pageProblems.forEach((problem) => {
     const item = document.createElement("li");
     item.className = "problem";
-    item.append(makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize));
+    item.append(makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize));
     list.append(item);
   });
   return page;
