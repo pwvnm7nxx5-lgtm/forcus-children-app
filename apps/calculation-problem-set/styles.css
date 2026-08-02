@@ -390,7 +390,11 @@ button:hover {
 
 .calculation-workspace-board {
   --digit-size: 8mm;
-  --operator-width: 7mm;
+  --operator-width: 8mm;
+}
+
+.workspace-result-row {
+  grid-template-columns: repeat(var(--workspace-result-count), var(--digit-size));
 }
 
 .calculation-workspace-layout.answer-page .problem {

@@ -711,12 +711,48 @@ function workspaceDigitCount(value) {
 }
 
 function getCalculationWorkspaceSize(pageProblems) {
-  const digits = Math.max(2, ...pageProblems.map((problem) => Math.max(
+  const operandDigits = Math.max(1, ...pageProblems.map((problem) => Math.max(
     workspaceDigitCount(problem.a),
     workspaceDigitCount(problem.b),
-    workspaceDigitCount(problem.answer),
   )));
-  return { columns: digits, rows: 3 };
+  const answerDigits = Math.max(1, ...pageProblems.map((problem) => workspaceDigitCount(problem.answer)));
+  return { columns: Math.max(operandDigits + 1, answerDigits), rows: 3 };
+}
+
+function makeWorkspaceDigitRow(digitData, totalColumns, operator = "", showCarryBoxes = false, blank = false, resultRow = false) {
+  const { digits, decimalAfterIndex = -1 } = Array.isArray(digitData)
+    ? { digits: digitData }
+    : digitData;
+  const row = document.createElement("span");
+  row.className = "digit-row workspace-digit-row";
+  if (resultRow) {
+    row.classList.add("workspace-result-row");
+    row.style.setProperty("--workspace-result-count", String(totalColumns));
+  } else {
+    row.style.setProperty("--digit-count", String(Math.max(1, totalColumns - 1)));
+    const operatorElement = document.createElement("span");
+    operatorElement.className = "operator operator-cell";
+    operatorElement.textContent = operator;
+    row.append(operatorElement);
+  }
+  digits.forEach((digit, index) => {
+    row.append(makeDigitCell(digit, showCarryBoxes, blank, decimalAfterIndex === index));
+  });
+  return row;
+}
+
+function makeWorkspaceSimpleFormula(problem, settings, totalColumns) {
+  const formula = document.createElement("span");
+  formula.className = "vertical-formula calculation-workspace-board";
+  formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
+  const digitColumns = Math.max(1, totalColumns - 1);
+  formula.append(makeWorkspaceDigitRow(formatDigitData("", digitColumns), totalColumns, "", false, true));
+  formula.append(makeWorkspaceDigitRow(formatDigitData("", digitColumns), totalColumns, problem.op, false, true));
+  const line = document.createElement("span");
+  line.className = "vertical-line";
+  formula.append(line);
+  formula.append(makeWorkspaceDigitRow(formatDigitData("", totalColumns), totalColumns, "", false, true, true));
+  return formula;
 }
 
 function makeCalculationWorkspace(problem, showAnswer, settings, size) {
@@ -734,16 +770,11 @@ function makeCalculationWorkspace(problem, showAnswer, settings, size) {
     workspace.append(makeMultiplicationVerticalFormula(problem, false, {
       ...settings,
       showCarryBoxes: false,
-    }, size.columns, true));
+    }, size.columns, true, size.columns));
     return workspace;
   }
 
-  const board = makeVerticalFormula({ ...problem, a: "", b: "", answer: "" }, false, {
-    ...settings,
-    showCarryBoxes: false,
-  }, size.columns);
-  board.classList.add("calculation-workspace-board");
-  workspace.append(board);
+  workspace.append(makeWorkspaceSimpleFormula(problem, settings, size.columns));
   return workspace;
 }
 
@@ -847,15 +878,20 @@ function multiplicationFormulaWidth(problem) {
   return Math.max(2, digitCount(problem.a), digitCount(problem.b), digitCount(problem.answer), ...partials.map(digitCount));
 }
 
-function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width, hideGiven = false) {
+function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width, hideGiven = false, workspaceTotalColumns = null) {
   const steps = multiplicationDigits(problem);
   const multiplicand = multiplicationInteger(problem.a);
   const formula = document.createElement("span");
   formula.className = "vertical-formula multiplication-formula";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
-  formula.style.setProperty("--digit-count", String(width));
-  formula.append(makeDigitRow(formatDigitData(hideGiven ? "" : problem.a, width), "", settings.showCarryBoxes));
-  formula.append(makeDigitRow(formatDigitData(hideGiven ? "" : problem.b, width), "×", settings.showCarryBoxes));
+  const workspace = Number.isInteger(workspaceTotalColumns);
+  const digitWidth = workspace ? Math.max(1, workspaceTotalColumns - 1) : width;
+  const makeRow = (data, operator = "", blank = false, result = false) => workspace
+    ? makeWorkspaceDigitRow(data, workspaceTotalColumns, operator, settings.showCarryBoxes, blank, result)
+    : makeDigitRow(data, operator, settings.showCarryBoxes, blank);
+  formula.style.setProperty("--digit-count", String(workspace ? digitWidth : width));
+  formula.append(makeRow(formatDigitData(hideGiven ? "" : problem.a, digitWidth)));
+  formula.append(makeRow(formatDigitData(hideGiven ? "" : problem.b, digitWidth), "×"));
 
   const subtotalLine = document.createElement("span");
   subtotalLine.className = "vertical-line";
@@ -864,16 +900,21 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
   if (steps.length > 1) {
     steps.forEach((digit, placeIndex) => {
       const data = showAnswer
-        ? formatShiftedDigitData(multiplicand * digit, width, placeIndex)
-        : formatDigitData("", width);
-      formula.append(makeDigitRow(data, "", settings.showCarryBoxes, !showAnswer));
+        ? formatShiftedDigitData(multiplicand * digit, digitWidth, placeIndex)
+        : formatDigitData("", digitWidth);
+      formula.append(makeRow(data, "", !showAnswer));
     });
     const answerLine = document.createElement("span");
     answerLine.className = "vertical-line";
     formula.append(answerLine);
   }
 
-  formula.append(makeDigitRow(formatDigitData(showAnswer ? problem.answer : "", width), "", settings.showCarryBoxes, !showAnswer));
+  formula.append(makeRow(
+    formatDigitData(showAnswer ? problem.answer : "", workspace ? workspaceTotalColumns : width),
+    "",
+    !showAnswer,
+    workspace,
+  ));
   return formula;
 }
 
@@ -1045,6 +1086,18 @@ function getMultiplicationBoardSize(pageProblems) {
   }), { rows: 4, columns: 2 });
 }
 
+function getMultiplicationWorkspaceSize(pageProblems) {
+  const boardSize = getMultiplicationBoardSize(pageProblems);
+  const operandDigits = Math.max(1, ...pageProblems.map((problem) => Math.max(
+    digitCount(problem.a),
+    digitCount(problem.b),
+  )));
+  return {
+    rows: boardSize.rows,
+    columns: Math.max(operandDigits + 1, boardSize.columns),
+  };
+}
+
 function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize, workspaceSize) {
   if (settings.layout === "horizontal-workspace") {
     return makeCalculationWorkspace(problem, showAnswer, settings, workspaceSize);
@@ -1083,7 +1136,7 @@ function applyGridDensity(list, settings, longDivisionBoardSize = null, multipli
     const availableHeight = 235 - Math.max(0, rows - 1) * rowGap;
     const availableWidth = (184 - Math.max(0, settings.columns - 1) * 10) / settings.columns - 8;
     const heightCellSize = (availableHeight / rows - 2 - Math.max(0, workspaceSize.rows - 1)) / workspaceSize.rows;
-    const widthCellSize = availableWidth / (workspaceSize.columns + 1);
+    const widthCellSize = availableWidth / workspaceSize.columns;
     const cellSize = Math.max(5.4, Math.min(7.2, heightCellSize, widthCellSize));
     problemMin = cellSize * workspaceSize.rows + Math.max(0, workspaceSize.rows - 1) + 2;
     fontSize = Math.max(15, Math.round(cellSize * 3));
@@ -1107,7 +1160,7 @@ function applyGridDensity(list, settings, longDivisionBoardSize = null, multipli
     const availableHeight = 235 - Math.max(0, rows - 1) * rowGap;
     const availableWidth = (184 - Math.max(0, settings.columns - 1) * 10) / settings.columns - 8;
     const heightCellSize = (availableHeight / rows - 2 - Math.max(0, multiplicationBoardSize.rows - 1)) / multiplicationBoardSize.rows;
-    const widthCellSize = availableWidth / (multiplicationBoardSize.columns + 1);
+    const widthCellSize = availableWidth / multiplicationBoardSize.columns;
     const cellSize = Math.max(5.4, Math.min(7.2, heightCellSize, widthCellSize));
     problemMin = cellSize * multiplicationBoardSize.rows + Math.max(0, multiplicationBoardSize.rows - 1) + 2;
     fontSize = Math.max(15, Math.round(cellSize * 3));
@@ -1155,7 +1208,7 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
     : supportsLongDivisionLayout()
       ? getLongDivisionBoardSize(pageProblems)
       : supportsMultiplicationVerticalLayout()
-        ? getMultiplicationBoardSize(pageProblems)
+        ? getMultiplicationWorkspaceSize(pageProblems)
         : getCalculationWorkspaceSize(pageProblems);
   applyGridDensity(list, settings, longDivisionBoardSize, multiplicationBoardSize, workspaceSize);
   const verticalDigitCount = settings.layout === "vertical" ? getVerticalDigitCount(pageProblems) : 0;
