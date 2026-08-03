@@ -232,6 +232,8 @@ function getSettings() {
     count: getProblemCount(),
     columns: getColumns(),
     showCarryBoxes: els.showCarryBoxes.checked,
+    showProblemDecimalPoint: true,
+    showAnswerDecimalPoint: true,
   };
 }
 
@@ -710,34 +712,66 @@ function workspaceDigitCount(value) {
   return String(value).replaceAll(".", "").length;
 }
 
-function getCalculationWorkspaceSize(pageProblems) {
-  const operandDigits = Math.max(1, ...pageProblems.map((problem) => Math.max(
-    workspaceDigitCount(problem.a),
-    workspaceDigitCount(problem.b),
-  )));
-  const answerDigits = Math.max(1, ...pageProblems.map((problem) => workspaceDigitCount(problem.answer)));
-  return { columns: Math.max(operandDigits + 1, answerDigits), rows: 3 };
+function integerDigitCount(value) {
+  return String(value).split(".")[0].replace(/^0+(?=\d)/, "").length || 1;
 }
 
-function makeWorkspaceDigitRow(digitData, totalColumns, operator = "", showCarryBoxes = false, blank = false, resultRow = false) {
-  const { digits, decimalAfterIndex = -1 } = Array.isArray(digitData)
-    ? { digits: digitData }
-    : digitData;
-  const row = document.createElement("span");
-  row.className = "digit-row workspace-digit-row";
+function fractionDigitCount(value) {
+  return String(value).split(".")[1]?.length || 0;
+}
+
+function isDecimalAddSub(problem) {
+  return ["+", "-"].includes(problem.op) && (String(problem.a).includes(".") || String(problem.b).includes("."));
+}
+
+function getSimpleProblemLayout(problem, totalColumns) {
+  if (isDecimalAddSub(problem)) {
+    const integerWidth = Math.max(integerDigitCount(problem.a), integerDigitCount(problem.b));
+    const fractionWidth = Math.max(fractionDigitCount(problem.a), fractionDigitCount(problem.b));
+    const numericWidth = integerWidth + fractionWidth;
+    const startIndex = Math.max(0, totalColumns - numericWidth);
+    return {
+      operatorColumn: Math.max(1, startIndex),
+      first: formatAlignedDecimalData(problem.a, totalColumns, integerWidth, fractionWidth),
+      second: formatAlignedDecimalData(problem.b, totalColumns, integerWidth, fractionWidth),
+      answer: formatAlignedAnswerData(problem.answer, totalColumns, fractionWidth),
+    };
+  }
+  const operandWidth = Math.max(workspaceDigitCount(problem.a), workspaceDigitCount(problem.b));
+  return {
+    operatorColumn: Math.max(1, totalColumns - operandWidth),
+    first: formatDigitData(problem.a, totalColumns),
+    second: formatDigitData(problem.b, totalColumns),
+    answer: formatDigitData(problem.answer, totalColumns),
+  };
+}
+
+function getSimpleBoardSize(pageProblems) {
+  return pageProblems.reduce((size, problem) => {
+    if (isDecimalAddSub(problem)) {
+      const integerWidth = Math.max(integerDigitCount(problem.a), integerDigitCount(problem.b));
+      const fractionWidth = Math.max(fractionDigitCount(problem.a), fractionDigitCount(problem.b));
+      return Math.max(size, integerWidth + fractionWidth + 1);
+    }
+    return Math.max(size, workspaceDigitCount(problem.a) + 1, workspaceDigitCount(problem.b) + 1, workspaceDigitCount(problem.answer));
+  }, 2);
+}
+
+function getCalculationWorkspaceSize(pageProblems) {
+  return { columns: getSimpleBoardSize(pageProblems), rows: 3 };
+}
+
+function makeWorkspaceDigitRow(digitData, totalColumns, operator = "", showCarryBoxes = false, blank = false, resultRow = false, operatorColumn = 1, showDecimal = false) {
+  const row = makeDigitRow(digitData, operator, showCarryBoxes, blank, {
+    totalColumns,
+    operatorColumn,
+    showDecimal,
+  });
+  row.classList.add("workspace-digit-row");
   if (resultRow) {
     row.classList.add("workspace-result-row");
     row.style.setProperty("--workspace-result-count", String(totalColumns));
-  } else {
-    row.style.setProperty("--digit-count", String(Math.max(1, totalColumns - 1)));
-    const operatorElement = document.createElement("span");
-    operatorElement.className = "operator operator-cell";
-    operatorElement.textContent = operator;
-    row.append(operatorElement);
   }
-  digits.forEach((digit, index) => {
-    row.append(makeDigitCell(digit, showCarryBoxes, blank, decimalAfterIndex === index));
-  });
   return row;
 }
 
@@ -745,13 +779,13 @@ function makeWorkspaceSimpleFormula(problem, settings, totalColumns) {
   const formula = document.createElement("span");
   formula.className = "vertical-formula calculation-workspace-board";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
-  const digitColumns = Math.max(1, totalColumns - 1);
-  formula.append(makeWorkspaceDigitRow(formatDigitData("", digitColumns), totalColumns, "", false, true));
-  formula.append(makeWorkspaceDigitRow(formatDigitData("", digitColumns), totalColumns, problem.op, false, true));
+  const layout = getSimpleProblemLayout(problem, totalColumns);
+  formula.append(makeWorkspaceDigitRow(layout.first, totalColumns, "", false, true, false, layout.operatorColumn, settings.showProblemDecimalPoint));
+  formula.append(makeWorkspaceDigitRow(layout.second, totalColumns, problem.op, false, true, false, layout.operatorColumn, settings.showProblemDecimalPoint));
   const line = document.createElement("span");
   line.className = "vertical-line";
   formula.append(line);
-  formula.append(makeWorkspaceDigitRow(formatDigitData("", totalColumns), totalColumns, "", false, true, true));
+  formula.append(makeWorkspaceDigitRow(layout.answer, totalColumns, "", false, true, true, layout.operatorColumn, settings.showAnswerDecimalPoint));
   return formula;
 }
 
@@ -762,7 +796,7 @@ function makeCalculationWorkspace(problem, showAnswer, settings, size) {
   if (showAnswer) return workspace;
 
   if (supportsLongDivisionLayout()) {
-    workspace.append(makeLongDivisionBoard(problem, false, size.rows, size.columns, false));
+    workspace.append(makeLongDivisionBoard(problem, false, size.rows, size.columns, false, settings));
     return workspace;
   }
 
@@ -794,6 +828,26 @@ function formatDigitData(value, width) {
   };
 }
 
+function formatAlignedDecimalData(value, totalColumns, integerWidth, fractionWidth) {
+  const [integerPart, fractionPart = ""] = String(value).split(".");
+  const numeric = `${integerPart.padStart(integerWidth, " ").slice(-integerWidth)}${fractionPart.padEnd(fractionWidth, " ").slice(0, fractionWidth)}`;
+  const padding = Math.max(0, totalColumns - numeric.length);
+  return {
+    digits: `${" ".repeat(padding)}${numeric}`.slice(-totalColumns).split(""),
+    decimalAfterIndex: fractionWidth > 0 ? padding + integerWidth - 1 : -1,
+  };
+}
+
+function formatAlignedAnswerData(value, totalColumns, fractionWidth) {
+  const [integerPart, fractionPart = ""] = String(value).split(".");
+  const numeric = `${integerPart}${fractionPart.padEnd(fractionWidth, " ").slice(0, fractionWidth)}`;
+  const padding = Math.max(0, totalColumns - numeric.length);
+  return {
+    digits: `${" ".repeat(padding)}${numeric}`.slice(-totalColumns).split(""),
+    decimalAfterIndex: fractionWidth > 0 ? totalColumns - fractionWidth - 1 : -1,
+  };
+}
+
 function formatShiftedDigitData(value, width, shift) {
   const places = Math.max(0, shift);
   const availableWidth = Math.max(1, width - places);
@@ -820,25 +874,33 @@ function makeDigitCell(digit, showCarryBoxes, blank = false, showDecimal = false
   if (showDecimal) {
     const decimal = document.createElement("span");
     decimal.className = "formula-decimal";
-    decimal.textContent = ".";
     cell.append(decimal);
   }
   return cell;
 }
 
-function makeDigitRow(digitData, operator = "", showCarryBoxes = true, blank = false) {
+function makeDigitRow(digitData, operator = "", showCarryBoxes = true, blank = false, options = {}) {
   const { digits, decimalAfterIndex = -1 } = Array.isArray(digitData)
     ? { digits: digitData }
     : digitData;
+  const totalColumns = options.totalColumns || digits.length;
+  const operatorColumn = options.operatorColumn || 1;
+  const showDecimal = options.showDecimal === true;
   const row = document.createElement("span");
   row.className = "digit-row";
-  const operatorElement = document.createElement("span");
-  operatorElement.className = "operator";
-  operatorElement.classList.toggle("operator-cell", Boolean(operator));
-  operatorElement.textContent = operator;
-  row.append(operatorElement);
-  digits.forEach((digit, index) => {
-    row.append(makeDigitCell(digit, showCarryBoxes, blank, decimalAfterIndex === index));
+  row.style.setProperty("--digit-count", String(totalColumns));
+  const normalizedDigits = [...digits].slice(-totalColumns).map((digit) => digit || " ");
+  while (normalizedDigits.length < totalColumns) normalizedDigits.unshift(" ");
+  normalizedDigits.forEach((digit, index) => {
+    const column = index + 1;
+    if (operator && column === operatorColumn) {
+      const operatorElement = document.createElement("span");
+      operatorElement.className = "operator operator-cell";
+      operatorElement.textContent = operator;
+      row.append(operatorElement);
+      return;
+    }
+    row.append(makeDigitCell(digit, showCarryBoxes, blank, showDecimal && decimalAfterIndex === index));
   });
   return row;
 }
@@ -847,15 +909,25 @@ function makeVerticalFormula(problem, showAnswer, settings, width) {
   const formula = document.createElement("span");
   formula.className = "vertical-formula";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
-  formula.style.setProperty("--digit-count", String(width));
-  const firstRow = formatDigitData(problem.a, width);
-  const secondRow = formatDigitData(problem.b, width);
-  formula.append(makeDigitRow(firstRow, "", settings.showCarryBoxes));
-  formula.append(makeDigitRow(secondRow, problem.op, settings.showCarryBoxes));
+  const layout = getSimpleProblemLayout(problem, width);
+  formula.append(makeDigitRow(layout.first, "", settings.showCarryBoxes, false, {
+    totalColumns: width,
+    operatorColumn: layout.operatorColumn,
+    showDecimal: showAnswer || settings.showProblemDecimalPoint,
+  }));
+  formula.append(makeDigitRow(layout.second, problem.op, settings.showCarryBoxes, false, {
+    totalColumns: width,
+    operatorColumn: layout.operatorColumn,
+    showDecimal: showAnswer || settings.showProblemDecimalPoint,
+  }));
   const line = document.createElement("span");
   line.className = "vertical-line";
   formula.append(line);
-  formula.append(makeDigitRow(formatDigitData(showAnswer ? problem.answer : "", width), "", settings.showCarryBoxes, !showAnswer));
+  formula.append(makeDigitRow(layout.answer, "", settings.showCarryBoxes, !showAnswer, {
+    totalColumns: width,
+    operatorColumn: layout.operatorColumn,
+    showDecimal: showAnswer || settings.showAnswerDecimalPoint,
+  }));
   return formula;
 }
 
@@ -885,13 +957,20 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
   formula.className = "vertical-formula multiplication-formula";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
   const workspace = Number.isInteger(workspaceTotalColumns);
-  const digitWidth = workspace ? Math.max(1, workspaceTotalColumns - 1) : width;
-  const makeRow = (data, operator = "", blank = false, result = false) => workspace
-    ? makeWorkspaceDigitRow(data, workspaceTotalColumns, operator, settings.showCarryBoxes, blank, result)
-    : makeDigitRow(data, operator, settings.showCarryBoxes, blank);
-  formula.style.setProperty("--digit-count", String(workspace ? digitWidth : width));
-  formula.append(makeRow(formatDigitData(hideGiven ? "" : problem.a, digitWidth)));
-  formula.append(makeRow(formatDigitData(hideGiven ? "" : problem.b, digitWidth), "×"));
+  const totalColumns = workspace ? workspaceTotalColumns : width;
+  const operandWidth = Math.max(workspaceDigitCount(problem.a), workspaceDigitCount(problem.b));
+  const operatorColumn = Math.max(1, totalColumns - operandWidth);
+  const makeRow = (data, operator = "", blank = false, result = false, showDecimal = false) => workspace
+    ? makeWorkspaceDigitRow(data, totalColumns, operator, settings.showCarryBoxes, blank, result, operatorColumn, showDecimal)
+    : makeDigitRow(data, operator, settings.showCarryBoxes, blank, {
+      totalColumns,
+      operatorColumn,
+      showDecimal,
+    });
+  formula.style.setProperty("--digit-count", String(totalColumns));
+  const showProblemDecimal = showAnswer || settings.showProblemDecimalPoint;
+  formula.append(makeRow(formatDigitData(problem.a, totalColumns), "", hideGiven, false, showProblemDecimal));
+  formula.append(makeRow(formatDigitData(problem.b, totalColumns), "×", hideGiven, false, showProblemDecimal));
 
   const subtotalLine = document.createElement("span");
   subtotalLine.className = "vertical-line";
@@ -900,8 +979,8 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
   if (steps.length > 1) {
     steps.forEach((digit, placeIndex) => {
       const data = showAnswer
-        ? formatShiftedDigitData(multiplicand * digit, digitWidth, placeIndex)
-        : formatDigitData("", digitWidth);
+        ? formatShiftedDigitData(multiplicand * digit, totalColumns, placeIndex)
+        : formatDigitData("", totalColumns);
       formula.append(makeRow(data, "", !showAnswer));
     });
     const answerLine = document.createElement("span");
@@ -910,10 +989,11 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
   }
 
   formula.append(makeRow(
-    formatDigitData(showAnswer ? problem.answer : "", workspace ? workspaceTotalColumns : width),
+    formatDigitData(problem.answer, totalColumns),
     "",
     !showAnswer,
     workspace,
+    showAnswer || settings.showAnswerDecimalPoint,
   ));
   return formula;
 }
@@ -967,17 +1047,23 @@ function addDivisionBoardDigit(board, value, row, column, className = "") {
 function addDivisionBoardDecimal(board, row, column, answer = false) {
   const decimal = document.createElement("span");
   decimal.className = `division-board-decimal${answer ? " answer-point" : ""}`;
-  decimal.textContent = "●";
   decimal.style.gridRow = String(row);
   decimal.style.gridColumn = String(column);
   board.append(decimal);
 }
 
 function addDivisionBoardValue(board, value, row, startColumn, decimalAfterIndex, className) {
-  String(value).split("").forEach((digit, index) => {
+  const text = String(value);
+  const rawValue = text.replace(".", "");
+  const pointIndex = text.includes(".") ? text.indexOf(".") - 1 : decimalAfterIndex;
+  rawValue.split("").forEach((digit, index) => {
     addDivisionBoardDigit(board, digit, row, startColumn + index, className);
   });
-  if (decimalAfterIndex >= 0) addDivisionBoardDecimal(board, row, startColumn + decimalAfterIndex);
+  if (pointIndex >= 0) addDivisionBoardDecimal(board, row, startColumn + pointIndex);
+}
+
+function divisionValueDigitLength(value) {
+  return String(value).replace(".", "").length;
 }
 
 function addAlignedDivisionNumber(board, value, row, endIndex, divisorDigits, className) {
@@ -1002,7 +1088,7 @@ function addDivisionFrame(board, divisorDigits, boardColumns) {
   board.append(frame);
 }
 
-function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, showGiven = true) {
+function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, showGiven = true, settings = null) {
   const details = problem.longDivision;
   const trace = buildLongDivisionTrace(details);
   const board = document.createElement("span");
@@ -1015,13 +1101,14 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
   }
 
   addDivisionFrame(board, details.divisorDigits, boardColumns);
+  const showProblemDecimal = showAnswer || settings?.showProblemDecimalPoint !== false;
   if (showGiven) {
     addDivisionBoardValue(
       board,
       details.displayDivisor ?? details.divisor,
       2,
       1,
-      details.divisorDecimalAfterIndex ?? -1,
+      showProblemDecimal ? (details.divisorDecimalAfterIndex ?? -1) : -1,
       "given-digit",
     );
     addDivisionBoardValue(
@@ -1029,9 +1116,16 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
       details.displayDividend ?? details.dividend,
       2,
       details.divisorDigits + 1,
-      details.dividendDecimalAfterIndex,
+      showProblemDecimal ? details.dividendDecimalAfterIndex : -1,
       "given-digit",
     );
+  } else if (showProblemDecimal) {
+    const divisorText = details.displayDivisor ?? details.divisor;
+    const dividendText = details.displayDividend ?? details.dividend;
+    const divisorPoint = String(divisorText).includes(".") ? String(divisorText).indexOf(".") - 1 : details.divisorDecimalAfterIndex;
+    const dividendPoint = String(dividendText).includes(".") ? String(dividendText).indexOf(".") - 1 : details.dividendDecimalAfterIndex;
+    if (divisorPoint >= 0) addDivisionBoardDecimal(board, 2, 1 + divisorPoint);
+    if (dividendPoint >= 0) addDivisionBoardDecimal(board, 2, details.divisorDigits + 1 + dividendPoint);
   }
 
   if (showAnswer) {
@@ -1068,7 +1162,10 @@ function getLongDivisionBoardSize(pageProblems) {
       rows: Math.max(size.rows, trace.rows.length + 2, 6),
       columns: Math.max(
         size.columns,
-        problem.longDivision.divisorDigits + String(problem.longDivision.dividend).length,
+        problem.longDivision.divisorDigits + Math.max(
+          divisionValueDigitLength(problem.longDivision.dividend),
+          divisionValueDigitLength(problem.longDivision.displayDividend ?? problem.longDivision.dividend),
+        ),
         4,
       ),
     };
@@ -1076,7 +1173,7 @@ function getLongDivisionBoardSize(pageProblems) {
 }
 
 function getVerticalDigitCount(problems) {
-  return Math.max(2, ...problems.map((problem) => Math.max(digitCount(problem.a), digitCount(problem.b), digitCount(problem.answer))));
+  return getSimpleBoardSize(problems);
 }
 
 function getMultiplicationBoardSize(pageProblems) {
@@ -1103,7 +1200,7 @@ function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivi
     return makeCalculationWorkspace(problem, showAnswer, settings, workspaceSize);
   }
   if (settings.layout === "vertical" && problem.longDivision) {
-    return makeLongDivisionBoard(problem, showAnswer, longDivisionBoardSize.rows, longDivisionBoardSize.columns);
+    return makeLongDivisionBoard(problem, showAnswer, longDivisionBoardSize.rows, longDivisionBoardSize.columns, true, settings);
   }
   if (settings.layout === "vertical" && problem.op === "×") {
     return makeMultiplicationVerticalFormula(problem, showAnswer, settings, multiplicationBoardSize.columns);
