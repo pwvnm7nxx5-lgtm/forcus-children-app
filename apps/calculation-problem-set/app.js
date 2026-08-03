@@ -1187,6 +1187,12 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
         board.append(line);
       }
     });
+  } else if (showAnswerDecimal && details.quotientDecimalAfterIndex >= 0) {
+    addDivisionBoardDecimal(
+      board,
+      1,
+      details.divisorDigits + trace.quotientOffset + details.quotientDecimalAfterIndex + 1,
+    );
   }
   return board;
 }
