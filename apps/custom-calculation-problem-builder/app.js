@@ -40,7 +40,7 @@ const problemCountMin = 1;
 const horizontalProblemCountMax = 60;
 const verticalProblemCountMax = 30;
 const longDivisionProblemCountMax = 6;
-const multiplicationProblemCountMax = 9;
+const multiplicationProblemCountMax = 15;
 const calculationWorkspaceRowsPerColumn = 4;
 const columnsMin = 1;
 const columnsMax = 6;
@@ -246,13 +246,24 @@ function getProblemCount() {
 }
 
 function getColumnsMax() {
-  if (isCalculationWorkspaceLayout()) return 3;
-  if (isLongDivisionLayout() || isMultiplicationVerticalLayout()) return isLandscapePrint() ? 3 : 2;
+  if (isCalculationWorkspaceLayout()) {
+    if (supportsMultiplicationVerticalLayout()) return isLandscapePrint() ? 4 : 3;
+    return 3;
+  }
+  if (isMultiplicationVerticalLayout()) return isLandscapePrint() ? 4 : 3;
+  if (isLongDivisionLayout()) return isLandscapePrint() ? 3 : 2;
   return columnsMax;
 }
 
 function getColumns() {
-  const columns = clampNumber(els.columns.value, columnsMin, getColumnsMax(), 3);
+  const max = getColumnsMax();
+  const count = clampNumber(els.problemCount.value, problemCountMin, getProblemCountMax(), 30);
+  const multiplicationLayout = supportsMultiplicationVerticalLayout()
+    && ["vertical", "horizontal-workspace"].includes(getActiveLayout());
+  const denseMinimum = multiplicationLayout && count > 12
+    ? (isLandscapePrint() ? 4 : 3)
+    : (multiplicationLayout && count > 9 ? 3 : columnsMin);
+  const columns = clampNumber(els.columns.value, denseMinimum, max, Math.min(3, max));
   els.columns.value = String(columns);
   return columns;
 }
@@ -1405,12 +1416,14 @@ function applyGridDensity(list, settings, longDivisionBoardSize = null, multipli
     fontSize = Math.max(15, Math.round(cellSize * 3));
     list.style.setProperty("--division-cell-size", `${cellSize.toFixed(2)}mm`);
   } else if (workspaceSize && supportsMultiplicationVerticalLayout()) {
-    rowGap = 4;
-    const availableHeight = 235 - Math.max(0, rows - 1) * rowGap;
+    const denseMultiplication = settings.count > 12;
+    rowGap = denseMultiplication ? 2 : 4;
+    const pageHeight = isLandscapePrint() ? 164 : 235;
+    const availableHeight = pageHeight - Math.max(0, rows - 1) * rowGap;
     const availableWidth = (184 - Math.max(0, settings.columns - 1) * 10) / settings.columns - 8;
     const heightCellSize = (availableHeight / rows - 2 - Math.max(0, workspaceSize.rows - 1)) / workspaceSize.rows;
     const widthCellSize = availableWidth / workspaceSize.columns;
-    const cellSize = Math.max(5.5, Math.min(10, heightCellSize, widthCellSize));
+    const cellSize = Math.max(denseMultiplication ? 3.5 : 5.5, Math.min(10, heightCellSize, widthCellSize));
     problemMin = cellSize * workspaceSize.rows + Math.max(0, workspaceSize.rows - 1) + 2;
     fontSize = Math.max(15, Math.round(cellSize * 3));
     list.style.setProperty("--multiplication-digit-size", `${cellSize.toFixed(2)}mm`);
@@ -1435,12 +1448,14 @@ function applyGridDensity(list, settings, longDivisionBoardSize = null, multipli
     fontSize = Math.max(15, Math.round(cellSize * 3));
     list.style.setProperty("--division-cell-size", `${cellSize.toFixed(2)}mm`);
   } else if (multiplicationBoardSize) {
-    rowGap = 4;
-    const availableHeight = 235 - Math.max(0, rows - 1) * rowGap;
+    const denseMultiplication = settings.count > 12;
+    rowGap = denseMultiplication ? 2 : 4;
+    const pageHeight = isLandscapePrint() ? 164 : 235;
+    const availableHeight = pageHeight - Math.max(0, rows - 1) * rowGap;
     const availableWidth = (184 - Math.max(0, settings.columns - 1) * 10) / settings.columns - 8;
     const heightCellSize = (availableHeight / rows - 2 - Math.max(0, multiplicationBoardSize.rows - 1)) / multiplicationBoardSize.rows;
     const widthCellSize = availableWidth / multiplicationBoardSize.columns;
-    const cellSize = Math.max(5.5, Math.min(10, heightCellSize, widthCellSize));
+    const cellSize = Math.max(denseMultiplication ? 3.5 : 5.5, Math.min(10, heightCellSize, widthCellSize));
     problemMin = cellSize * multiplicationBoardSize.rows + Math.max(0, multiplicationBoardSize.rows - 1) + 2;
     fontSize = Math.max(15, Math.round(cellSize * 3));
     list.style.setProperty("--multiplication-digit-size", `${cellSize.toFixed(2)}mm`);
