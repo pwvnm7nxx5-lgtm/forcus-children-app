@@ -388,12 +388,12 @@ button:hover {
   gap: 2.5mm;
 }
 
-.calculation-workspace-board {
-  --digit-size: 8mm;
+.vertical-formula.calculation-workspace-board {
+  --digit-size: var(--workspace-digit-size, 8mm);
   --operator-width: 8mm;
 }
 
-.workspace-result-row {
+.digit-row.workspace-result-row {
   grid-template-columns: repeat(var(--workspace-result-count), var(--digit-size));
 }
 
@@ -423,7 +423,7 @@ button:hover {
 }
 
 .vertical-formula {
-  --digit-size: 8mm;
+  --digit-size: var(--vertical-digit-size, 8mm);
   --helper-size: 2.8mm;
   --operator-width: 7mm;
   --formula-gap: 1mm;
@@ -500,7 +500,7 @@ button:hover {
 }
 
 .multiplication-formula {
-  --digit-size: var(--multiplication-digit-size, 7mm);
+  --digit-size: var(--multiplication-digit-size, 10mm);
   --operator-width: var(--digit-size);
 }
 

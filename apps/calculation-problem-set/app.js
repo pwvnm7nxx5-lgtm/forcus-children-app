@@ -1113,7 +1113,7 @@ function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivi
     : makeHorizontalFormula(problem, showAnswer);
 }
 
-function applyGridDensity(list, settings, longDivisionBoardSize = null, multiplicationBoardSize = null, workspaceSize = null) {
+function applyGridDensity(list, settings, longDivisionBoardSize = null, multiplicationBoardSize = null, workspaceSize = null, verticalDigitCount = 0) {
   const rows = Math.ceil(settings.count / settings.columns);
   const vertical = settings.layout === "vertical";
   let rowGap = vertical ? 6 : 8;
@@ -1137,14 +1137,20 @@ function applyGridDensity(list, settings, longDivisionBoardSize = null, multipli
     const availableWidth = (184 - Math.max(0, settings.columns - 1) * 10) / settings.columns - 8;
     const heightCellSize = (availableHeight / rows - 2 - Math.max(0, workspaceSize.rows - 1)) / workspaceSize.rows;
     const widthCellSize = availableWidth / workspaceSize.columns;
-    const cellSize = Math.max(5.4, Math.min(7.2, heightCellSize, widthCellSize));
+    const cellSize = Math.max(5.5, Math.min(10, heightCellSize, widthCellSize));
     problemMin = cellSize * workspaceSize.rows + Math.max(0, workspaceSize.rows - 1) + 2;
     fontSize = Math.max(15, Math.round(cellSize * 3));
     list.style.setProperty("--multiplication-digit-size", `${cellSize.toFixed(2)}mm`);
   } else if (workspaceSize) {
     rowGap = 4;
-    problemMin = 41;
-    fontSize = 21;
+    const availableHeight = 235 - Math.max(0, rows - 1) * rowGap;
+    const availableWidth = (184 - Math.max(0, settings.columns - 1) * 10) / settings.columns - 8;
+    const heightCellSize = (availableHeight / rows - 2 - 2) / workspaceSize.rows;
+    const widthCellSize = availableWidth / workspaceSize.columns;
+    const cellSize = Math.max(5.5, Math.min(10, heightCellSize, widthCellSize));
+    problemMin = cellSize * workspaceSize.rows + 2;
+    fontSize = Math.max(15, Math.round(cellSize * 3));
+    list.style.setProperty("--workspace-digit-size", `${cellSize.toFixed(2)}mm`);
   } else if (longDivisionBoardSize) {
     rowGap = 4;
     const availableHeight = 235 - Math.max(0, rows - 1) * rowGap;
@@ -1161,10 +1167,19 @@ function applyGridDensity(list, settings, longDivisionBoardSize = null, multipli
     const availableWidth = (184 - Math.max(0, settings.columns - 1) * 10) / settings.columns - 8;
     const heightCellSize = (availableHeight / rows - 2 - Math.max(0, multiplicationBoardSize.rows - 1)) / multiplicationBoardSize.rows;
     const widthCellSize = availableWidth / multiplicationBoardSize.columns;
-    const cellSize = Math.max(5.4, Math.min(7.2, heightCellSize, widthCellSize));
+    const cellSize = Math.max(5.5, Math.min(10, heightCellSize, widthCellSize));
     problemMin = cellSize * multiplicationBoardSize.rows + Math.max(0, multiplicationBoardSize.rows - 1) + 2;
     fontSize = Math.max(15, Math.round(cellSize * 3));
     list.style.setProperty("--multiplication-digit-size", `${cellSize.toFixed(2)}mm`);
+  } else if (vertical && supportsSimpleVerticalLayout()) {
+    const availableHeight = 235 - Math.max(0, rows - 1) * rowGap;
+    const availableWidth = (184 - Math.max(0, settings.columns - 1) * 10) / settings.columns - 8;
+    const heightCellSize = (availableHeight / rows - 2 - 2) / 3;
+    const widthCellSize = availableWidth / (verticalDigitCount + 1);
+    const cellSize = Math.max(5.5, Math.min(10, heightCellSize, widthCellSize));
+    problemMin = cellSize * 3 + 2;
+    fontSize = Math.max(15, Math.round(cellSize * 3));
+    list.style.setProperty("--vertical-digit-size", `${cellSize.toFixed(2)}mm`);
   } else if (!vertical && rows > 24) {
     [rowGap, problemMin, fontSize, blankWidth, blankHeight] = [1.5, 5.8, 16, 8, 5.5];
   } else if (!vertical && rows > 18) {
@@ -1210,8 +1225,8 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
       : supportsMultiplicationVerticalLayout()
         ? getMultiplicationWorkspaceSize(pageProblems)
         : getCalculationWorkspaceSize(pageProblems);
-  applyGridDensity(list, settings, longDivisionBoardSize, multiplicationBoardSize, workspaceSize);
   const verticalDigitCount = settings.layout === "vertical" ? getVerticalDigitCount(pageProblems) : 0;
+  applyGridDensity(list, settings, longDivisionBoardSize, multiplicationBoardSize, workspaceSize, verticalDigitCount);
   pageProblems.forEach((problem) => {
     const item = document.createElement("li");
     item.className = "problem";
