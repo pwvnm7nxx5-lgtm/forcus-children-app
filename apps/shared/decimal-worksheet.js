@@ -231,7 +231,9 @@
 
     if (showAnswer) {
       trace.quotientDigits.forEach((digit, index) => addBoardDigit(board, digit, 1, details.divisorDigits + trace.quotientOffset + index + 1, "answer-digit"));
-      if (details.quotientDecimalAfterIndex >= 0) addBoardDecimal(board, 1, details.divisorDigits + trace.quotientOffset + details.quotientDecimalAfterIndex + 1, true);
+      if (settings.showAnswerDecimalPoint && details.quotientDecimalAfterIndex >= 0) {
+        addBoardDecimal(board, 1, details.divisorDigits + trace.quotientOffset + details.quotientDecimalAfterIndex + 1, true);
+      }
       trace.rows.slice(0, boardRows - 2).forEach((traceRow, index) => {
         const row = index + 3;
         addAlignedBoardNumber(board, traceRow.value, row, traceRow.endIndex, details.divisorDigits, "answer-digit");

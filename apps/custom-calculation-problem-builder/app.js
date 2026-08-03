@@ -219,6 +219,12 @@ function isMultiplicationVerticalLayout() {
   return getActiveLayout() === "vertical" && supportsMultiplicationVerticalLayout();
 }
 
+function isLandscapePrint() {
+  const orientation = document.querySelector("#printOrientation")?.value;
+  if (orientation) return orientation === "landscape";
+  return document.body.classList.contains("print-landscape");
+}
+
 function getProblemCountMax(layout = getActiveLayout()) {
   if (layout === "horizontal-workspace") return getWorkspaceProblemCountMax();
   if (layout === "vertical" && supportsLongDivisionLayout()) return longDivisionProblemCountMax;
@@ -241,7 +247,7 @@ function getProblemCount() {
 
 function getColumnsMax() {
   if (isCalculationWorkspaceLayout()) return 3;
-  if (isLongDivisionLayout() || isMultiplicationVerticalLayout()) return 2;
+  if (isLongDivisionLayout() || isMultiplicationVerticalLayout()) return isLandscapePrint() ? 3 : 2;
   return columnsMax;
 }
 
@@ -1626,9 +1632,22 @@ function bindEvents() {
   els.copyLinkBtn.addEventListener("click", copyShareUrl);
 }
 
+function watchPrintOrientation() {
+  let previousLandscape = isLandscapePrint();
+  const observer = new MutationObserver(() => {
+    const currentLandscape = isLandscapePrint();
+    if (currentLandscape === previousLandscape) return;
+    previousLandscape = currentLandscape;
+    syncSettingsControls();
+    render();
+  });
+  observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+}
+
 loadInitialState();
 syncSettingsControls();
 bindEvents();
+watchPrintOrientation();
 window.__printAdjustmentsGenerateSheets = ({ sheetCount, includeAnswers }) => {
   renderSheetPages(sheetCount, includeAnswers);
   return true;
