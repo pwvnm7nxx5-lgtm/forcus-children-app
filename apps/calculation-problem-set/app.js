@@ -35,7 +35,7 @@ const horizontalProblemCountMax = 60;
 const verticalProblemCountMax = 30;
 const calculationWorkspaceRowsPerColumn = 4;
 const longDivisionProblemCountMax = 9;
-const multiplicationProblemCountMax = 9;
+const multiplicationProblemCountMax = 12;
 const columnsMin = 1;
 const columnsMax = 6;
 let statusTimer;
