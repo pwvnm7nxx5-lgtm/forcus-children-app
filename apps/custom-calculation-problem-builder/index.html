@@ -21,20 +21,21 @@
       </div>
       <label class="field"><span>プリント名</span><input id="worksheetTitle" type="text" autocomplete="off" value="計算問題作成"></label>
       <div class="settings-grid">
-        <label class="field"><span id="digitsALabel">1つ目の桁数</span><select id="digitsA"><option value="1">1桁</option><option value="2" selected>2桁</option><option value="3">3桁</option><option value="4">4桁</option><option value="5">5桁</option></select></label>
         <label class="field"><span>計算</span><select id="operation"></select></label>
-        <label class="field"><span id="digitsBLabel">2つ目の桁数</span><select id="digitsB"><option value="1">1桁</option><option value="2">2桁</option><option value="3" selected>3桁</option><option value="4">4桁</option><option value="5">5桁</option></select></label>
-        <label class="field decimal-setting" hidden><span>1つ目の小数</span><select id="decimalPlacesA"><option value="1" selected>小数第1位まで</option><option value="2">小数第2位まで</option><option value="3">小数第3位まで</option></select></label>
-        <label class="field decimal-setting" hidden><span>2つ目の小数</span><select id="decimalPlacesB"><option value="1" selected>小数第1位まで</option><option value="2">小数第2位まで</option><option value="3">小数第3位まで</option></select></label>
         <label class="field"><span>繰り上がり・繰り下がり</span><select id="carryMode"><option value="any">指定なし</option><option value="with">あり</option><option value="without">なし</option></select></label>
+        <label class="field"><span id="digitsALabel">1つ目の整数部分</span><select id="digitsA"><option value="1">1桁</option><option value="2" selected>2桁</option><option value="3">3桁</option><option value="4">4桁</option><option value="5">5桁</option></select></label>
+        <label class="field decimal-setting" hidden><span>1つ目の小数</span><select id="decimalPlacesA"><option value="1" selected>小数第1位まで</option><option value="2">小数第2位まで</option><option value="3">小数第3位まで</option></select></label>
+        <label class="field"><span id="digitsBLabel">2つ目の整数部分</span><select id="digitsB"><option value="1">1桁</option><option value="2">2桁</option><option value="3" selected>3桁</option><option value="4">4桁</option><option value="5">5桁</option></select></label>
+        <label class="field decimal-setting" hidden><span>2つ目の小数</span><select id="decimalPlacesB"><option value="1" selected>小数第1位まで</option><option value="2">小数第2位まで</option><option value="3">小数第3位まで</option></select></label>
         <label class="field"><span>表示</span><select id="layoutMode"><option value="horizontal" selected>横式</option><option value="horizontal-workspace">横式＋計算スペース</option><option value="vertical">筆算</option></select></label>
-        <label class="field"><span>問題数</span><span class="combo-input"><input id="problemCount" type="number" min="1" max="60" step="1" value="30" inputmode="numeric"><select id="problemCountPreset" aria-label="問題数の候補"><option value="">候補</option><option value="20">20問</option><option value="30">30問</option><option value="40">40問</option><option value="60">60問</option></select></span></label>
+        <label class="field"><span>問題数</span><input id="problemCount" type="number" min="1" max="60" step="1" value="30" inputmode="numeric"></label>
         <label class="field"><span>列数</span><input id="columns" type="number" min="1" max="6" step="1" value="3" inputmode="numeric"></label>
       </div>
       <div class="check-row">
         <label><input id="showCarryBoxes" type="checkbox"> 繰り上がり・繰り下がりのマスをつける</label>
         <label class="decimal-setting" hidden><input id="showProblemDecimalPoint" type="checkbox" checked> 問題に小数点をつける</label>
         <label class="decimal-setting" hidden><input id="showAnswerDecimalPoint" type="checkbox" checked> 答えに小数点をつける</label>
+        <label class="workspace-setting" hidden><input id="showWorkspaceOperator" type="checkbox" checked> 計算スペースに記号を表示する</label>
         <label><input id="includeAnswers" type="checkbox" checked> 答えページをつける</label>
       </div>
       <div class="actions">

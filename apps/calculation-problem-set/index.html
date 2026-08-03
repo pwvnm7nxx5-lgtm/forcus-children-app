@@ -26,12 +26,14 @@
         <label class="field"><span>桁数</span><select id="digits"></select></label>
         <label class="field"><span>繰り上がり・繰り下がり</span><select id="carryMode"><option value="any">指定なし</option><option value="with">あり</option><option value="without">なし</option></select></label>
         <label class="field"><span>表示</span><select id="layoutMode"><option value="horizontal" selected>横式</option><option value="horizontal-workspace">横式＋計算スペース</option><option value="vertical">筆算</option></select></label>
-        <label class="field"><span>難しさ</span><select id="difficulty"><option value="standard" selected>標準</option><option value="easy">やさしめ</option></select></label>
-        <label class="field"><span>問題数</span><span class="combo-input"><input id="problemCount" type="number" min="1" max="60" step="1" value="30" inputmode="numeric"><select id="problemCountPreset" aria-label="問題数の候補"><option value="">候補</option><option value="20">20問</option><option value="30">30問</option><option value="40">40問</option><option value="60">60問</option></select></span></label>
+        <label class="field"><span>問題数</span><input id="problemCount" type="number" min="1" max="60" step="1" value="30" inputmode="numeric"></label>
         <label class="field"><span>列数</span><input id="columns" type="number" min="1" max="6" step="1" value="3" inputmode="numeric"></label>
       </div>
       <div class="check-row">
         <label><input id="showCarryBoxes" type="checkbox"> 繰り上がり・繰り下がりのマスをつける</label>
+        <label class="decimal-setting" hidden><input id="showProblemDecimalPoint" type="checkbox" checked> 問題に小数点をつける</label>
+        <label class="decimal-setting" hidden><input id="showAnswerDecimalPoint" type="checkbox" checked> 答えに小数点をつける</label>
+        <label class="workspace-setting" hidden><input id="showWorkspaceOperator" type="checkbox" checked> 計算スペースに記号を表示する</label>
         <label><input id="includeAnswers" type="checkbox" checked> 答えページをつける</label>
       </div>
       <div class="actions">
