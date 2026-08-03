@@ -16,7 +16,7 @@ const els = {
   problemCount: document.querySelector("#problemCount"),
   columns: document.querySelector("#columns"),
   showCarryBoxes: document.querySelector("#showCarryBoxes"),
-  showProblemDecimalPoint: document.querySelector("#showProblemDecimalPoint"),
+  showWorkspaceDecimalPoint: document.querySelector("#showWorkspaceDecimalPoint"),
   showAnswerDecimalPoint: document.querySelector("#showAnswerDecimalPoint"),
   showWorkspaceOperator: document.querySelector("#showWorkspaceOperator"),
   includeAnswers: document.querySelector("#includeAnswers"),
@@ -233,7 +233,7 @@ function getSettings() {
     count: getProblemCount(),
     columns: getColumns(),
     showCarryBoxes: els.showCarryBoxes.checked,
-    showProblemDecimalPoint: els.showProblemDecimalPoint.checked,
+    showWorkspaceDecimalPoint: els.showWorkspaceDecimalPoint.checked,
     showAnswerDecimalPoint: els.showAnswerDecimalPoint.checked,
     showWorkspaceOperator: els.showWorkspaceOperator.checked,
   };
@@ -277,8 +277,10 @@ function syncSettingsControls() {
   els.layoutMode.disabled = !layoutSupported;
   if (!layoutSupported || (!workspaceSupported && els.layoutMode.value === "horizontal-workspace")) els.layoutMode.value = "horizontal";
   els.showCarryBoxes.disabled = !(simpleVertical || multiplicationVertical) || getActiveLayout() !== "vertical";
-  els.showProblemDecimalPoint.closest("label").hidden = !decimalOperation || getActiveLayout() !== "horizontal-workspace";
-  els.showAnswerDecimalPoint.closest("label").hidden = !decimalOperation;
+  const workspaceDecimalControls = decimalOperation && getActiveLayout() === "horizontal-workspace";
+  const answerDecimalControls = decimalOperation && ["vertical", "horizontal-workspace"].includes(getActiveLayout());
+  els.showWorkspaceDecimalPoint.closest("label").hidden = !workspaceDecimalControls;
+  els.showAnswerDecimalPoint.closest("label").hidden = !answerDecimalControls;
   els.showWorkspaceOperator.closest("label").hidden = getActiveLayout() !== "horizontal-workspace";
 
   const max = getProblemCountMax();
@@ -303,7 +305,8 @@ function applySettings(settings) {
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, getProblemCountMax(), 30));
   els.columns.value = String(clampNumber(settings.columns, columnsMin, getColumnsMax(), 3));
   els.showCarryBoxes.checked = settings.showCarryBoxes === true;
-  els.showProblemDecimalPoint.checked = settings.showProblemDecimalPoint !== false;
+  const workspaceDecimalPoint = settings.showWorkspaceDecimalPoint ?? settings.showProblemDecimalPoint;
+  els.showWorkspaceDecimalPoint.checked = workspaceDecimalPoint !== false;
   els.showAnswerDecimalPoint.checked = settings.showAnswerDecimalPoint !== false;
   els.showWorkspaceOperator.checked = settings.showWorkspaceOperator !== false;
   syncSettingsControls();
@@ -729,13 +732,10 @@ function makeHorizontalFormula(problem, showAnswer, settings = null) {
   formula.className = "formula";
   const expression = document.createElement("span");
   expression.className = "formula-expression";
-  const showDecimal = showAnswer
-    ? settings?.showAnswerDecimalPoint !== false
-    : settings?.showProblemDecimalPoint !== false;
-  expression.textContent = `${formulaValueText(problem.a, showDecimal)} ${problem.op} ${formulaValueText(problem.b, showDecimal)} =`;
+  expression.textContent = `${formulaValueText(problem.a, true)} ${problem.op} ${formulaValueText(problem.b, true)} =`;
   const answer = document.createElement("span");
   answer.className = showAnswer ? "answer-value" : "blank";
-  answer.textContent = showAnswer ? formulaValueText(problem.answer, settings?.showAnswerDecimalPoint !== false) : "□";
+  answer.textContent = showAnswer ? formulaValueText(problem.answer, true) : "□";
   formula.append(expression, answer);
   return formula;
 }
@@ -813,8 +813,8 @@ function makeWorkspaceSimpleFormula(problem, settings, totalColumns, showAnswer)
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
   const layout = getSimpleProblemLayout(problem, totalColumns);
   const showOperator = settings.showWorkspaceOperator || showAnswer;
-  const showProblemDecimal = showAnswer || settings.showProblemDecimalPoint;
-  const showAnswerDecimal = settings.showAnswerDecimalPoint;
+  const showProblemDecimal = showAnswer || settings.showWorkspaceDecimalPoint;
+  const showAnswerDecimal = showAnswer || settings.showAnswerDecimalPoint;
   formula.append(makeWorkspaceDigitRow(layout.first, totalColumns, "", false, !showAnswer, false, layout.operatorColumn, showProblemDecimal));
   formula.append(makeWorkspaceDigitRow(layout.second, totalColumns, showOperator ? problem.op : "", false, !showAnswer, false, layout.operatorColumn, showProblemDecimal));
   const line = document.createElement("span");
@@ -960,7 +960,7 @@ function makeVerticalFormula(problem, showAnswer, settings, width) {
   formula.append(makeDigitRow(layout.answer, "", settings.showCarryBoxes, !showAnswer, {
     totalColumns: width,
     operatorColumn: layout.operatorColumn,
-    showDecimal: settings.showAnswerDecimalPoint,
+    showDecimal: showAnswer || settings.showAnswerDecimalPoint,
   }));
   return formula;
 }
@@ -1002,7 +1002,7 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
       showDecimal,
     });
   formula.style.setProperty("--digit-count", String(totalColumns));
-  const showProblemDecimal = true;
+  const showProblemDecimal = hideGiven ? settings.showWorkspaceDecimalPoint !== false : true;
   formula.append(makeRow(formatDigitData(problem.a, totalColumns), "", hideGiven, false, showProblemDecimal));
   formula.append(makeRow(formatDigitData(problem.b, totalColumns), settings.showWorkspaceOperator || showAnswer ? "×" : "", hideGiven, false, showProblemDecimal));
 
@@ -1027,7 +1027,7 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
     "",
     !showAnswer,
     workspace,
-    settings.showAnswerDecimalPoint,
+    showAnswer || settings.showAnswerDecimalPoint,
   ));
   return formula;
 }
@@ -1134,8 +1134,8 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
   }
 
   addDivisionFrame(board, details.divisorDigits, boardColumns);
-  const showProblemDecimal = showGiven ? true : settings?.showProblemDecimalPoint !== false;
-  const showAnswerDecimal = settings?.showAnswerDecimalPoint !== false;
+  const showProblemDecimal = showGiven ? true : settings?.showWorkspaceDecimalPoint !== false;
+  const showAnswerDecimal = showAnswer || settings?.showAnswerDecimalPoint !== false;
   if (showGiven) {
     addDivisionBoardValue(
       board,
@@ -1485,7 +1485,7 @@ function bindEvents() {
     control.addEventListener("change", generateProblems);
   });
   els.showCarryBoxes.addEventListener("change", render);
-  els.showProblemDecimalPoint.addEventListener("change", render);
+  els.showWorkspaceDecimalPoint.addEventListener("change", render);
   els.showAnswerDecimalPoint.addEventListener("change", render);
   els.showWorkspaceOperator.addEventListener("change", render);
   els.problemCount.addEventListener("input", () => {
