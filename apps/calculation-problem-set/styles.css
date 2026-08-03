@@ -16,6 +16,10 @@
   --blank-h: 9mm;
 }
 
+:where([hidden]) {
+  display: none !important;
+}
+
 * {
   box-sizing: border-box;
 }

@@ -13,11 +13,12 @@ const els = {
   digits: document.querySelector("#digits"),
   carryMode: document.querySelector("#carryMode"),
   layoutMode: document.querySelector("#layoutMode"),
-  difficulty: document.querySelector("#difficulty"),
   problemCount: document.querySelector("#problemCount"),
-  problemCountPreset: document.querySelector("#problemCountPreset"),
   columns: document.querySelector("#columns"),
   showCarryBoxes: document.querySelector("#showCarryBoxes"),
+  showProblemDecimalPoint: document.querySelector("#showProblemDecimalPoint"),
+  showAnswerDecimalPoint: document.querySelector("#showAnswerDecimalPoint"),
+  showWorkspaceOperator: document.querySelector("#showWorkspaceOperator"),
   includeAnswers: document.querySelector("#includeAnswers"),
   printBtn: document.querySelector("#printBtn"),
   regenerateBtn: document.querySelector("#regenerateBtn"),
@@ -228,12 +229,13 @@ function getSettings() {
     digits: getDigits(),
     carryMode: clampChoice(els.carryMode.value, ["any", "with", "without"], "any"),
     layout: getActiveLayout(),
-    difficulty: clampChoice(els.difficulty.value, ["standard", "easy"], "standard"),
+    difficulty: "standard",
     count: getProblemCount(),
     columns: getColumns(),
     showCarryBoxes: els.showCarryBoxes.checked,
-    showProblemDecimalPoint: true,
-    showAnswerDecimalPoint: true,
+    showProblemDecimalPoint: els.showProblemDecimalPoint.checked,
+    showAnswerDecimalPoint: els.showAnswerDecimalPoint.checked,
+    showWorkspaceOperator: els.showWorkspaceOperator.checked,
   };
 }
 
@@ -258,6 +260,7 @@ function syncSettingsControls() {
   const multiplicationVertical = supportsMultiplicationVerticalLayout();
   const workspaceSupported = supportsCalculationWorkspace();
   const layoutSupported = simpleVertical || multiplicationVertical || supportsLongDivisionLayout() || workspaceSupported;
+  const decimalOperation = getOperation().startsWith("decimal") || getOperation() === "integerDivideDecimal";
   const carryModeSupported = (Number(getGrade()) <= 4 && ["add", "sub", "mix", "decimalAdd", "decimalSub", "decimalMix", "decimalAddSubMix"].includes(getOperation())) && !(
     getGrade() === "1" && getDigits() === "one-one" && getOperation() !== "add"
   );
@@ -274,17 +277,14 @@ function syncSettingsControls() {
   els.layoutMode.disabled = !layoutSupported;
   if (!layoutSupported || (!workspaceSupported && els.layoutMode.value === "horizontal-workspace")) els.layoutMode.value = "horizontal";
   els.showCarryBoxes.disabled = !(simpleVertical || multiplicationVertical) || getActiveLayout() !== "vertical";
+  els.showProblemDecimalPoint.closest("label").hidden = !decimalOperation || getActiveLayout() !== "horizontal-workspace";
+  els.showAnswerDecimalPoint.closest("label").hidden = !decimalOperation;
+  els.showWorkspaceOperator.closest("label").hidden = getActiveLayout() !== "horizontal-workspace";
 
   const max = getProblemCountMax();
   els.columns.max = String(getColumnsMax());
   getColumns();
   els.problemCount.max = String(max);
-  Array.from(els.problemCountPreset.options).forEach((option) => {
-    if (!option.value) return;
-    const disabled = Number.parseInt(option.value, 10) > max;
-    option.disabled = disabled;
-    option.hidden = disabled;
-  });
   getProblemCount();
 }
 
@@ -300,10 +300,12 @@ function applySettings(settings) {
   els.digits.value = clampChoice(settings.digits, digitOptions().map(([value]) => value), digitOptions()[0][0]);
   els.carryMode.value = clampChoice(settings.carryMode, ["any", "with", "without"], "any");
   els.layoutMode.value = clampChoice(settings.layout, ["horizontal", "horizontal-workspace", "vertical"], "horizontal");
-  els.difficulty.value = clampChoice(settings.difficulty, ["standard", "easy"], "standard");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, getProblemCountMax(), 30));
   els.columns.value = String(clampNumber(settings.columns, columnsMin, getColumnsMax(), 3));
   els.showCarryBoxes.checked = settings.showCarryBoxes === true;
+  els.showProblemDecimalPoint.checked = settings.showProblemDecimalPoint !== false;
+  els.showAnswerDecimalPoint.checked = settings.showAnswerDecimalPoint !== false;
+  els.showWorkspaceOperator.checked = settings.showWorkspaceOperator !== false;
   syncSettingsControls();
 }
 
@@ -451,6 +453,77 @@ function formatDecimal(value, places, trim = false) {
   return trim ? text.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1") : text;
 }
 
+function decimalAfterIndex(value) {
+  const text = String(value);
+  return text.includes(".") ? text.indexOf(".") - 1 : -1;
+}
+
+function decimalRawBoundsFromIntegerBounds(bounds, places) {
+  const scale = 10 ** places;
+  return {
+    min: bounds.min * scale + (places > 0 ? 1 : 0),
+    max: bounds.max * scale + scale - 1,
+  };
+}
+
+function appendDivisionTraceZeros(value, count) {
+  if (count <= 0) return String(value);
+  const text = String(value);
+  return text.includes(".") ? `${text}${"0".repeat(count)}` : `${text}.${"0".repeat(count)}`;
+}
+
+function makeExactGradeDecimalDivisionProblem(settings, { aBounds, bBounds, aPlaces, bPlaces }) {
+  const aRawBounds = decimalRawBoundsFromIntegerBounds(aBounds, aPlaces);
+  const bRawBounds = decimalRawBoundsFromIntegerBounds(bBounds, bPlaces);
+  const bMin = Math.max(bRawBounds.min, bPlaces === 0 ? 2 : 1);
+  const bMax = bRawBounds.max;
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const divisor = randomInt(bMin, bMax);
+    for (const qPlaces of shuffle([0, 1, 2, 3])) {
+      const traceScale = bPlaces + qPlaces - aPlaces;
+      if (traceScale < 0) continue;
+      const scale = 10 ** traceScale;
+      const minQ = Math.max(1, Math.ceil((aRawBounds.min * scale) / divisor));
+      const maxQ = Math.min(99 * (10 ** qPlaces) + (10 ** qPlaces) - 1, Math.floor((aRawBounds.max * scale) / divisor));
+      if (minQ > maxQ) continue;
+      for (let pick = 0; pick < 16; pick += 1) {
+        let quotientRaw = randomInt(minQ, maxQ);
+        if (qPlaces > 0 && quotientRaw % 10 === 0) quotientRaw += quotientRaw < maxQ ? 1 : -1;
+        if (quotientRaw < minQ || quotientRaw > maxQ || (qPlaces > 0 && quotientRaw % 10 === 0)) continue;
+        const product = divisor * quotientRaw;
+        if (product % scale !== 0) continue;
+        const dividend = product / scale;
+        if (dividend < aRawBounds.min || dividend > aRawBounds.max) continue;
+        const displayDividend = formatDecimal(dividend, aPlaces);
+        const displayDivisor = formatDecimal(divisor, bPlaces);
+        const answer = formatDecimal(quotientRaw, qPlaces);
+        const dividendRaw = String(dividend).padStart(aPlaces + 1, "0");
+        const traceDividendRaw = `${dividendRaw}${"0".repeat(traceScale)}`;
+        const quotientRawText = String(quotientRaw).padStart(qPlaces + 1, "0");
+        const problem = { a: displayDividend, b: displayDivisor, op: "÷", answer };
+        if (["vertical", "horizontal-workspace"].includes(settings.layout)) {
+          problem.longDivision = {
+            divisor,
+            dividend: Number(traceDividendRaw),
+            dividendRaw: traceDividendRaw,
+            quotient: quotientRaw,
+            quotientRaw: quotientRawText,
+            divisorDigits: String(divisor).length,
+            divisorDecimalAfterIndex: decimalAfterIndex(displayDivisor),
+            displayDivisor,
+            displayDividend,
+            answerDisplayDividend: appendDivisionTraceZeros(displayDividend, traceScale),
+            dividendDecimalAfterIndex: decimalAfterIndex(displayDividend),
+            quotientDecimalAfterIndex: qPlaces > 0 ? quotientRawText.length - qPlaces - 1 : -1,
+          };
+        }
+        return problem;
+      }
+    }
+  }
+  return null;
+}
+
 function makeDecimalCandidates(settings) {
   const easy = settings.difficulty === "easy";
   return buildRandomPool(settings, () => {
@@ -500,78 +573,29 @@ function makeDecimalCandidates(settings) {
     }
 
     if (type === "decimalDivideInteger") {
-      const divisor = randomInt(2, easy ? 5 : 9);
-      const quotient = randomInt(10, places === 1 ? (easy ? 99 : 299) : (easy ? 999 : 9999));
-      const dividend = divisor * quotient;
-      const problem = {
-        a: formatDecimal(dividend, places),
-        b: String(divisor),
-        op: "÷",
-        answer: formatDecimal(quotient, places),
-      };
-      if (["vertical", "horizontal-workspace"].includes(settings.layout)) {
-        problem.longDivision = {
-          divisor,
-          dividend,
-          quotient,
-          divisorDigits: 1,
-          dividendDecimalAfterIndex: String(dividend).length - places - 1,
-          quotientDecimalAfterIndex: String(quotient).length - places - 1,
-        };
-      }
-      return problem;
+      return makeExactGradeDecimalDivisionProblem(settings, {
+        aBounds: { min: 10, max: 99 },
+        bBounds: { min: 2, max: 9 },
+        aPlaces: places,
+        bPlaces: 0,
+      });
     }
 
     if (type === "integerDivideDecimal") {
-      const divisor = randomInt(12, easy ? 38 : 98);
-      const quotient = randomInt(2, easy ? 20 : 90);
-      const dividend = (divisor * quotient) / 10;
-      if (!Number.isInteger(dividend)) return null;
-      const problem = {
-        a: String(dividend),
-        b: formatDecimal(divisor, 1),
-        op: "÷",
-        answer: String(quotient),
-      };
-      if (["vertical", "horizontal-workspace"].includes(settings.layout)) {
-        problem.longDivision = {
-          divisor,
-          dividend: dividend * 10,
-          quotient,
-          divisorDigits: String(divisor).length,
-          divisorDecimalAfterIndex: String(divisor).length - 2,
-          displayDividend: String(dividend),
-          displayDivisor: String(divisor),
-          dividendDecimalAfterIndex: -1,
-          quotientDecimalAfterIndex: -1,
-        };
-      }
-      return problem;
+      return makeExactGradeDecimalDivisionProblem(settings, {
+        aBounds: { min: 10, max: 99 },
+        bBounds: { min: 1, max: 9 },
+        aPlaces: 0,
+        bPlaces: 1,
+      });
     }
 
-    const divisorPlaces = 1;
-    const divisor = randomInt(10, easy ? 49 : 99);
-    const quotientPlaces = randomInt(1, 2);
-    const quotient = randomInt(10, quotientPlaces === 1 ? (easy ? 99 : 299) : (easy ? 999 : 9999));
-    const dividend = divisor * quotient;
-    const problem = {
-      a: formatDecimal(dividend, divisorPlaces + quotientPlaces),
-      b: formatDecimal(divisor, divisorPlaces),
-      op: "÷",
-      answer: formatDecimal(quotient, quotientPlaces),
-    };
-    if (["vertical", "horizontal-workspace"].includes(settings.layout)) {
-      problem.longDivision = {
-        divisor,
-        dividend,
-        quotient,
-        divisorDigits: String(divisor).length,
-        divisorDecimalAfterIndex: String(divisor).length - divisorPlaces - 1,
-        dividendDecimalAfterIndex: String(dividend).length - divisorPlaces - quotientPlaces - 1,
-        quotientDecimalAfterIndex: String(quotient).length - quotientPlaces - 1,
-      };
-    }
-    return problem;
+    return makeExactGradeDecimalDivisionProblem(settings, {
+      aBounds: { min: 1, max: 99 },
+      bBounds: { min: 1, max: 9 },
+      aPlaces: randomInt(1, 3),
+      bPlaces: randomInt(1, 2),
+    });
   });
 }
 
@@ -695,15 +719,23 @@ function generateProblems() {
   setStatus("問題を作り直しました。");
 }
 
-function makeHorizontalFormula(problem, showAnswer) {
+function formulaValueText(value, showDecimal) {
+  const text = String(value);
+  return showDecimal ? text : text.replace(".", "");
+}
+
+function makeHorizontalFormula(problem, showAnswer, settings = null) {
   const formula = document.createElement("span");
   formula.className = "formula";
   const expression = document.createElement("span");
   expression.className = "formula-expression";
-  expression.textContent = `${problem.a} ${problem.op} ${problem.b} =`;
+  const showDecimal = showAnswer
+    ? settings?.showAnswerDecimalPoint !== false
+    : settings?.showProblemDecimalPoint !== false;
+  expression.textContent = `${formulaValueText(problem.a, showDecimal)} ${problem.op} ${formulaValueText(problem.b, showDecimal)} =`;
   const answer = document.createElement("span");
   answer.className = showAnswer ? "answer-value" : "blank";
-  answer.textContent = showAnswer ? problem.answer : "□";
+  answer.textContent = showAnswer ? formulaValueText(problem.answer, settings?.showAnswerDecimalPoint !== false) : "□";
   formula.append(expression, answer);
   return formula;
 }
@@ -775,40 +807,42 @@ function makeWorkspaceDigitRow(digitData, totalColumns, operator = "", showCarry
   return row;
 }
 
-function makeWorkspaceSimpleFormula(problem, settings, totalColumns) {
+function makeWorkspaceSimpleFormula(problem, settings, totalColumns, showAnswer) {
   const formula = document.createElement("span");
   formula.className = "vertical-formula calculation-workspace-board";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
   const layout = getSimpleProblemLayout(problem, totalColumns);
-  formula.append(makeWorkspaceDigitRow(layout.first, totalColumns, "", false, true, false, layout.operatorColumn, settings.showProblemDecimalPoint));
-  formula.append(makeWorkspaceDigitRow(layout.second, totalColumns, problem.op, false, true, false, layout.operatorColumn, settings.showProblemDecimalPoint));
+  const showOperator = settings.showWorkspaceOperator || showAnswer;
+  const showProblemDecimal = showAnswer || settings.showProblemDecimalPoint;
+  const showAnswerDecimal = settings.showAnswerDecimalPoint;
+  formula.append(makeWorkspaceDigitRow(layout.first, totalColumns, "", false, !showAnswer, false, layout.operatorColumn, showProblemDecimal));
+  formula.append(makeWorkspaceDigitRow(layout.second, totalColumns, showOperator ? problem.op : "", false, !showAnswer, false, layout.operatorColumn, showProblemDecimal));
   const line = document.createElement("span");
   line.className = "vertical-line";
   formula.append(line);
-  formula.append(makeWorkspaceDigitRow(layout.answer, totalColumns, "", false, true, true, layout.operatorColumn, settings.showAnswerDecimalPoint));
+  formula.append(makeWorkspaceDigitRow(layout.answer, totalColumns, "", false, !showAnswer, true, layout.operatorColumn, showAnswerDecimal));
   return formula;
 }
 
 function makeCalculationWorkspace(problem, showAnswer, settings, size) {
   const workspace = document.createElement("span");
   workspace.className = "calculation-workspace";
-  workspace.append(makeHorizontalFormula(problem, showAnswer));
-  if (showAnswer) return workspace;
+  workspace.append(makeHorizontalFormula(problem, showAnswer, settings));
 
   if (supportsLongDivisionLayout()) {
-    workspace.append(makeLongDivisionBoard(problem, false, size.rows, size.columns, false, settings));
+    workspace.append(makeLongDivisionBoard(problem, showAnswer, size.rows, size.columns, showAnswer, settings));
     return workspace;
   }
 
   if (supportsMultiplicationVerticalLayout()) {
-    workspace.append(makeMultiplicationVerticalFormula(problem, false, {
+    workspace.append(makeMultiplicationVerticalFormula(problem, showAnswer, {
       ...settings,
       showCarryBoxes: false,
-    }, size.columns, true, size.columns));
+    }, size.columns, !showAnswer, size.columns));
     return workspace;
   }
 
-  workspace.append(makeWorkspaceSimpleFormula(problem, settings, size.columns));
+  workspace.append(makeWorkspaceSimpleFormula(problem, settings, size.columns, showAnswer));
   return workspace;
 }
 
@@ -913,12 +947,12 @@ function makeVerticalFormula(problem, showAnswer, settings, width) {
   formula.append(makeDigitRow(layout.first, "", settings.showCarryBoxes, false, {
     totalColumns: width,
     operatorColumn: layout.operatorColumn,
-    showDecimal: showAnswer || settings.showProblemDecimalPoint,
+    showDecimal: true,
   }));
   formula.append(makeDigitRow(layout.second, problem.op, settings.showCarryBoxes, false, {
     totalColumns: width,
     operatorColumn: layout.operatorColumn,
-    showDecimal: showAnswer || settings.showProblemDecimalPoint,
+    showDecimal: true,
   }));
   const line = document.createElement("span");
   line.className = "vertical-line";
@@ -926,7 +960,7 @@ function makeVerticalFormula(problem, showAnswer, settings, width) {
   formula.append(makeDigitRow(layout.answer, "", settings.showCarryBoxes, !showAnswer, {
     totalColumns: width,
     operatorColumn: layout.operatorColumn,
-    showDecimal: showAnswer || settings.showAnswerDecimalPoint,
+    showDecimal: settings.showAnswerDecimalPoint,
   }));
   return formula;
 }
@@ -968,9 +1002,9 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
       showDecimal,
     });
   formula.style.setProperty("--digit-count", String(totalColumns));
-  const showProblemDecimal = showAnswer || settings.showProblemDecimalPoint;
+  const showProblemDecimal = true;
   formula.append(makeRow(formatDigitData(problem.a, totalColumns), "", hideGiven, false, showProblemDecimal));
-  formula.append(makeRow(formatDigitData(problem.b, totalColumns), "×", hideGiven, false, showProblemDecimal));
+  formula.append(makeRow(formatDigitData(problem.b, totalColumns), settings.showWorkspaceOperator || showAnswer ? "×" : "", hideGiven, false, showProblemDecimal));
 
   const subtotalLine = document.createElement("span");
   subtotalLine.className = "vertical-line";
@@ -993,14 +1027,14 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
     "",
     !showAnswer,
     workspace,
-    showAnswer || settings.showAnswerDecimalPoint,
+    settings.showAnswerDecimalPoint,
   ));
   return formula;
 }
 
 function buildLongDivisionTrace(details) {
-  const dividendDigits = String(details.dividend).split("").map(Number);
-  const quotientDigits = String(details.quotient).split("").map(Number);
+  const dividendDigits = String(details.dividendRaw ?? details.dividend).split("").map(Number);
+  const quotientDigits = String(details.quotientRaw ?? details.quotient).split("").map(Number);
   const quotientOffset = dividendDigits.length - quotientDigits.length;
   const rows = [];
   let remainder = 0;
@@ -1055,11 +1089,10 @@ function addDivisionBoardDecimal(board, row, column, answer = false) {
 function addDivisionBoardValue(board, value, row, startColumn, decimalAfterIndex, className) {
   const text = String(value);
   const rawValue = text.replace(".", "");
-  const pointIndex = text.includes(".") ? text.indexOf(".") - 1 : decimalAfterIndex;
   rawValue.split("").forEach((digit, index) => {
     addDivisionBoardDigit(board, digit, row, startColumn + index, className);
   });
-  if (pointIndex >= 0) addDivisionBoardDecimal(board, row, startColumn + pointIndex);
+  if (decimalAfterIndex >= 0) addDivisionBoardDecimal(board, row, startColumn + decimalAfterIndex);
 }
 
 function divisionValueDigitLength(value) {
@@ -1101,7 +1134,8 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
   }
 
   addDivisionFrame(board, details.divisorDigits, boardColumns);
-  const showProblemDecimal = showAnswer || settings?.showProblemDecimalPoint !== false;
+  const showProblemDecimal = showGiven ? true : settings?.showProblemDecimalPoint !== false;
+  const showAnswerDecimal = settings?.showAnswerDecimalPoint !== false;
   if (showGiven) {
     addDivisionBoardValue(
       board,
@@ -1113,10 +1147,12 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
     );
     addDivisionBoardValue(
       board,
-      details.displayDividend ?? details.dividend,
+      showAnswer ? (details.answerDisplayDividend ?? details.displayDividend ?? details.dividend) : (details.displayDividend ?? details.dividend),
       2,
       details.divisorDigits + 1,
-      showProblemDecimal ? details.dividendDecimalAfterIndex : -1,
+      showProblemDecimal
+        ? decimalAfterIndex(showAnswer ? (details.answerDisplayDividend ?? details.displayDividend ?? details.dividend) : (details.displayDividend ?? details.dividend))
+        : -1,
       "given-digit",
     );
   } else if (showProblemDecimal) {
@@ -1132,7 +1168,7 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
     trace.quotientDigits.forEach((digit, index) => {
       addDivisionBoardDigit(board, digit, 1, details.divisorDigits + trace.quotientOffset + index + 1, "answer-digit");
     });
-    if (details.quotientDecimalAfterIndex >= 0) {
+    if (showAnswerDecimal && details.quotientDecimalAfterIndex >= 0) {
       addDivisionBoardDecimal(
         board,
         1,
@@ -1163,8 +1199,9 @@ function getLongDivisionBoardSize(pageProblems) {
       columns: Math.max(
         size.columns,
         problem.longDivision.divisorDigits + Math.max(
-          divisionValueDigitLength(problem.longDivision.dividend),
+          divisionValueDigitLength(problem.longDivision.dividendRaw ?? problem.longDivision.dividend),
           divisionValueDigitLength(problem.longDivision.displayDividend ?? problem.longDivision.dividend),
+          divisionValueDigitLength(problem.longDivision.answerDisplayDividend ?? problem.longDivision.dividend),
         ),
         4,
       ),
@@ -1207,7 +1244,7 @@ function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivi
   }
   return settings.layout === "vertical"
     ? makeVerticalFormula(problem, showAnswer, settings, verticalDigitCount)
-    : makeHorizontalFormula(problem, showAnswer);
+    : makeHorizontalFormula(problem, showAnswer, settings);
 }
 
 function applyGridDensity(list, settings, longDivisionBoardSize = null, multiplicationBoardSize = null, workspaceSize = null, verticalDigitCount = 0) {
@@ -1444,19 +1481,15 @@ function bindEvents() {
   els.layoutMode.addEventListener("change", () => {
     if (isLongDivisionLayout() && Number(els.columns.value) === 2) els.columns.value = "3";
   });
-  [els.grade, els.operation, els.digits, els.carryMode, els.layoutMode, els.difficulty].forEach((control) => {
+  [els.grade, els.operation, els.digits, els.carryMode, els.layoutMode].forEach((control) => {
     control.addEventListener("change", generateProblems);
   });
   els.showCarryBoxes.addEventListener("change", render);
+  els.showProblemDecimalPoint.addEventListener("change", render);
+  els.showAnswerDecimalPoint.addEventListener("change", render);
+  els.showWorkspaceOperator.addEventListener("change", render);
   els.problemCount.addEventListener("input", () => {
     if (els.problemCount.value === "") return;
-    els.problemCountPreset.value = "";
-    generateProblems();
-  });
-  els.problemCountPreset.addEventListener("change", () => {
-    if (!els.problemCountPreset.value) return;
-    els.problemCount.value = els.problemCountPreset.value;
-    els.problemCountPreset.value = "";
     generateProblems();
   });
   els.printBtn.addEventListener("click", () => {
