@@ -13,6 +13,8 @@ const els = {
   digitsB: document.querySelector("#digitsB"),
   digitsALabel: document.querySelector("#digitsALabel"),
   digitsBLabel: document.querySelector("#digitsBLabel"),
+  decimalPlacesALabel: document.querySelector("#decimalPlacesALabel"),
+  decimalPlacesBLabel: document.querySelector("#decimalPlacesBLabel"),
   decimalPlacesA: document.querySelector("#decimalPlacesA"),
   decimalPlacesB: document.querySelector("#decimalPlacesB"),
   carryMode: document.querySelector("#carryMode"),
@@ -306,11 +308,15 @@ function syncSettingsControls() {
   replaceOptions(els.digitsA, digitOptionsA, selectedDigitA);
   replaceOptions(els.digitsB, digitOptionsB, selectedDigitB);
   if (isDecimalOperation(operation)) {
-    els.digitsALabel.textContent = decimalDivision && operation === "integerDivideDecimal" ? "わられる数の桁数" : "1つ目の整数部分の桁数";
-    els.digitsBLabel.textContent = decimalDivision && operation === "decimalDivideInteger" ? "わる数の桁数" : "2つ目の整数部分の桁数";
+    els.digitsALabel.textContent = decimalDivision ? "わられる数の整数部分の桁数" : "1つ目の整数部分の桁数";
+    els.decimalPlacesALabel.textContent = decimalDivision ? "わられる数の小数部分の桁数" : "1つ目の小数";
+    els.digitsBLabel.textContent = decimalDivision ? "わる数の整数部分の桁数" : "2つ目の整数部分の桁数";
+    els.decimalPlacesBLabel.textContent = decimalDivision ? "わる数の小数部分の桁数" : "2つ目の小数";
   } else {
     els.digitsALabel.textContent = division ? "わられる数の桁数" : (orderedOperands ? "大きい数の桁数" : "1つ目の桁数");
     els.digitsBLabel.textContent = division ? "わる数の桁数" : (orderedOperands ? "小さい数の桁数" : "2つ目の桁数");
+    els.decimalPlacesALabel.textContent = "1つ目の小数";
+    els.decimalPlacesBLabel.textContent = "2つ目の小数";
   }
   Array.from(els.digitsA.options).forEach((option) => { option.disabled = false; });
   Array.from(els.digitsB.options).forEach((option) => {
