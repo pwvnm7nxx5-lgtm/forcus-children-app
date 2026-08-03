@@ -87,18 +87,6 @@
     recommended: true,
   },
   {
-    id: "calculation-problem-builder",
-    title: "計算問題作成（単体）",
-    description: "学年に関係なく、桁数を自由に選んで四則計算・小数計算のプリントを作成できます。単体で使う方向けです。",
-    category: "教材",
-    grades: ["all"],
-    tags: ["計算", "たし算", "ひき算", "かけ算", "わり算", "小数", "筆算", "印刷"],
-    href: "apps/calculation-problem-builder/index.html",
-    actionLabel: "計算問題を作る",
-    status: "ready",
-    accent: "#0f766e",
-  },
-  {
     id: "math-print-grade2",
     title: "2年生 計算プリント",
     description: "小学2年生向けの2けた計算と九九のプリントを自動作成して印刷できます。",
