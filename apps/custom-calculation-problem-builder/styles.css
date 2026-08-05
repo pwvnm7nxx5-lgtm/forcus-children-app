@@ -206,7 +206,7 @@ button {
   cursor: pointer;
 }
 
-.actions button:first-child {
+.actions .primary-action {
   border-color: var(--accent);
   background: var(--accent);
   color: #ffffff;
@@ -222,6 +222,13 @@ button:hover {
   margin: 12px 0 0;
   color: #4b5563;
   font-size: 13px;
+}
+
+.manual-input-hint {
+  margin: -4px 0 16px;
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .preview-wrap {
@@ -449,6 +456,32 @@ button:hover {
   min-height: var(--digit-size);
 }
 
+.manual-entry-row {
+  position: relative;
+}
+
+.manual-entry-input {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: transparent !important;
+  caret-color: transparent;
+  cursor: text;
+  opacity: 0;
+  outline: 0;
+  padding: 0 !important;
+}
+
+.manual-entry-row:focus-within .digit-cell {
+  border-color: var(--accent);
+}
+
 .operator {
   position: relative;
   z-index: 2;
@@ -530,6 +563,16 @@ button:hover {
 
 .answer-page .digit-value {
   color: var(--answer);
+}
+
+@media print {
+  .manual-entry-input {
+    display: none;
+  }
+
+  .manual-entry-row:focus-within .digit-cell {
+    border-color: #bcc8d4;
+  }
 }
 
 .long-division-board {

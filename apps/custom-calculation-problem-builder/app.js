@@ -19,6 +19,8 @@ const els = {
   decimalPlacesB: document.querySelector("#decimalPlacesB"),
   carryMode: document.querySelector("#carryMode"),
   layoutMode: document.querySelector("#layoutMode"),
+  creationModeField: document.querySelector("#creationModeField"),
+  creationMode: document.querySelector("#creationMode"),
   problemCount: document.querySelector("#problemCount"),
   columns: document.querySelector("#columns"),
   showCarryBoxes: document.querySelector("#showCarryBoxes"),
@@ -26,6 +28,8 @@ const els = {
   showAnswerDecimalPoint: document.querySelector("#showAnswerDecimalPoint"),
   showWorkspaceOperator: document.querySelector("#showWorkspaceOperator"),
   includeAnswers: document.querySelector("#includeAnswers"),
+  fillRemainingBtn: document.querySelector("#fillRemainingBtn"),
+  manualInputHint: document.querySelector("#manualInputHint"),
   printBtn: document.querySelector("#printBtn"),
   regenerateBtn: document.querySelector("#regenerateBtn"),
   copyLinkBtn: document.querySelector("#copyLinkBtn"),
@@ -48,6 +52,10 @@ let statusTimer;
 let problems = [];
 let sheetProblemSets = [];
 let sheetSetSignature = "";
+let lastGeneratedSettings = null;
+let manualFocusTarget = null;
+
+const manualCreationModes = ["auto", "manual", "hybrid"];
 
 const operationOptions = {
   1: [
@@ -197,6 +205,17 @@ function supportsLongDivisionLayout() {
   return ["divide", "decimalDivideInteger", "integerDivideDecimal", "decimalDivideDecimal"].includes(getOperation());
 }
 
+function supportsManualAddition(settings = null) {
+  const operation = settings?.operation ?? getOperation();
+  const layout = settings?.layout ?? getActiveLayout();
+  return operation === "add" && layout === "vertical";
+}
+
+function getCreationMode() {
+  if (!els.creationMode || !supportsManualAddition()) return "auto";
+  return clampChoice(els.creationMode.value, manualCreationModes, "auto");
+}
+
 function getActiveLayout() {
   return supportsSimpleVerticalLayout() || supportsMultiplicationVerticalLayout() || supportsLongDivisionLayout()
     ? clampChoice(els.layoutMode.value, ["horizontal", "horizontal-workspace", "vertical"], "horizontal")
@@ -282,6 +301,7 @@ function getSettings() {
     decimalPlacesB: getDecimalPlaces("b"),
     carryMode: clampChoice(els.carryMode.value, ["any", "with", "without"], "any"),
     layout: getActiveLayout(),
+    creationMode: getCreationMode(),
     difficulty: "standard",
     count: getProblemCount(),
     columns: getColumns(),
@@ -396,6 +416,14 @@ function syncSettingsControls() {
   els.showCarryBoxes.disabled = !carryBoxesVisible;
   if (!multiplicationVertical) els.showCarryBoxes.checked = false;
 
+  const manualInputVisible = supportsManualAddition({ operation, layout: getActiveLayout() });
+  els.creationModeField.hidden = !manualInputVisible;
+  if (!manualInputVisible) els.creationMode.value = "auto";
+  const creationMode = manualInputVisible ? clampChoice(els.creationMode.value, manualCreationModes, "auto") : "auto";
+  els.creationMode.value = creationMode;
+  els.fillRemainingBtn.hidden = !(manualInputVisible && creationMode === "hybrid");
+  els.manualInputHint.hidden = !(manualInputVisible && creationMode !== "auto");
+
   const max = getProblemCountMax();
   els.columns.max = String(getColumnsMax());
   getColumns();
@@ -417,6 +445,7 @@ function applySettings(settings) {
   els.decimalPlacesB.value = String(clampNumber(settings.decimalPlacesB, 1, 3, 1));
   els.carryMode.value = clampChoice(settings.carryMode, ["any", "with", "without"], "any");
   els.layoutMode.value = clampChoice(settings.layout, ["horizontal", "horizontal-workspace", "vertical"], "horizontal");
+  els.creationMode.value = clampChoice(settings.creationMode, manualCreationModes, "auto");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, getProblemCountMax(), 30));
   els.columns.value = String(clampNumber(settings.columns, columnsMin, getColumnsMax(), 3));
   els.showCarryBoxes.checked = settings.showCarryBoxes === true;
@@ -433,6 +462,98 @@ function setStatus(message) {
   statusTimer = window.setTimeout(() => {
     els.status.textContent = "";
   }, 2800);
+}
+
+function manualExpectedDigits(problem, position, fallback = 1) {
+  const key = position === "a" ? "manualDigitsA" : "manualDigitsB";
+  return clampNumber(problem?.[key], 1, 5, fallback);
+}
+
+function manualOperandValue(problem, position) {
+  const value = problem?.[position];
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function sanitizeManualValue(value, maxDigits) {
+  const digits = String(value ?? "").replace(/\D/g, "").slice(0, maxDigits);
+  return digits.replace(/^0+/, "").slice(0, maxDigits);
+}
+
+function isManualOperandComplete(problem, position) {
+  const value = manualOperandValue(problem, position);
+  const expectedDigits = manualExpectedDigits(problem, position);
+  return value.length === expectedDigits && !value.startsWith("0");
+}
+
+function isCompleteManualProblem(problem) {
+  return isManualEntryProblem(problem)
+    && problem.op === "+"
+    && isManualOperandComplete(problem, "a")
+    && isManualOperandComplete(problem, "b");
+}
+
+function hasManualInput(problem) {
+  return isManualEntryProblem(problem)
+    && (manualOperandValue(problem, "a") !== "" || manualOperandValue(problem, "b") !== "");
+}
+
+function updateManualProblemAnswer(problem) {
+  problem.answer = isCompleteManualProblem(problem)
+    ? Number(problem.a) + Number(problem.b)
+    : "";
+  return problem;
+}
+
+function isManualEntryProblem(problem) {
+  return problem?.manualEntry === true;
+}
+
+function createManualProblem(settings, source = "blank") {
+  return {
+    a: "",
+    b: "",
+    op: "+",
+    answer: "",
+    manualEntry: true,
+    manualSource: source,
+    manualDigitsA: settings.digitsA,
+    manualDigitsB: settings.digitsB,
+  };
+}
+
+function createManualProblems(settings, source = "blank") {
+  return Array.from({ length: settings.count }, () => createManualProblem(settings, source));
+}
+
+function makeEditableAdditionProblem(problem, settings, source = "auto") {
+  return {
+    ...problem,
+    a: String(problem.a),
+    b: String(problem.b),
+    answer: Number(problem.a) + Number(problem.b),
+    manualEntry: true,
+    manualSource: source,
+    manualDigitsA: settings.digitsA,
+    manualDigitsB: settings.digitsB,
+  };
+}
+
+function isManualInputActive(settings = getSettings()) {
+  return supportsManualAddition(settings) && settings.creationMode !== "auto";
+}
+
+function hasEnteredManualProblems() {
+  return problems.some((problem) => hasManualInput(problem));
+}
+
+function isProblemSettingsChanged(previous, next) {
+  if (!previous) return false;
+  return ["operation", "digitsA", "digitsB", "layout", "creationMode"].some((key) => previous[key] !== next[key]);
+}
+
+function restoreSettingsControls(settings) {
+  applySettings(settings);
+  render();
 }
 
 function numberBounds(settings, position) {
@@ -832,6 +953,7 @@ function sheetSignature(settings) {
     digitsB: settings.digitsB,
     carryMode: settings.carryMode,
     layout: settings.layout,
+    creationMode: settings.creationMode,
     count: settings.count,
   });
 }
@@ -864,14 +986,89 @@ function selectProblems(settings, usedKeys = new Set()) {
   return selected;
 }
 
+function makeManualProblemsForSettings(settings) {
+  if (settings.creationMode === "manual" || settings.creationMode === "hybrid") {
+    return createManualProblems(settings);
+  }
+  return selectProblems(settings);
+}
+
+function getManualFillIndexes() {
+  return problems.reduce((indexes, problem, index) => {
+    if (isManualEntryProblem(problem) && problem.manualSource === "blank") indexes.push(index);
+    return indexes;
+  }, []);
+}
+
+function getManualPreservedIndexes() {
+  return problems.reduce((indexes, problem, index) => {
+    if (isManualEntryProblem(problem) && problem.manualSource === "manual") indexes.push(index);
+    return indexes;
+  }, []);
+}
+
+function generateEditableProblems(settings, count, usedKeys = new Set()) {
+  const generatedSettings = { ...settings, count };
+  return selectProblems(generatedSettings, usedKeys)
+    .map((problem) => makeEditableAdditionProblem(problem, settings, "auto"));
+}
+
 function generateProblems() {
   syncSettingsControls();
   const settings = getSettings();
-  problems = selectProblems(settings);
+  problems = makeManualProblemsForSettings(settings);
+  sheetProblemSets = [];
+  sheetSetSignature = "";
+  lastGeneratedSettings = { ...settings };
+  render();
+  setStatus("問題を作り直しました。");
+}
+
+function fillRemainingProblems() {
+  syncSettingsControls();
+  const settings = getSettings();
+  if (!isManualInputActive(settings) || settings.creationMode !== "hybrid") return;
+
+  const fillIndexes = getManualFillIndexes();
+  if (!fillIndexes.length) {
+    setStatus("自動生成する空の問題がありません。");
+    return;
+  }
+  const usedKeys = new Set(problems.filter(isCompleteManualProblem).map(problemKey));
+  const generated = generateEditableProblems(settings, fillIndexes.length, usedKeys);
+  fillIndexes.forEach((problemIndex, index) => {
+    problems[problemIndex] = generated[index] || createManualProblem(settings);
+  });
   sheetProblemSets = [];
   sheetSetSignature = "";
   render();
-  setStatus("問題を作り直しました。");
+  const incomplete = problems.filter((problem) => !isCompleteManualProblem(problem)).length;
+  setStatus(incomplete ? `${incomplete}問は入力途中です。` : "空の問題を自動生成しました。");
+}
+
+function regenerateProblemsByMode() {
+  syncSettingsControls();
+  const settings = getSettings();
+  if (!isManualInputActive(settings)) {
+    generateProblems();
+    return;
+  }
+  if (settings.creationMode === "manual") {
+    generateProblems();
+    return;
+  }
+
+  const preservedIndexes = new Set(getManualPreservedIndexes());
+  const generatedIndexes = problems.map((_, index) => index).filter((index) => !preservedIndexes.has(index));
+  const usedKeys = new Set([...preservedIndexes].map((index) => problems[index]).filter(isCompleteManualProblem).map(problemKey));
+  const generated = generateEditableProblems(settings, generatedIndexes.length, usedKeys);
+  generatedIndexes.forEach((problemIndex, index) => {
+    problems[problemIndex] = generated[index] || createManualProblem(settings);
+  });
+  sheetProblemSets = [];
+  sheetSetSignature = "";
+  render();
+  setStatus("自動生成の問題を作り直しました。");
 }
 
 function formulaValueText(value, showDecimal) {
@@ -921,11 +1118,19 @@ function getSimpleProblemLayout(problem, totalColumns) {
       answer: formatAlignedAnswerData(problem.answer, totalColumns, fractionWidth),
     };
   }
-  const operandWidth = Math.max(workspaceDigitCount(problem.a), workspaceDigitCount(problem.b));
+  const operandWidth = isManualEntryProblem(problem)
+    ? Math.max(manualExpectedDigits(problem, "a"), manualExpectedDigits(problem, "b"))
+    : Math.max(workspaceDigitCount(problem.a), workspaceDigitCount(problem.b));
+  const first = isManualEntryProblem(problem)
+    ? formatManualDigitData(problem.a, totalColumns, manualExpectedDigits(problem, "a"))
+    : formatDigitData(problem.a, totalColumns);
+  const second = isManualEntryProblem(problem)
+    ? formatManualDigitData(problem.b, totalColumns, manualExpectedDigits(problem, "b"))
+    : formatDigitData(problem.b, totalColumns);
   return {
     operatorColumn: Math.max(1, totalColumns - operandWidth),
-    first: formatDigitData(problem.a, totalColumns),
-    second: formatDigitData(problem.b, totalColumns),
+    first,
+    second,
     answer: formatDigitData(problem.answer, totalColumns),
   };
 }
@@ -936,6 +1141,10 @@ function getSimpleBoardSize(pageProblems) {
       const integerWidth = Math.max(integerDigitCount(problem.a), integerDigitCount(problem.b));
       const fractionWidth = Math.max(fractionDigitCount(problem.a), fractionDigitCount(problem.b));
       return Math.max(size, integerWidth + fractionWidth + 1);
+    }
+    if (isManualEntryProblem(problem)) {
+      const operandWidth = Math.max(manualExpectedDigits(problem, "a"), manualExpectedDigits(problem, "b"));
+      return Math.max(size, operandWidth + 1, workspaceDigitCount(problem.answer));
     }
     return Math.max(size, workspaceDigitCount(problem.a) + 1, workspaceDigitCount(problem.b) + 1, workspaceDigitCount(problem.answer));
   }, 2);
@@ -1001,7 +1210,7 @@ function digitCount(value) {
 }
 
 function formatDigitData(value, width) {
-  const text = String(value);
+  const text = String(value ?? "");
   const decimalIndex = text.indexOf(".");
   const rawDigits = text.replaceAll(".", "");
   const padding = Math.max(0, width - rawDigits.length);
@@ -1009,6 +1218,15 @@ function formatDigitData(value, width) {
   return {
     digits,
     decimalAfterIndex: decimalIndex < 0 ? -1 : padding + decimalIndex - 1,
+  };
+}
+
+function formatManualDigitData(value, totalColumns, operandWidth) {
+  const text = sanitizeManualValue(value, operandWidth).padEnd(operandWidth, " ");
+  const padding = Math.max(0, totalColumns - operandWidth);
+  return {
+    digits: `${" ".repeat(padding)}${text}`.slice(-totalColumns).split(""),
+    decimalAfterIndex: -1,
   };
 }
 
@@ -1069,6 +1287,23 @@ function makeDigitCell(digit, showCarryBoxes, blank = false, showDecimal = false
   return cell;
 }
 
+function makeManualEntryInput(config) {
+  const input = document.createElement("input");
+  input.className = "manual-entry-input";
+  input.type = "text";
+  input.inputMode = "numeric";
+  input.autocomplete = "off";
+  input.maxLength = config.digits;
+  input.value = sanitizeManualValue(config.value, config.digits);
+  input.setAttribute("aria-label", `${config.problemIndex + 1}番 ${config.operand === "a" ? "上の数" : "下の数"}`);
+  input.title = "数字を入力";
+  input.dataset.manualEntry = "true";
+  input.dataset.problemIndex = String(config.problemIndex);
+  input.dataset.operand = config.operand;
+  input.dataset.digits = String(config.digits);
+  return input;
+}
+
 function makeDigitRow(digitData, operator = "", showCarryBoxes = true, blank = false, options = {}) {
   const { digits, decimalAfterIndex = -1 } = Array.isArray(digitData)
     ? { digits: digitData }
@@ -1077,8 +1312,10 @@ function makeDigitRow(digitData, operator = "", showCarryBoxes = true, blank = f
   const operatorColumn = options.operatorColumn || 1;
   const showDecimal = options.showDecimal === true;
   const helperDigits = Array.isArray(options.helperDigits) ? options.helperDigits : [];
+  const manualInput = options.manualInput || null;
   const row = document.createElement("span");
   row.className = "digit-row";
+  if (manualInput) row.classList.add("manual-entry-row");
   row.style.setProperty("--digit-count", String(totalColumns));
   const normalizedDigits = [...digits].slice(-totalColumns).map((digit) => digit || " ");
   while (normalizedDigits.length < totalColumns) normalizedDigits.unshift(" ");
@@ -1093,23 +1330,37 @@ function makeDigitRow(digitData, operator = "", showCarryBoxes = true, blank = f
     }
     row.append(makeDigitCell(digit, showCarryBoxes, blank, showDecimal && decimalAfterIndex === index, helperDigits[index] || ""));
   });
+  if (manualInput) row.append(makeManualEntryInput(manualInput));
   return row;
 }
 
-function makeVerticalFormula(problem, showAnswer, settings, width) {
+function makeVerticalFormula(problem, showAnswer, settings, width, problemIndex = null) {
   const formula = document.createElement("span");
   formula.className = "vertical-formula";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
   const layout = getSimpleProblemLayout(problem, width);
+  const editable = !showAnswer && isManualInputActive(settings) && isManualEntryProblem(problem) && Number.isInteger(problemIndex);
   formula.append(makeDigitRow(layout.first, "", settings.showCarryBoxes, false, {
     totalColumns: width,
     operatorColumn: layout.operatorColumn,
     showDecimal: true,
+    manualInput: editable ? {
+      problemIndex,
+      operand: "a",
+      digits: manualExpectedDigits(problem, "a"),
+      value: manualOperandValue(problem, "a"),
+    } : null,
   }));
   formula.append(makeDigitRow(layout.second, problem.op, settings.showCarryBoxes, false, {
     totalColumns: width,
     operatorColumn: layout.operatorColumn,
     showDecimal: true,
+    manualInput: editable ? {
+      problemIndex,
+      operand: "b",
+      digits: manualExpectedDigits(problem, "b"),
+      value: manualOperandValue(problem, "b"),
+    } : null,
   }));
   const line = document.createElement("span");
   line.className = "vertical-line";
@@ -1446,7 +1697,7 @@ function getMultiplicationWorkspaceSize(pageProblems) {
   };
 }
 
-function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize, workspaceSize) {
+function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize, workspaceSize, problemIndex = null) {
   if (settings.layout === "horizontal-workspace") {
     return makeCalculationWorkspace(problem, showAnswer, settings, workspaceSize);
   }
@@ -1457,7 +1708,7 @@ function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivi
     return makeMultiplicationVerticalFormula(problem, showAnswer, settings, multiplicationBoardSize.columns);
   }
   return settings.layout === "vertical"
-    ? makeVerticalFormula(problem, showAnswer, settings, verticalDigitCount)
+    ? makeVerticalFormula(problem, showAnswer, settings, verticalDigitCount, problemIndex)
     : makeHorizontalFormula(problem, showAnswer, settings);
 }
 
@@ -1579,10 +1830,10 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
     : null;
   const verticalDigitCount = settings.layout === "vertical" ? getVerticalDigitCount(pageProblems) : 0;
   applyGridDensity(list, settings, longDivisionBoardSize, multiplicationBoardSize, workspaceSize, verticalDigitCount);
-  pageProblems.forEach((problem) => {
+  pageProblems.forEach((problem, problemIndex) => {
     const item = document.createElement("li");
     item.className = "problem";
-    item.append(makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize, workspaceSize));
+    item.append(makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize, workspaceSize, problemIndex));
     list.append(item);
   });
   return page;
@@ -1620,10 +1871,18 @@ function renderSheetPages(sheetCount, includeAnswers) {
 function render() {
   syncSettingsControls();
   const settings = getSettings();
-  if (!problems.length || problems.length < settings.count) problems = selectProblems(settings);
+  if (!problems.length) problems = makeManualProblemsForSettings(settings);
+  if (problems.length < settings.count) {
+    if (isManualInputActive(settings)) {
+      while (problems.length < settings.count) problems.push(createManualProblem(settings));
+    } else {
+      problems = selectProblems(settings);
+    }
+  }
   if (problems.length > settings.count) problems = problems.slice(0, settings.count);
   els.pages.replaceChildren(renderPage("もんだい", false), renderPage("こたえ", true));
   els.pageCount.textContent = "2枚";
+  lastGeneratedSettings = { ...settings };
   saveState();
 }
 
@@ -1685,6 +1944,158 @@ async function copyShareUrl() {
   }
 }
 
+function restoreManualEntryFocus() {
+  if (!manualFocusTarget) return;
+  const target = manualFocusTarget;
+  manualFocusTarget = null;
+  window.requestAnimationFrame(() => {
+    const input = els.pages.querySelector(`.manual-entry-input[data-problem-index="${target.problemIndex}"][data-operand="${target.operand}"]`);
+    if (!input) return;
+    input.focus();
+    input.setSelectionRange(target.position, target.position);
+  });
+}
+
+function updateManualEntry(input, value) {
+  const problemIndex = Number(input.dataset.problemIndex);
+  const operand = input.dataset.operand;
+  const problem = problems[problemIndex];
+  if (!problem || !["a", "b"].includes(operand)) return;
+
+  const digits = manualExpectedDigits(problem, operand, Number(input.dataset.digits));
+  const sanitized = sanitizeManualValue(value, digits);
+  problem[operand] = sanitized;
+  problem.manualSource = manualOperandValue(problem, "a") === "" && manualOperandValue(problem, "b") === ""
+    ? "blank"
+    : "manual";
+  updateManualProblemAnswer(problem);
+  sheetProblemSets = [];
+  sheetSetSignature = "";
+  manualFocusTarget = {
+    problemIndex,
+    operand,
+    position: sanitized.length,
+  };
+  render();
+  restoreManualEntryFocus();
+}
+
+function handleManualEntryInput(event) {
+  const input = event.target.closest(".manual-entry-input");
+  if (!input) return;
+  updateManualEntry(input, input.value);
+}
+
+function handleManualEntryPaste(event) {
+  const input = event.target.closest(".manual-entry-input");
+  if (!input) return;
+  event.preventDefault();
+  const pasted = event.clipboardData?.getData("text") || "";
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? start;
+  updateManualEntry(input, `${input.value.slice(0, start)}${pasted}${input.value.slice(end)}`);
+}
+
+function handleManualEntryPointerDown(event) {
+  const input = event.target.closest(".manual-entry-input");
+  if (!input || document.activeElement === input) return;
+  window.setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 0);
+}
+
+function incompleteManualProblemNumbers(settings = getSettings()) {
+  if (!isManualInputActive(settings)) return [];
+  return problems.reduce((numbers, problem, index) => {
+    if (!isCompleteManualProblem(problem)) numbers.push(index + 1);
+    return numbers;
+  }, []);
+}
+
+function handleProblemSettingsChange() {
+  const previous = lastGeneratedSettings;
+  syncSettingsControls();
+  const next = getSettings();
+  if (previous && isProblemSettingsChanged(previous, next) && hasEnteredManualProblems()) {
+    const confirmed = window.confirm("設定を変更すると、入力した問題を作り直します。続けますか？");
+    if (!confirmed) {
+      restoreSettingsControls(previous);
+      return;
+    }
+  }
+  generateProblems();
+}
+
+function handleCreationModeChange() {
+  const previous = lastGeneratedSettings;
+  syncSettingsControls();
+  const next = getSettings();
+  if (previous && previous.creationMode !== next.creationMode && hasEnteredManualProblems()) {
+    const confirmed = window.confirm("問題の作り方を変更すると、入力した問題を作り直します。続けますか？");
+    if (!confirmed) {
+      restoreSettingsControls(previous);
+      return;
+    }
+  }
+  generateProblems();
+}
+
+function handleProblemCountInput() {
+  if (els.problemCount.value === "") return;
+  syncSettingsControls();
+  const settings = getSettings();
+  if (!isManualInputActive(settings)) {
+    generateProblems();
+    return;
+  }
+
+  if (settings.count < problems.length && problems.slice(settings.count).some(hasManualInput)) {
+    const confirmed = window.confirm("減らした問題数より後ろの入力内容が削除されます。続けますか？");
+    if (!confirmed) {
+      els.problemCount.value = String(lastGeneratedSettings?.count || problems.length);
+      render();
+      return;
+    }
+  }
+  problems = problems.slice(0, settings.count);
+  while (problems.length < settings.count) problems.push(createManualProblem(settings));
+  sheetProblemSets = [];
+  sheetSetSignature = "";
+  render();
+}
+
+function handlePrint() {
+  const settings = getSettings();
+  const incomplete = incompleteManualProblemNumbers(settings);
+  if (incomplete.length) {
+    render();
+    setStatus(`${incomplete.join("、")}番の問題に数字を入力してください。`);
+    return;
+  }
+  render();
+  window.print();
+}
+
+function handlePrintClickCapture(event) {
+  const button = event.target.closest?.("#printBtn");
+  if (!button) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  handlePrint();
+}
+
+function handlePrintShortcutCapture(event) {
+  const key = event.key?.toLowerCase();
+  if (!(event.ctrlKey || event.metaKey) || key !== "p" || event.altKey) return;
+  const incomplete = incompleteManualProblemNumbers(getSettings());
+  if (!incomplete.length) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  render();
+  setStatus(`${incomplete.join("、")}番の問題に数字を入力してください。`);
+}
+
 function bindEvents() {
   [els.studentName, els.worksheetDate, els.worksheetTitle, els.columns].forEach((control) => {
     control.addEventListener("input", () => {
@@ -1693,22 +2104,23 @@ function bindEvents() {
     });
   });
   [els.operation, els.digitsA, els.digitsB, els.decimalPlacesA, els.decimalPlacesB, els.carryMode, els.layoutMode].forEach((control) => {
-    control.addEventListener("change", generateProblems);
+    control.addEventListener("change", handleProblemSettingsChange);
   });
+  els.creationMode.addEventListener("change", handleCreationModeChange);
   els.showCarryBoxes.addEventListener("change", render);
   els.showWorkspaceDecimalPoint.addEventListener("change", render);
   els.showAnswerDecimalPoint.addEventListener("change", render);
   els.showWorkspaceOperator.addEventListener("change", render);
-  els.problemCount.addEventListener("input", () => {
-    if (els.problemCount.value === "") return;
-    generateProblems();
-  });
-  els.printBtn.addEventListener("click", () => {
-    render();
-    window.print();
-  });
-  els.regenerateBtn.addEventListener("click", generateProblems);
+  els.problemCount.addEventListener("input", handleProblemCountInput);
+  els.printBtn.addEventListener("click", handlePrint);
+  els.fillRemainingBtn.addEventListener("click", fillRemainingProblems);
+  els.regenerateBtn.addEventListener("click", regenerateProblemsByMode);
   els.copyLinkBtn.addEventListener("click", copyShareUrl);
+  els.pages.addEventListener("input", handleManualEntryInput);
+  els.pages.addEventListener("paste", handleManualEntryPaste);
+  els.pages.addEventListener("pointerdown", handleManualEntryPointerDown);
+  document.addEventListener("click", handlePrintClickCapture, true);
+  document.addEventListener("keydown", handlePrintShortcutCapture, true);
 }
 
 function watchPrintOrientation() {
