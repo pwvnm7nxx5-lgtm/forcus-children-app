@@ -1631,8 +1631,8 @@ function makeHorizontalFormula(problem, showAnswer, settings = null, problemInde
   return formula;
 }
 
-function fitHorizontalManualFormulas(list) {
-  list.querySelectorAll(".horizontal-manual-formula").forEach((formula) => {
+function fitHorizontalFormulas(list) {
+  list.querySelectorAll(".horizontal-manual-formula, .calculation-workspace > .formula").forEach((formula) => {
     formula.style.width = "100%";
     formula.style.maxWidth = "100%";
     formula.style.removeProperty("font-size");
@@ -1649,13 +1649,16 @@ function fitHorizontalManualFormulas(list) {
   });
 }
 
-function scheduleHorizontalManualFit() {
+function scheduleHorizontalFormulaFit() {
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
-      els.pages.querySelectorAll(".problem-grid").forEach(fitHorizontalManualFormulas);
+      els.pages.querySelectorAll(".problem-grid").forEach(fitHorizontalFormulas);
+      window.__printAdjustmentsRefresh?.({ autoFit: false, notify: false });
     });
   });
 }
+
+window.addEventListener("print-adjustments:applied", scheduleHorizontalFormulaFit);
 
 function workspaceDigitCount(value) {
   return String(value).replaceAll(".", "").length;
@@ -2543,7 +2546,7 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
     item.append(makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize, workspaceSize, problemIndex));
     list.append(item);
   });
-  fitHorizontalManualFormulas(list);
+  fitHorizontalFormulas(list);
   return page;
 }
 
@@ -2572,7 +2575,7 @@ function renderSheetPages(sheetCount, includeAnswers) {
     if (includeAnswers) pages.push(renderPage(`こたえ${suffix}`, true, set));
   });
   els.pages.replaceChildren(...pages);
-  scheduleHorizontalManualFit();
+  scheduleHorizontalFormulaFit();
   els.pageCount.textContent = `${pages.length}枚`;
   saveState();
 }
@@ -2590,7 +2593,7 @@ function render() {
   }
   if (problems.length > settings.count) problems = problems.slice(0, settings.count);
   els.pages.replaceChildren(renderPage("もんだい", false), renderPage("こたえ", true));
-  scheduleHorizontalManualFit();
+  scheduleHorizontalFormulaFit();
   els.pageCount.textContent = "2枚";
   lastGeneratedSettings = { ...settings };
   saveState();
