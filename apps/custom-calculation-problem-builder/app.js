@@ -208,7 +208,8 @@ function supportsLongDivisionLayout() {
 function supportsManualInteger(settings = null) {
   const operation = settings?.operation ?? getOperation();
   const layout = settings?.layout ?? getActiveLayout();
-  return ["add", "sub", "multiply", "divide"].includes(operation) && layout === "vertical";
+  return ["add", "sub", "multiply", "divide"].includes(operation)
+    && ["vertical", "horizontal", "horizontal-workspace"].includes(layout);
 }
 
 function getCreationMode() {
@@ -1137,17 +1138,92 @@ function formulaValueText(value, showDecimal) {
   return showDecimal ? text : text.replace(".", "");
 }
 
-function makeHorizontalFormula(problem, showAnswer, settings = null) {
+function makeHorizontalManualOperand(problem, operand, problemIndex, editable) {
+  const digits = manualExpectedDigits(problem, operand);
+  const value = manualOperandValue(problem, operand).padEnd(digits, " ").slice(0, digits);
+  const wrapper = document.createElement("span");
+  wrapper.className = "horizontal-manual-operand";
+  wrapper.style.setProperty("--manual-digit-count", String(digits));
+  value.split("").forEach((digit) => {
+    const cell = document.createElement("span");
+    cell.className = "horizontal-manual-cell";
+    if (digit.trim()) cell.textContent = digit;
+    wrapper.append(cell);
+  });
+  if (editable) {
+    wrapper.append(makeManualEntryInput({
+      problemIndex,
+      operand,
+      digits,
+      value: manualOperandValue(problem, operand),
+    }));
+  }
+  return wrapper;
+}
+
+function makeHorizontalFormula(problem, showAnswer, settings = null, problemIndex = null) {
   const formula = document.createElement("span");
-  formula.className = "formula";
-  const expression = document.createElement("span");
-  expression.className = "formula-expression";
-  expression.textContent = `${formulaValueText(problem.a, true)} ${problem.op} ${formulaValueText(problem.b, true)} =`;
+  const manualProblem = isManualEntryProblem(problem);
+  formula.className = manualProblem ? "formula horizontal-manual-formula" : "formula";
+  const activeSettings = settings || getSettings();
+  const editable = !showAnswer
+    && isManualInputActive(activeSettings)
+    && manualProblem
+    && Number.isInteger(problemIndex);
+  const answerVisible = showAnswer && (!manualProblem || isCompleteManualProblem(problem));
+
+  if (editable) {
+    const operator = document.createElement("span");
+    operator.className = "horizontal-formula-operator";
+    operator.textContent = problem.op;
+    const equals = document.createElement("span");
+    equals.className = "horizontal-formula-equals";
+    equals.textContent = "=";
+    formula.append(
+      makeHorizontalManualOperand(problem, "a", problemIndex, true),
+      operator,
+      makeHorizontalManualOperand(problem, "b", problemIndex, true),
+      equals,
+    );
+  } else {
+    const expression = document.createElement("span");
+    expression.className = "formula-expression";
+    const valueA = manualProblem && showAnswer ? (manualOperandValue(problem, "a") || "□") : problem.a;
+    const valueB = manualProblem && showAnswer ? (manualOperandValue(problem, "b") || "□") : problem.b;
+    expression.textContent = `${formulaValueText(valueA, true)} ${problem.op} ${formulaValueText(valueB, true)} =`;
+    formula.append(expression);
+  }
   const answer = document.createElement("span");
-  answer.className = showAnswer ? "answer-value" : "blank";
-  answer.textContent = showAnswer ? formulaValueText(problem.answer, true) : "\u25a1";
-  formula.append(expression, answer);
+  answer.className = answerVisible ? "answer-value" : "blank";
+  answer.textContent = answerVisible ? formulaValueText(problem.answer, true) : "\u25a1";
+  formula.append(answer);
   return formula;
+}
+
+function fitHorizontalManualFormulas(list) {
+  list.querySelectorAll(".horizontal-manual-formula").forEach((formula) => {
+    formula.style.width = "100%";
+    formula.style.maxWidth = "100%";
+    formula.style.removeProperty("font-size");
+    const defaultFontSize = Number.parseFloat(getComputedStyle(formula).fontSize);
+    if (!Number.isFinite(defaultFontSize)) return;
+    const availableWidth = formula.clientWidth;
+    let fontSize = defaultFontSize;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      formula.style.fontSize = `${fontSize}px`;
+      const contentWidth = formula.scrollWidth;
+      if (contentWidth <= availableWidth + 0.5 || availableWidth <= 0) break;
+      fontSize = Math.max(10, fontSize * (availableWidth / contentWidth) * 0.98);
+    }
+  });
+}
+
+function scheduleHorizontalManualFit() {
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      els.pages.querySelectorAll(".problem-grid").forEach(fitHorizontalManualFormulas);
+    });
+  });
 }
 
 function workspaceDigitCount(value) {
@@ -1247,10 +1323,10 @@ function makeWorkspaceSimpleFormula(problem, settings, totalColumns, showAnswer)
   return formula;
 }
 
-function makeCalculationWorkspace(problem, showAnswer, settings, size) {
+function makeCalculationWorkspace(problem, showAnswer, settings, size, problemIndex = null) {
   const workspace = document.createElement("span");
   workspace.className = "calculation-workspace";
-  workspace.append(makeHorizontalFormula(problem, showAnswer, settings));
+  workspace.append(makeHorizontalFormula(problem, showAnswer, settings, problemIndex));
 
   if (supportsLongDivisionLayout()) {
     workspace.append(makeLongDivisionBoard(problem, showAnswer, size.rows, size.columns, showAnswer, settings));
@@ -1834,7 +1910,7 @@ function getMultiplicationWorkspaceSize(pageProblems) {
 
 function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize, workspaceSize, problemIndex = null) {
   if (settings.layout === "horizontal-workspace") {
-    return makeCalculationWorkspace(problem, showAnswer, settings, workspaceSize);
+    return makeCalculationWorkspace(problem, showAnswer, settings, workspaceSize, problemIndex);
   }
   if (settings.layout === "vertical" && problem.longDivision) {
     return makeLongDivisionBoard(problem, showAnswer, longDivisionBoardSize.rows, longDivisionBoardSize.columns, true, settings, problemIndex);
@@ -1844,7 +1920,7 @@ function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivi
   }
   return settings.layout === "vertical"
     ? makeVerticalFormula(problem, showAnswer, settings, verticalDigitCount, problemIndex)
-    : makeHorizontalFormula(problem, showAnswer, settings);
+    : makeHorizontalFormula(problem, showAnswer, settings, problemIndex);
 }
 
 function applyGridDensity(list, settings, longDivisionBoardSize = null, multiplicationBoardSize = null, workspaceSize = null, verticalDigitCount = 0) {
@@ -1972,6 +2048,7 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
     item.append(makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize, workspaceSize, problemIndex));
     list.append(item);
   });
+  fitHorizontalManualFormulas(list);
   return page;
 }
 
@@ -2000,6 +2077,7 @@ function renderSheetPages(sheetCount, includeAnswers) {
     if (includeAnswers) pages.push(renderPage(`こたえ${suffix}`, true, set));
   });
   els.pages.replaceChildren(...pages);
+  scheduleHorizontalManualFit();
   els.pageCount.textContent = `${pages.length}枚`;
   saveState();
 }
@@ -2017,6 +2095,7 @@ function render() {
   }
   if (problems.length > settings.count) problems = problems.slice(0, settings.count);
   els.pages.replaceChildren(renderPage("もんだい", false), renderPage("こたえ", true));
+  scheduleHorizontalManualFit();
   els.pageCount.textContent = "2枚";
   lastGeneratedSettings = { ...settings };
   saveState();

@@ -376,6 +376,59 @@ button:hover {
   white-space: nowrap;
 }
 
+.horizontal-manual-formula {
+  align-items: center;
+  gap: 0.35em;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.horizontal-manual-operand {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--manual-digit-count), minmax(0, 1em));
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.horizontal-manual-cell {
+  display: grid;
+  place-items: center;
+  width: 1em;
+  min-width: 0;
+  height: 1.1em;
+  border: 1px solid #bcc8d4;
+  background: #ffffff;
+  line-height: 1;
+}
+
+.calculation-workspace .horizontal-manual-formula {
+  gap: 0.22em;
+  font-size: min(var(--problem-font), 24px);
+}
+
+.calculation-workspace .horizontal-manual-operand {
+  grid-template-columns: repeat(var(--manual-digit-count), minmax(0, 1em));
+}
+
+.calculation-workspace .horizontal-manual-cell {
+  width: 1em;
+  height: 1em;
+}
+
+.horizontal-manual-operand:focus-within .horizontal-manual-cell {
+  border-color: var(--accent);
+}
+
+.horizontal-formula-operator,
+.horizontal-formula-equals {
+  color: #425466;
+  font-weight: 700;
+}
+
 .blank {
   display: inline-grid;
   place-items: center;
