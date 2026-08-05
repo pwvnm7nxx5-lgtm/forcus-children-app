@@ -719,6 +719,35 @@
   function setup() {
     const settings = loadSettings();
     window.__printAdjustmentsRefresh = (options = {}) => applySettings(settings, options);
+    window.__printAdjustmentsGetSettings = () => ({ ...settings });
+    window.__printAdjustmentsApplySettings = (next = {}) => {
+      if (next && typeof next === "object") {
+        settings.scalePct = clampNumber(next.scalePct, 70, 200, settings.scalePct);
+        settings.sheetCount = clampNumber(next.sheetCount, 1, 30, settings.sheetCount);
+        if (typeof next.includeAnswers === "boolean") settings.includeAnswers = next.includeAnswers;
+        if (typeof next.autoFitEnabled === "boolean") settings.autoFitEnabled = forceAutoFit || next.autoFitEnabled;
+        settings.orientation = next.orientation === "landscape" ? "landscape" : "portrait";
+        settings.punchGuide = ["left", "top"].includes(next.punchGuide) ? next.punchGuide : "none";
+      }
+
+      const scale = document.querySelector("#printProblemScale");
+      const scaleNumber = document.querySelector("#printProblemScaleNumber");
+      const sheetCount = document.querySelector("#printSheetCount");
+      const orientation = document.querySelector("#printOrientation");
+      const punchGuide = document.querySelector("#printPunchGuide");
+      const includeAnswers = document.querySelector("#includeAnswers");
+      const autoFit = document.querySelector("#printAutoFit");
+      if (scale) scale.value = String(settings.scalePct);
+      if (scaleNumber) scaleNumber.value = String(settings.scalePct);
+      if (sheetCount) sheetCount.value = String(settings.sheetCount);
+      if (orientation) orientation.value = settings.orientation;
+      if (punchGuide) punchGuide.value = settings.punchGuide;
+      if (includeAnswers) includeAnswers.checked = settings.includeAnswers;
+      if (autoFit) autoFit.checked = settings.autoFitEnabled;
+      saveSettings(settings);
+      applySettings(settings);
+      return { ...settings };
+    };
     ensureControls(settings);
     bindRangeNumber("printProblemScale", "scalePct", settings);
 

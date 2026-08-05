@@ -2649,6 +2649,54 @@ function watchPrintOrientation() {
   observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
 }
 
+function cloneStateValue(value) {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return null;
+  }
+}
+
+function getLibraryState() {
+  const settings = getSettings();
+  settings.name = "";
+  settings.date = "";
+  return {
+    settings,
+    problems: cloneStateValue(problems) || [],
+  };
+}
+
+function applyLibraryState(state) {
+  if (!state?.settings || typeof state.settings !== "object") return false;
+
+  const settings = {
+    ...state.settings,
+    name: "",
+    date: "",
+  };
+  if (state.printAdjustments && typeof window.__printAdjustmentsApplySettings === "function") {
+    window.__printAdjustmentsApplySettings(state.printAdjustments);
+  }
+  applySettings(settings);
+  sheetProblemSets = [];
+  sheetSetSignature = "";
+
+  if (Array.isArray(state.problems)) {
+    problems = cloneStateValue(state.problems) || [];
+    render();
+  } else {
+    problems = [];
+    generateProblems();
+  }
+  return true;
+}
+
+window.__calculationProblemBuilderApi = {
+  getLibraryState,
+  applyLibraryState,
+};
+
 loadInitialState();
 syncSettingsControls();
 bindEvents();

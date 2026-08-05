@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="app-release" content="20260805-9">
+  <meta name="app-release" content="20260805-10">
   <title>計算問題作成</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="styles.css?v=20260805-9">
+  <link rel="stylesheet" href="styles.css?v=20260805-10">
 </head>
 <body>
   <div class="app-shell">
@@ -45,6 +45,7 @@
         <button id="printBtn" class="primary-action" type="button">印刷 / PDF保存</button>
         <button id="regenerateBtn" type="button">作り直す</button>
         <button id="copyLinkBtn" type="button">共有URLをコピー</button>
+        <button id="savedWorksheetsBtn" type="button">保存・呼び出し</button>
       </div>
       <p id="status" class="status" role="status" aria-live="polite"></p>
     </aside>
@@ -61,8 +62,34 @@
       <ol class="problem-grid" data-problems></ol>
     </section>
   </template>
+  <dialog id="savedWorksheetsDialog" class="saved-worksheets-dialog" aria-labelledby="savedWorksheetsTitle">
+    <div class="saved-worksheets-panel">
+      <div class="saved-worksheets-header">
+        <h2 id="savedWorksheetsTitle">保存・呼び出し</h2>
+        <button id="savedWorksheetsClose" type="button" aria-label="閉じる">閉じる</button>
+      </div>
+      <p class="saved-worksheets-description">設定や、今作っている問題をこのブラウザに保存できます。</p>
+      <label class="saved-worksheet-name">保存名<input id="savedWorksheetName" type="text" maxlength="80" autocomplete="off"></label>
+      <div class="saved-worksheet-save-actions">
+        <button id="saveSettingsBtn" type="button">設定を保存</button>
+        <button id="saveWorksheetBtn" type="button">問題ごと保存</button>
+      </div>
+      <div class="saved-worksheet-list-header">
+        <h3>保存したプリント</h3>
+        <input id="savedWorksheetSearch" type="search" placeholder="保存名を検索" aria-label="保存名を検索">
+      </div>
+      <p id="savedWorksheetMessage" class="saved-worksheet-message" role="status" aria-live="polite"></p>
+      <ul id="savedWorksheetList" class="saved-worksheet-list"></ul>
+      <div class="saved-worksheet-backup-actions">
+        <button id="exportSavedWorksheetsBtn" type="button">JSONバックアップを書き出す</button>
+        <label class="saved-worksheet-import">JSONバックアップを読み込む<input id="importSavedWorksheetsInput" type="file" accept="application/json,.json"></label>
+      </div>
+    </div>
+  </dialog>
+  <script>window.__calculationProblemBuilderStorageNamespace = "integrated";</script>
   <script src="release-check.js"></script>
-  <script src="app.js?v=20260805-9"></script>
+  <script src="app.js?v=20260805-10"></script>
   <script src="../shared/print-adjustments.js?v=20260803-1"></script>
+  <script src="saved-worksheets.js?v=20260805-10"></script>
 </body>
 </html>
