@@ -161,8 +161,10 @@ def prepare_crops():
         "decimal": ASSET_DIR / "S07-decimal-controls.png",
         "decimal_ui": crop_asset("S07-decimal-controls.png", 350, 0, 1265, 712),
         "decimal_off": crop_asset("S08-decimal-helper-off.png", 350, 0, 1265, 712),
-        "dense": crop_asset("S09-multiplication-15.png", 350, 0, 1265, 620),
+        "manual": crop_asset("S09-manual-vertical.png", 350, 0, 1265, 712),
+        "hybrid": crop_asset("S10-hybrid.png", 350, 0, 1265, 712),
         "answers": crop_asset("S10-answer-page.png", 350, 0, 1265, 712),
+        "dense": crop_asset("S09-multiplication-15.png", 350, 0, 1265, 620),
     }
 
 
@@ -171,7 +173,7 @@ def page_header(canvas, number, title, tag_text="使い方ガイド"):
     canvas.rect(0, PAGE_H - 58, PAGE_W, 58, fill=1, stroke=0)
     canvas.setFillColor(WHITE)
     canvas.setFont("GuideBold", 9)
-    canvas.drawString(38, PAGE_H - 35, f"計算問題作成  |  {number:02d} / 08")
+    canvas.drawString(38, PAGE_H - 35, f"計算問題作成  |  {number:02d} / 10")
     canvas.setFillColor(TEAL)
     canvas.roundRect(PAGE_W - 130, PAGE_H - 44, 92, 20, 10, fill=1, stroke=0)
     canvas.setFillColor(WHITE)
@@ -187,7 +189,7 @@ def footer(canvas, number):
     canvas.setFillColor(MUTED)
     canvas.setFont("GuideRegular", 7.5)
     canvas.drawString(38, 15, "計算問題作成 使い方ガイド")
-    canvas.drawRightString(PAGE_W - 38, 15, f"{number} / 8")
+    canvas.drawRightString(PAGE_W - 38, 15, f"{number} / 10")
 
 
 def draw_step_card(canvas, number, title, body, x, y, width, height, fill=PALE_BLUE):
@@ -245,7 +247,7 @@ def page_two(canvas, images):
 
 
 def page_three(canvas, images):
-    page_header(canvas, 3, "6つの手順で作ってみましょう")
+    page_header(canvas, 3, "まずは6つの手順で作ってみましょう")
     draw_step_card(canvas, 1, "計算を選ぶ", "「計算」で、たし算・ひき算などを選びます。", 38, 604, 250, 104)
     draw_step_card(canvas, 2, "桁数を選ぶ", "「1つ目」と「2つ目」の数の大きさを決めます。", 307, 604, 250, 104, PALE_TEAL)
     draw_step_card(canvas, 3, "表示を選ぶ", "横式、横式＋計算スペース、筆算から選びます。", 38, 474, 250, 104, PALE_YELLOW)
@@ -254,17 +256,17 @@ def page_three(canvas, images):
     draw_step_card(canvas, 6, "印刷する", "「印刷 / PDF保存」を押し、印刷先を選びます。", 307, 344, 250, 104, PALE_YELLOW)
     box(canvas, 38, 84, 519, 210, fill=HexColor("#f7fafc"), stroke=LINE)
     label(canvas, "設定例", 54, 260, fill=BLUE)
-    para(canvas, "たし算 / 2桁と1桁 / 筆算 / 12問 / 縦向き / 2列", 54, 240, 250, "card_title")
-    para(canvas, "この設定なら、2つの数を縦にそろえて計算するプリントになります。右側のプレビューを確認してから印刷します。", 54, 194, 235, "card")
+    para(canvas, "たし算 / 2桁と1桁 / 自動生成 / 筆算 / 12問", 54, 240, 250, "card_title")
+    para(canvas, "最初は「自動生成」を選ぶと、数字を考えずにすぐプリントを作れます。右側のプレビューを確認してから印刷します。", 54, 194, 235, "card")
     fit_image(canvas, images["vertical"], 315, 98, 225, 170)
     footer(canvas, 3)
 
 
 def page_four(canvas, images):
-    page_header(canvas, 4, "作りたい計算と、2つの数の大きさを選びます")
+    page_header(canvas, 4, "計算の種類と、2つの数の大きさを選びます")
     para(canvas, "計算", 38, 730, 110, "card_title")
     para(canvas, "たし算、ひき算、かけ算、わり算（あまりなし）に加えて、小数の計算も選べます。", 38, 704, 245, "body")
-    para(canvas, "小数を選ぶと、整数部分の桁数と、「小数第1位まで」「小数第2位まで」「小数第3位まで」から使う位を、それぞれの数について選べます。", 38, 630, 245, "body")
+    para(canvas, "整数の計算では、1つ目と2つ目の桁数を選びます。小数では、整数部分の桁数と小数の位を、それぞれの数について選びます。", 38, 630, 245, "body")
     para(canvas, "「0（1未満）」を選ぶと、0.4や0.38のような数を作れます。", 38, 555, 245, "body")
     box(canvas, 38, 380, 245, 126, fill=PALE_BLUE)
     label(canvas, "小数の例", 54, 478, fill=BLUE)
@@ -298,7 +300,7 @@ def display_card(canvas, image, title, body, x, y, width, height, fill):
 
 def page_five(canvas, images):
     page_header(canvas, 5, "学習の目的に合わせて表示を選びます")
-    para(canvas, "同じ計算でも、表示方法を変えると練習のねらいを変えられます。", 38, 724, 519, "body")
+    para(canvas, "同じ計算でも、表示方法を変えると練習のねらいを変えられます。手入力モードは、3つの表示方法すべてで使えます。", 38, 724, 519, "body")
     card_y = 300
     card_w = 163
     display_card(canvas, images["horizontal"], "横式", "暗算、式を見て答える練習", 38, card_y, card_w, 360, PALE_BLUE)
@@ -309,13 +311,56 @@ def page_five(canvas, images):
     para(canvas, "式だけで解く  ->  横式", 54, 195, 220, "card_title")
     para(canvas, "自分で筆算を書きたい  ->  横式＋計算スペース", 54, 164, 300, "card")
     para(canvas, "最初から桁をそろえて見せたい  ->  筆算", 54, 132, 300, "card")
-    para(canvas, "「繰り上がり・繰り下がりのマスをつける」は、対応する筆算でだけ使えます。", 345, 195, 190, "small")
-    para(canvas, "「計算スペースに記号を表示する」は、横式＋計算スペースでだけ使えます。", 345, 135, 190, "small")
+    para(canvas, "「繰り上がり・繰り下がりのマスをつける」は、対応する筆算で使えます。", 345, 195, 190, "small")
+    para(canvas, "「計算スペースに記号を表示する」は、横式＋計算スペースで使えます。", 345, 135, 190, "small")
     footer(canvas, 5)
 
 
 def page_six(canvas, images):
-    page_header(canvas, 6, "小数点の補助表示と、答えページを調整できます")
+    page_header(canvas, 6, "数字を自分で入力して問題を作ります")
+    para(canvas, "「問題の作り方」で「自分で入力」を選ぶと、プレビューのマスをクリックして数字を入力できます。", 38, 724, 519, "body")
+    box(canvas, 38, 365, 245, 320, fill=PALE_BLUE)
+    label(canvas, "自分で入力", 54, 658, fill=BLUE)
+    para(canvas, "1. 問題の種類と桁数を選ぶ", 54, 625, 210, "card_title")
+    para(canvas, "2. プレビューのマスをクリックする", 54, 578, 210, "card_title")
+    para(canvas, "3. 数字を入力する", 54, 531, 210, "card_title")
+    para(canvas, "入力した数字は、選んだ桁数に合わせてマスの中へ入ります。数字を消すと、空のマスへ戻ります。", 54, 476, 210, "card")
+    para(canvas, "上の数と下の数を両方入力すると、その問題の答えも自動で計算されます。", 54, 397, 210, "small")
+    box(canvas, 307, 365, 250, 320, fill=PALE_TEAL)
+    label(canvas, "入力中の画面", 323, 658, fill=TEAL)
+    fit_image(canvas, images["manual"], 323, 448, 218, 170)
+    para(canvas, "空欄の問題には赤い枠が付きます。", 323, 429, 218, "card")
+    para(canvas, "赤枠が残っていると、印刷 / PDF保存やCtrl+Pは実行されません。すべての問題を入力してから印刷します。", 323, 410, 218, "small")
+    box(canvas, 38, 84, 519, 235, fill=PALE_YELLOW)
+    label(canvas, "入力のコツ", 54, 290, fill=HexColor("#d18a00"))
+    para(canvas, "数字はマスを選んで1文字ずつ入力できます。問題数を減らすと、後ろの問題と入力内容も削除されるため、確認メッセージを読んで操作します。", 54, 260, 487, "body")
+    para(canvas, "入力した問題を残したまま設定を変えるときは、確認メッセージが表示されます。", 54, 205, 487, "card")
+    footer(canvas, 6)
+
+
+def page_seven(canvas, images):
+    page_header(canvas, 7, "残りの問題を自動生成することもできます")
+    para(canvas, "「自分で入力＋自動生成」を選ぶと、必要な問題だけ自分で作り、残りをボタン1つで埋められます。", 38, 724, 519, "body")
+    box(canvas, 38, 405, 519, 285, fill=PALE_BLUE)
+    label(canvas, "自分で入力＋自動生成", 54, 663, fill=BLUE, width=132)
+    fit_image(canvas, images["hybrid"], 54, 452, 487, 192)
+    para(canvas, "画面上部の「残りを自動生成」を押すと、空欄の問題だけが自動で作られます。", 54, 435, 487, "small")
+    box(canvas, 38, 84, 250, 278, fill=PALE_TEAL)
+    label(canvas, "おすすめの流れ", 54, 335, fill=TEAL)
+    para(canvas, "1. 問題数を決める", 54, 305, 210, "card_title")
+    para(canvas, "2. 必要な問題だけ入力する", 54, 267, 210, "card_title")
+    para(canvas, "3. 残りを自動生成する", 54, 229, 210, "card_title")
+    para(canvas, "自分で作る問題と、自動で作る問題を混ぜられます。", 54, 177, 210, "card")
+    box(canvas, 307, 84, 250, 278, fill=PALE_YELLOW)
+    label(canvas, "注意", 323, 335, fill=HexColor("#d18a00"))
+    para(canvas, "空欄を残したまま印刷しようとすると、赤枠が表示されて印刷が止まります。", 323, 305, 218, "card")
+    para(canvas, "自動生成後に数字を直したい場合は、そのマスをクリックして入力し直します。", 323, 235, 218, "card")
+    para(canvas, "小数の問題でも同じ手順で使えます。小数点は設定に合わせて表示されます。", 323, 165, 218, "small")
+    footer(canvas, 7)
+
+
+def page_eight(canvas, images):
+    page_header(canvas, 8, "小数点の補助表示と、答えページを調整できます")
     box(canvas, 38, 347, 250, 385, fill=PALE_BLUE)
     label(canvas, "小数点", 54, 704, fill=BLUE)
     para(canvas, "「計算スペースに小数点をつける」は、下の計算マスにある補助用の小数点だけを表示・非表示にします。横に書かれた問題の小数点は消えません。", 54, 675, 218, "card")
@@ -330,7 +375,7 @@ def page_six(canvas, images):
     label(canvas, "複数枚", 54, 275, fill=HexColor("#d18a00"))
     para(canvas, "「作成する枚数」を2以上にすると、同じ設定で別の問題プリントを作ります。単純なコピーではなく、数字の違う問題になります。", 54, 247, 487, "body")
     para(canvas, "ページ上部の「2枚」などの表示で、問題ページと答えページを含む合計枚数を確認できます。", 54, 187, 487, "card")
-    footer(canvas, 6)
+    footer(canvas, 8)
 
 
 def draw_print_flow(canvas, x, y):
@@ -350,8 +395,8 @@ def draw_print_flow(canvas, x, y):
             arrow(canvas, current_x + width + 7, y + 38, current_x + width + 21, y + 38)
 
 
-def page_seven(canvas, images):
-    page_header(canvas, 7, "仕上げて、印刷または保存します")
+def page_nine(canvas, images):
+    page_header(canvas, 9, "仕上げて、印刷または保存します")
     box(canvas, 38, 420, 242, 315, fill=PALE_BLUE)
     label(canvas, "用紙設定", 54, 704, fill=BLUE)
     para(canvas, "用紙の向き: 縦向き / 横向き", 54, 674, 205, "card_title")
@@ -367,7 +412,7 @@ def page_seven(canvas, images):
     label(canvas, "印刷の注意", 54, 212, fill=HexColor("#d96b5f"))
     para(canvas, "印刷画面では用紙サイズをA4にします。倍率は100%または既定のままにします。別の「用紙に合わせる」を重ねて使うと、意図せず小さくなることがあります。", 54, 184, 487, "body")
     para(canvas, "PDFにする場合は、印刷先で「PDFに保存」を選びます。", 54, 127, 487, "card")
-    footer(canvas, 7)
+    footer(canvas, 9)
 
 
 def draw_table(canvas, rows, x, y_top, width, row_height=53):
@@ -384,8 +429,8 @@ def draw_table(canvas, rows, x, y_top, width, row_height=53):
         para(canvas, check, x + left_width + 10, y + row_height - 12, width - left_width - 20, "small")
 
 
-def page_eight(canvas, images):
-    page_header(canvas, 8, "困ったときの確認ポイント")
+def page_ten(canvas, images):
+    page_header(canvas, 10, "困ったときの確認ポイント")
     rows = [
         ("設定が選べない", "その計算や表示方法では使わない項目は、自動で操作不可になります。"),
         ("別の数字にしたい", "「作り直す」を押します。設定はそのままで数字が変わります。"),
@@ -406,7 +451,7 @@ def page_eight(canvas, images):
         canvas.setFillColor(TEAL)
         canvas.circle(61, 143 - index * 24, 4, fill=1, stroke=0)
         para(canvas, check, 73, 149 - index * 24, 460, "small")
-    footer(canvas, 8)
+    footer(canvas, 10)
 
 
 def build_pdf():
@@ -431,6 +476,10 @@ def build_pdf():
     page_seven(canvas, images)
     canvas.showPage()
     page_eight(canvas, images)
+    canvas.showPage()
+    page_nine(canvas, images)
+    canvas.showPage()
+    page_ten(canvas, images)
     canvas.save()
     print(OUTPUT)
 
