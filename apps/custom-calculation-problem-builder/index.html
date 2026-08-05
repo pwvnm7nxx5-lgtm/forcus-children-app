@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="app-release" content="20260805-11">
+  <meta name="app-release" content="20260805-12">
   <title>計算問題作成</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="styles.css?v=20260805-11">
+  <link rel="stylesheet" href="styles.css?v=20260805-12">
 </head>
 <body>
   <div class="app-shell">
@@ -20,32 +20,63 @@
         <label class="field"><span>日付</span><input id="worksheetDate" type="text" autocomplete="off" placeholder="5 / 4"></label>
       </div>
       <label class="field"><span>プリント名</span><input id="worksheetTitle" type="text" autocomplete="off" value="計算問題作成"></label>
-      <div class="settings-grid">
-        <label class="field"><span>計算</span><select id="operation"></select></label>
-        <label id="creationModeField" class="field" hidden><span>問題の作り方</span><select id="creationMode"><option value="auto">自動生成</option><option value="manual">自分で入力</option><option value="hybrid">自分で入力＋自動生成</option></select></label>
-        <label class="field"><span>繰り上がり・繰り下がり</span><select id="carryMode"><option value="any">指定なし</option><option value="with">あり</option><option value="without">なし</option></select></label>
-        <label class="field"><span id="digitsALabel">1つ目の整数部分</span><select id="digitsA"><option value="1">1桁</option><option value="2" selected>2桁</option><option value="3">3桁</option><option value="4">4桁</option><option value="5">5桁</option></select></label>
-        <label class="field decimal-setting" hidden><span id="decimalPlacesALabel">1つ目の小数</span><select id="decimalPlacesA"><option value="1" selected>小数第1位まで</option><option value="2">小数第2位まで</option><option value="3">小数第3位まで</option></select></label>
-        <label class="field"><span id="digitsBLabel">2つ目の整数部分</span><select id="digitsB"><option value="1">1桁</option><option value="2">2桁</option><option value="3" selected>3桁</option><option value="4">4桁</option><option value="5">5桁</option></select></label>
-        <label class="field decimal-setting" hidden><span id="decimalPlacesBLabel">2つ目の小数</span><select id="decimalPlacesB"><option value="1" selected>小数第1位まで</option><option value="2">小数第2位まで</option><option value="3">小数第3位まで</option></select></label>
-        <label class="field"><span>表示</span><select id="layoutMode"><option value="horizontal" selected>横式</option><option value="horizontal-workspace">横式＋計算スペース</option><option value="vertical">筆算</option></select></label>
-        <label class="field"><span>問題数</span><input id="problemCount" type="number" min="1" max="60" step="1" value="30" inputmode="numeric"></label>
-        <label class="field"><span>列数</span><input id="columns" type="number" min="1" max="6" step="1" value="3" inputmode="numeric"></label>
-      </div>
-      <div class="check-row">
+      <div class="settings-sections">
+        <section class="settings-section settings-section-problem" aria-labelledby="problemSettingsHeading">
+          <h2 id="problemSettingsHeading">問題設定</h2>
+          <div class="settings-row">
+            <label class="field"><span>計算</span><select id="operation"></select></label>
+            <label id="creationModeField" class="field" hidden><span>問題の作り方</span><select id="creationMode"><option value="auto">自動生成</option><option value="manual">自分で入力</option><option value="hybrid">自分で入力＋自動生成</option></select></label>
+          </div>
+          <div class="settings-row">
+            <label class="field"><span>繰り上がり・繰り下がり</span><select id="carryMode"><option value="any">指定なし</option><option value="with">あり</option><option value="without">なし</option></select></label>
+          </div>
+        </section>
+        <section class="settings-section settings-section-numbers" aria-labelledby="numberSettingsHeading">
+          <h2 id="numberSettingsHeading">数の設定</h2>
+          <div class="operand-group">
+            <h3 id="operandALabel">1つ目の数</h3>
+            <div id="operandAFields" class="operand-fields">
+              <label class="field"><span id="digitsALabel">桁数</span><select id="digitsA"><option value="1">1桁</option><option value="2" selected>2桁</option><option value="3">3桁</option><option value="4">4桁</option><option value="5">5桁</option></select></label>
+              <label class="field decimal-setting" hidden><span id="decimalPlacesALabel">小数部分の桁数</span><select id="decimalPlacesA"><option value="1" selected>小数第1位まで</option><option value="2">小数第2位まで</option><option value="3">小数第3位まで</option></select></label>
+            </div>
+          </div>
+          <div class="operand-group">
+            <h3 id="operandBLabel">2つ目の数</h3>
+            <div id="operandBFields" class="operand-fields">
+              <label class="field"><span id="digitsBLabel">桁数</span><select id="digitsB"><option value="1">1桁</option><option value="2">2桁</option><option value="3" selected>3桁</option><option value="4">4桁</option><option value="5">5桁</option></select></label>
+              <label class="field decimal-setting" hidden><span id="decimalPlacesBLabel">小数部分の桁数</span><select id="decimalPlacesB"><option value="1" selected>小数第1位まで</option><option value="2">小数第2位まで</option><option value="3">小数第3位まで</option></select></label>
+            </div>
+          </div>
+        </section>
+        <section class="settings-section settings-section-layout" aria-labelledby="layoutSettingsHeading">
+          <h2 id="layoutSettingsHeading">レイアウト</h2>
+          <div class="settings-row">
+            <label class="field"><span>表示</span><select id="layoutMode"><option value="horizontal" selected>横式</option><option value="horizontal-workspace">横式＋計算スペース</option><option value="vertical">筆算</option></select></label>
+            <label class="field"><span>問題数</span><input id="problemCount" type="number" min="1" max="60" step="1" value="30" inputmode="numeric"></label>
+            <label class="field"><span>列数</span><input id="columns" type="number" min="1" max="6" step="1" value="3" inputmode="numeric"></label>
+          </div>
+          <div id="printSettingsFields" class="settings-row print-settings-fields" aria-label="印刷設定"></div>
+        </section>
+        <section class="settings-section settings-section-options" aria-labelledby="optionSettingsHeading">
+          <h2 id="optionSettingsHeading">オプション</h2>
+          <div class="check-row">
         <label><input id="showCarryBoxes" type="checkbox"> 繰り上がりのマスをつける</label>
         <label class="decimal-setting" hidden><input id="showWorkspaceDecimalPoint" type="checkbox" checked> 計算スペースに小数点をつける</label>
         <label class="decimal-setting" hidden><input id="showAnswerDecimalPoint" type="checkbox" checked> 解答欄に小数点をつける</label>
         <label class="workspace-setting" hidden><input id="showWorkspaceOperator" type="checkbox" checked> 計算スペースに記号を表示する</label>
         <label><input id="includeAnswers" type="checkbox" checked> 答えページをつける</label>
+          </div>
+        </section>
       </div>
       <p id="manualInputHint" class="manual-input-hint" hidden>筆算のマスをクリックして、数字を入力できます。</p>
       <div class="actions">
-        <button id="fillRemainingBtn" type="button" hidden>残りを自動生成</button>
-        <button id="printBtn" class="primary-action" type="button">印刷 / PDF保存</button>
-        <button id="regenerateBtn" type="button">作り直す</button>
-        <button id="copyLinkBtn" type="button">共有URLをコピー</button>
-        <button id="savedWorksheetsBtn" type="button">保存・呼び出し</button>
+        <div class="actions-secondary">
+          <button id="fillRemainingBtn" type="button" hidden>残りを自動生成</button>
+          <button id="regenerateBtn" type="button">作り直す</button>
+          <button id="copyLinkBtn" type="button">共有URLをコピー</button>
+          <button id="savedWorksheetsBtn" type="button">保存・呼び出し</button>
+        </div>
+        <div class="actions-primary"><button id="printBtn" class="primary-action" type="button">印刷 / PDF保存</button></div>
       </div>
       <p id="status" class="status" role="status" aria-live="polite"></p>
     </aside>
@@ -88,8 +119,8 @@
   </dialog>
   <script>window.__calculationProblemBuilderStorageNamespace = "integrated";</script>
   <script src="release-check.js"></script>
-  <script src="app.js?v=20260805-11"></script>
-  <script src="../shared/print-adjustments.js?v=20260803-1"></script>
-  <script src="saved-worksheets.js?v=20260805-11"></script>
+  <script src="app.js?v=20260805-12"></script>
+  <script src="../shared/print-adjustments.js?v=20260805-12"></script>
+  <script src="saved-worksheets.js?v=20260805-12"></script>
 </body>
 </html>
