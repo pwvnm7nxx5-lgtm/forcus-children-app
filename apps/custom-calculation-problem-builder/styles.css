@@ -357,6 +357,17 @@ button:hover {
   font-weight: 700;
 }
 
+.problem.manual-problem-attention {
+  outline: 2px solid #d34b4b;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.problem.manual-problem-attention::before {
+  border-color: #d34b4b;
+  color: #a83232;
+}
+
 .formula {
   display: inline-flex;
   align-items: baseline;
@@ -480,6 +491,28 @@ button:hover {
 
 .manual-entry-row:focus-within .digit-cell {
   border-color: var(--accent);
+}
+
+.long-division-board .division-manual-entry-input {
+  position: relative;
+  inset: auto;
+  z-index: 8;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: transparent !important;
+  opacity: 0;
+  outline: 0;
+  padding: 0 !important;
+}
+
+.long-division-board:focus-within {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .operator {

@@ -205,14 +205,14 @@ function supportsLongDivisionLayout() {
   return ["divide", "decimalDivideInteger", "integerDivideDecimal", "decimalDivideDecimal"].includes(getOperation());
 }
 
-function supportsManualAddition(settings = null) {
+function supportsManualInteger(settings = null) {
   const operation = settings?.operation ?? getOperation();
   const layout = settings?.layout ?? getActiveLayout();
-  return operation === "add" && layout === "vertical";
+  return ["add", "sub", "multiply", "divide"].includes(operation) && layout === "vertical";
 }
 
 function getCreationMode() {
-  if (!els.creationMode || !supportsManualAddition()) return "auto";
+  if (!els.creationMode || !supportsManualInteger()) return "auto";
   return clampChoice(els.creationMode.value, manualCreationModes, "auto");
 }
 
@@ -416,7 +416,7 @@ function syncSettingsControls() {
   els.showCarryBoxes.disabled = !carryBoxesVisible;
   if (!multiplicationVertical) els.showCarryBoxes.checked = false;
 
-  const manualInputVisible = supportsManualAddition({ operation, layout: getActiveLayout() });
+  const manualInputVisible = supportsManualInteger({ operation, layout: getActiveLayout() });
   els.creationModeField.hidden = !manualInputVisible;
   if (!manualInputVisible) els.creationMode.value = "auto";
   const creationMode = manualInputVisible ? clampChoice(els.creationMode.value, manualCreationModes, "auto") : "auto";
@@ -476,20 +476,47 @@ function manualOperandValue(problem, position) {
 
 function sanitizeManualValue(value, maxDigits) {
   const digits = String(value ?? "").replace(/\D/g, "").slice(0, maxDigits);
+  if (digits && maxDigits === 1 && /^0+$/.test(digits)) return "0";
   return digits.replace(/^0+/, "").slice(0, maxDigits);
 }
 
 function isManualOperandComplete(problem, position) {
   const value = manualOperandValue(problem, position);
   const expectedDigits = manualExpectedDigits(problem, position);
-  return value.length === expectedDigits && !value.startsWith("0");
+  return value.length === expectedDigits && (expectedDigits === 1 || !value.startsWith("0"));
+}
+
+function manualProblemStatus(problem) {
+  if (!isManualEntryProblem(problem)) return { state: "complete", complete: true, message: "" };
+
+  const valueA = manualOperandValue(problem, "a");
+  const valueB = manualOperandValue(problem, "b");
+  const operandsComplete = isManualOperandComplete(problem, "a") && isManualOperandComplete(problem, "b");
+  if (valueA === "" && valueB === "") {
+    return { state: "blank", complete: false, message: "上下の数を入力してください。" };
+  }
+  if (!operandsComplete) {
+    return { state: "partial", complete: false, message: "上下の数を最後まで入力してください。" };
+  }
+
+  const numberA = Number(valueA);
+  const numberB = Number(valueB);
+  if (problem.op === "-" && numberA < numberB) {
+    return { state: "invalid", complete: false, message: "ひき算は上の数を下の数以上にしてください。" };
+  }
+  if (problem.op === "÷" && (numberB === 0 || numberA < numberB || numberA % numberB !== 0)) {
+    return { state: "invalid", complete: false, message: "わり算は、0で割らず、余りなしで割り切れる数にしてください。" };
+  }
+  return { state: "complete", complete: true, message: "" };
 }
 
 function isCompleteManualProblem(problem) {
-  return isManualEntryProblem(problem)
-    && problem.op === "+"
-    && isManualOperandComplete(problem, "a")
-    && isManualOperandComplete(problem, "b");
+  return manualProblemStatus(problem).complete;
+}
+
+function manualProblemNeedsAttention(problem) {
+  const status = manualProblemStatus(problem);
+  return status.state === "partial" || status.state === "invalid" || (status.state === "blank" && problem.manualErrorVisible === true);
 }
 
 function hasManualInput(problem) {
@@ -498,9 +525,20 @@ function hasManualInput(problem) {
 }
 
 function updateManualProblemAnswer(problem) {
-  problem.answer = isCompleteManualProblem(problem)
-    ? Number(problem.a) + Number(problem.b)
-    : "";
+  const status = manualProblemStatus(problem);
+  if (!status.complete) {
+    problem.answer = "";
+  } else if (problem.op === "+") {
+    problem.answer = Number(problem.a) + Number(problem.b);
+  } else if (problem.op === "-") {
+    problem.answer = Number(problem.a) - Number(problem.b);
+  } else if (problem.op === "×") {
+    problem.answer = Number(problem.a) * Number(problem.b);
+  } else if (problem.op === "÷") {
+    problem.answer = Number(problem.a) / Number(problem.b);
+  }
+  problem.manualErrorVisible = manualProblemNeedsAttention(problem);
+  if (problem.op === "÷") problem.longDivision = makeManualLongDivisionDetails(problem);
   return problem;
 }
 
@@ -509,37 +547,60 @@ function isManualEntryProblem(problem) {
 }
 
 function createManualProblem(settings, source = "blank") {
-  return {
+  const problem = {
     a: "",
     b: "",
-    op: "+",
+    op: { add: "+", sub: "-", multiply: "×", divide: "÷" }[settings.operation] || "+",
     answer: "",
     manualEntry: true,
     manualSource: source,
     manualDigitsA: settings.digitsA,
     manualDigitsB: settings.digitsB,
   };
+  if (settings.operation === "divide") problem.longDivision = makeManualLongDivisionDetails(problem);
+  return problem;
 }
 
 function createManualProblems(settings, source = "blank") {
   return Array.from({ length: settings.count }, () => createManualProblem(settings, source));
 }
 
-function makeEditableAdditionProblem(problem, settings, source = "auto") {
+function makeManualLongDivisionDetails(problem) {
+  const displayDivisor = manualOperandValue(problem, "b");
+  const displayDividend = manualOperandValue(problem, "a");
+  const divisor = Number(displayDivisor) > 0 ? Number(displayDivisor) : 1;
+  const dividend = Number(displayDividend) > 0 ? Number(displayDividend) : 1;
+  const quotient = Math.floor(dividend / divisor);
   return {
+    divisor,
+    dividend,
+    quotient,
+    dividendRaw: String(dividend),
+    quotientRaw: String(quotient),
+    divisorDigits: manualExpectedDigits(problem, "b"),
+    displayDivisor,
+    displayDividend,
+    dividendDecimalAfterIndex: -1,
+    quotientDecimalAfterIndex: -1,
+  };
+}
+
+function makeEditableProblem(problem, settings, source = "auto") {
+  const editable = {
     ...problem,
     a: String(problem.a),
     b: String(problem.b),
-    answer: Number(problem.a) + Number(problem.b),
     manualEntry: true,
     manualSource: source,
     manualDigitsA: settings.digitsA,
     manualDigitsB: settings.digitsB,
   };
+  if (editable.op === "÷") editable.longDivision = makeManualLongDivisionDetails(editable);
+  return editable;
 }
 
 function isManualInputActive(settings = getSettings()) {
-  return supportsManualAddition(settings) && settings.creationMode !== "auto";
+  return supportsManualInteger(settings) && settings.creationMode !== "auto";
 }
 
 function hasEnteredManualProblems() {
@@ -1010,7 +1071,7 @@ function getManualPreservedIndexes() {
 function generateEditableProblems(settings, count, usedKeys = new Set()) {
   const generatedSettings = { ...settings, count };
   return selectProblems(generatedSettings, usedKeys)
-    .map((problem) => makeEditableAdditionProblem(problem, settings, "auto"));
+    .map((problem) => makeEditableProblem(problem, settings, "auto"));
 }
 
 function generateProblems() {
@@ -1378,6 +1439,12 @@ function multiplicationDigits(problem) {
   return String(problem.b).replaceAll(".", "").split("").reverse().map((digit) => Number.parseInt(digit, 10));
 }
 
+function multiplicationStepCount(problem) {
+  return isManualEntryProblem(problem)
+    ? manualExpectedDigits(problem, "b")
+    : multiplicationDigits(problem).length;
+}
+
 function multiplicationInteger(value) {
   return Number.parseInt(String(value).replaceAll(".", ""), 10);
 }
@@ -1423,25 +1490,38 @@ function multiplicationAdditionCarryDigits(problem, totalColumns) {
 }
 
 function multiplicationFormulaRows(problem) {
-  const steps = multiplicationDigits(problem).length;
+  const steps = multiplicationStepCount(problem);
   return steps === 1 ? 4 : steps + 5;
 }
 
 function multiplicationFormulaWidth(problem) {
+  if (isManualEntryProblem(problem)) {
+    const expectedA = manualExpectedDigits(problem, "a");
+    const expectedB = manualExpectedDigits(problem, "b");
+    const answerWidth = isCompleteManualProblem(problem) ? digitCount(problem.answer) : 0;
+    return Math.max(2, expectedA, expectedB, expectedA + expectedB, answerWidth);
+  }
   const multiplicand = multiplicationInteger(problem.a);
   const partials = multiplicationDigits(problem).map((digit) => multiplicand * digit);
   return Math.max(2, digitCount(problem.a), digitCount(problem.b), digitCount(problem.answer), ...partials.map(digitCount));
 }
 
-function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width, hideGiven = false, workspaceTotalColumns = null) {
-  const steps = multiplicationDigits(problem);
+function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width, hideGiven = false, workspaceTotalColumns = null, problemIndex = null) {
+  const manualProblem = isManualEntryProblem(problem);
+  const answerVisible = showAnswer && (!manualProblem || isCompleteManualProblem(problem));
+  const stepCount = multiplicationStepCount(problem);
+  const steps = manualProblem && !isCompleteManualProblem(problem)
+    ? Array.from({ length: stepCount }, () => 0)
+    : multiplicationDigits(problem);
   const multiplicand = multiplicationInteger(problem.a);
   const formula = document.createElement("span");
   formula.className = "vertical-formula multiplication-formula";
   formula.classList.toggle("with-carry-boxes", settings.showCarryBoxes);
   const workspace = Number.isInteger(workspaceTotalColumns);
   const totalColumns = workspace ? workspaceTotalColumns : width;
-  const operandWidth = Math.max(workspaceDigitCount(problem.a), workspaceDigitCount(problem.b));
+  const operandWidth = manualProblem
+    ? Math.max(manualExpectedDigits(problem, "a"), manualExpectedDigits(problem, "b"))
+    : Math.max(workspaceDigitCount(problem.a), workspaceDigitCount(problem.b));
   const operatorColumn = Math.max(1, totalColumns - operandWidth);
   const makeRow = (data, operator = "", blank = false, result = false, showDecimal = false, helperDigits = null) => workspace
     ? makeWorkspaceDigitRow(data, totalColumns, operator, settings.showCarryBoxes, blank, result, operatorColumn, showDecimal, helperDigits)
@@ -1451,10 +1531,31 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
       showDecimal,
       helperDigits,
     });
+  const formatOperand = (value, operand) => manualProblem
+    ? formatManualDigitData(value, totalColumns, manualExpectedDigits(problem, operand))
+    : formatDigitData(value, totalColumns);
+  const editable = !showAnswer && !workspace && isManualInputActive(settings) && manualProblem && Number.isInteger(problemIndex);
   formula.style.setProperty("--digit-count", String(totalColumns));
   const showProblemDecimal = hideGiven ? settings.showWorkspaceDecimalPoint !== false : true;
-  formula.append(makeRow(formatDigitData(problem.a, totalColumns), "", hideGiven, false, showProblemDecimal));
-  formula.append(makeRow(formatDigitData(problem.b, totalColumns), settings.showWorkspaceOperator || showAnswer ? "×" : "", hideGiven, false, showProblemDecimal));
+  formula.append(makeRow(formatOperand(problem.a, "a"), "", hideGiven, false, showProblemDecimal));
+  formula.append(makeRow(formatOperand(problem.b, "b"), settings.showWorkspaceOperator || showAnswer ? "×" : "", hideGiven, false, showProblemDecimal));
+  if (editable) {
+    const rows = formula.querySelectorAll(":scope > .digit-row");
+    rows[0]?.append(makeManualEntryInput({
+      problemIndex,
+      operand: "a",
+      digits: manualExpectedDigits(problem, "a"),
+      value: manualOperandValue(problem, "a"),
+    }));
+    rows[0]?.classList.add("manual-entry-row");
+    rows[1]?.append(makeManualEntryInput({
+      problemIndex,
+      operand: "b",
+      digits: manualExpectedDigits(problem, "b"),
+      value: manualOperandValue(problem, "b"),
+    }));
+    rows[1]?.classList.add("manual-entry-row");
+  }
 
   const subtotalLine = document.createElement("span");
   subtotalLine.className = "vertical-line";
@@ -1462,30 +1563,30 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
 
   if (steps.length > 1) {
     steps.forEach((digit, placeIndex) => {
-      const data = showAnswer
+      const data = answerVisible
         ? formatShiftedDigitData(multiplicand * digit, totalColumns, placeIndex)
         : formatDigitData("", totalColumns);
-      const helperDigits = showAnswer
+      const helperDigits = answerVisible
         ? multiplicationCarryDigits(problem, digit, totalColumns, placeIndex)
         : null;
-      formula.append(makeRow(data, "", !showAnswer, false, false, helperDigits));
+      formula.append(makeRow(data, "", !answerVisible, false, false, helperDigits));
     });
     const answerLine = document.createElement("span");
     answerLine.className = "vertical-line";
     formula.append(answerLine);
   }
 
-  const answerHelperDigits = showAnswer
+  const answerHelperDigits = answerVisible
     ? steps.length === 1
       ? multiplicationCarryDigits(problem, steps[0], totalColumns)
       : multiplicationAdditionCarryDigits(problem, totalColumns)
     : null;
   formula.append(makeRow(
-    formatDigitData(problem.answer, totalColumns),
+    formatDigitData(answerVisible ? problem.answer : "", totalColumns),
     "",
-    !showAnswer,
+    !answerVisible,
     workspace,
-    showAnswer || settings.showAnswerDecimalPoint,
+    answerVisible || settings.showAnswerDecimalPoint,
     answerHelperDigits,
   ));
   return formula;
@@ -1554,6 +1655,14 @@ function addDivisionBoardValue(board, value, row, startColumn, decimalAfterIndex
   if (decimalAfterIndex >= 0) addDivisionBoardDecimal(board, row, startColumn + decimalAfterIndex);
 }
 
+function addDivisionManualEntryInput(board, config) {
+  const input = makeManualEntryInput(config);
+  input.classList.add("division-manual-entry-input");
+  input.style.gridRow = "2";
+  input.style.gridColumn = `${config.startColumn} / span ${config.digits}`;
+  board.append(input);
+}
+
 function divisionValueDigitLength(value) {
   return String(value).replace(".", "").length;
 }
@@ -1580,9 +1689,12 @@ function addDivisionFrame(board, divisorDigits, boardColumns) {
   board.append(frame);
 }
 
-function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, showGiven = true, settings = null) {
+function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, showGiven = true, settings = null, problemIndex = null) {
   const details = problem.longDivision;
   const trace = buildLongDivisionTrace(details);
+  const manualProblem = isManualEntryProblem(problem);
+  const answerVisible = showAnswer && (!manualProblem || isCompleteManualProblem(problem));
+  const editable = !showAnswer && isManualInputActive(settings) && manualProblem && Number.isInteger(problemIndex);
   const board = document.createElement("span");
   board.className = "long-division-board";
   board.style.setProperty("--division-board-rows", String(boardRows));
@@ -1594,7 +1706,7 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
 
   addDivisionFrame(board, details.divisorDigits, boardColumns);
   const showProblemDecimal = showGiven ? true : settings?.showWorkspaceDecimalPoint !== false;
-  const showAnswerDecimal = showAnswer || settings?.showAnswerDecimalPoint !== false;
+  const showAnswerDecimal = answerVisible || settings?.showAnswerDecimalPoint !== false;
   if (showGiven) {
     addDivisionBoardValue(
       board,
@@ -1614,6 +1726,22 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
         : -1,
       "given-digit",
     );
+    if (editable) {
+      addDivisionManualEntryInput(board, {
+        problemIndex,
+        operand: "b",
+        digits: manualExpectedDigits(problem, "b"),
+        value: manualOperandValue(problem, "b"),
+        startColumn: 1,
+      });
+      addDivisionManualEntryInput(board, {
+        problemIndex,
+        operand: "a",
+        digits: manualExpectedDigits(problem, "a"),
+        value: manualOperandValue(problem, "a"),
+        startColumn: details.divisorDigits + 1,
+      });
+    }
   } else if (showProblemDecimal) {
     const divisorText = details.displayDivisor ?? details.divisor;
     const dividendText = details.displayDividend ?? details.dividend;
@@ -1623,7 +1751,7 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
     if (dividendPoint >= 0) addDivisionBoardDecimal(board, 2, details.divisorDigits + 1 + dividendPoint);
   }
 
-  if (showAnswer) {
+  if (answerVisible) {
     trace.quotientDigits.forEach((digit, index) => {
       addDivisionBoardDigit(board, digit, 1, details.divisorDigits + trace.quotientOffset + index + 1, "answer-digit");
     });
@@ -1659,15 +1787,22 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
 function getLongDivisionBoardSize(pageProblems) {
   return pageProblems.reduce((size, problem) => {
     const trace = buildLongDivisionTrace(problem.longDivision);
+    const divisorDigits = isManualEntryProblem(problem)
+      ? manualExpectedDigits(problem, "b")
+      : problem.longDivision.divisorDigits;
+    const dividendDigits = isManualEntryProblem(problem)
+      ? manualExpectedDigits(problem, "a")
+      : Math.max(
+        divisionValueDigitLength(problem.longDivision.dividendRaw ?? problem.longDivision.dividend),
+        divisionValueDigitLength(problem.longDivision.displayDividend ?? problem.longDivision.dividend),
+        divisionValueDigitLength(problem.longDivision.answerDisplayDividend ?? problem.longDivision.dividend),
+      );
     return {
       rows: Math.max(size.rows, trace.rows.length + 2, 6),
       columns: Math.max(
         size.columns,
-        problem.longDivision.divisorDigits + Math.max(
-          divisionValueDigitLength(problem.longDivision.dividendRaw ?? problem.longDivision.dividend),
-          divisionValueDigitLength(problem.longDivision.displayDividend ?? problem.longDivision.dividend),
-          divisionValueDigitLength(problem.longDivision.answerDisplayDividend ?? problem.longDivision.dividend),
-        ),
+        divisorDigits + dividendDigits,
+        problem.longDivision.divisorDigits + dividendDigits,
         4,
       ),
     };
@@ -1702,10 +1837,10 @@ function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivi
     return makeCalculationWorkspace(problem, showAnswer, settings, workspaceSize);
   }
   if (settings.layout === "vertical" && problem.longDivision) {
-    return makeLongDivisionBoard(problem, showAnswer, longDivisionBoardSize.rows, longDivisionBoardSize.columns, true, settings);
+    return makeLongDivisionBoard(problem, showAnswer, longDivisionBoardSize.rows, longDivisionBoardSize.columns, true, settings, problemIndex);
   }
   if (settings.layout === "vertical" && problem.op === "×") {
-    return makeMultiplicationVerticalFormula(problem, showAnswer, settings, multiplicationBoardSize.columns);
+    return makeMultiplicationVerticalFormula(problem, showAnswer, settings, multiplicationBoardSize.columns, false, null, problemIndex);
   }
   return settings.layout === "vertical"
     ? makeVerticalFormula(problem, showAnswer, settings, verticalDigitCount, problemIndex)
@@ -1833,6 +1968,7 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
   pageProblems.forEach((problem, problemIndex) => {
     const item = document.createElement("li");
     item.className = "problem";
+    if (!showAnswer && manualProblemNeedsAttention(problem)) item.classList.add("manual-problem-attention");
     item.append(makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize, workspaceSize, problemIndex));
     list.append(item);
   });
@@ -2069,8 +2205,11 @@ function handlePrint() {
   const settings = getSettings();
   const incomplete = incompleteManualProblemNumbers(settings);
   if (incomplete.length) {
+    incomplete.forEach((number) => {
+      if (problems[number - 1]) problems[number - 1].manualErrorVisible = true;
+    });
     render();
-    setStatus(`${incomplete.join("、")}番の問題に数字を入力してください。`);
+    setStatus(`${incomplete.join("、")}番の問題を確認してください。`);
     return;
   }
   render();
@@ -2092,8 +2231,11 @@ function handlePrintShortcutCapture(event) {
   if (!incomplete.length) return;
   event.preventDefault();
   event.stopImmediatePropagation();
+  incomplete.forEach((number) => {
+    if (problems[number - 1]) problems[number - 1].manualErrorVisible = true;
+  });
   render();
-  setStatus(`${incomplete.join("、")}番の問題に数字を入力してください。`);
+  setStatus(`${incomplete.join("、")}番の問題を確認してください。`);
 }
 
 function bindEvents() {
