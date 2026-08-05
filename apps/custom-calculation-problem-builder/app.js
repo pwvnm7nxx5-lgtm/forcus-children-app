@@ -1198,7 +1198,135 @@ function shuffle(items) {
 }
 
 function problemKey(problem) {
-  return `${problem.a}${problem.op}${problem.b}`;
+  const left = String(problem.a);
+  const right = String(problem.b);
+  if (["+", "×"].includes(problem.op)) {
+    const operands = [left, right].sort();
+    return `${operands[0]}${problem.op}${operands[1]}`;
+  }
+  return `${left}${problem.op}${right}`;
+}
+
+function problemDigits(value) {
+  const digits = String(value).replace(/\D/g, "");
+  return digits.replace(/^0+(?=\d)/, "") || "0";
+}
+
+function problemRawDigits(value) {
+  return String(value).replace(/\D/g, "") || "0";
+}
+
+function problemOperandInteger(problem, position) {
+  const carryValue = problem[position === "a" ? "carryA" : "carryB"];
+  if (carryValue !== undefined && carryValue !== null && carryValue !== "") {
+    return Math.abs(Math.trunc(Number(carryValue)));
+  }
+  return Math.abs(Number(problemRawDigits(problem[position])) || 0);
+}
+
+function arithmeticCarrySignature(problem) {
+  if (!["+", "-"].includes(problem.op)) return "none";
+  let left = problemOperandInteger(problem, "a");
+  let right = problemOperandInteger(problem, "b");
+  const positions = [];
+  let position = 0;
+  while (left > 0 || right > 0) {
+    const leftDigit = left % 10;
+    const rightDigit = right % 10;
+    const hasCarryOrBorrow = problem.op === "+"
+      ? leftDigit + rightDigit >= 10
+      : leftDigit < rightDigit;
+    if (hasCarryOrBorrow) positions.push(position);
+    left = Math.floor(left / 10);
+    right = Math.floor(right / 10);
+    position += 1;
+  }
+  return positions.length ? positions.join(",") : "none";
+}
+
+function multiplicationCarrySignature(problem) {
+  if (problem.op !== "×") return "none";
+  const leftDigits = problemDigits(problem.a).split("").reverse().map(Number);
+  const rightDigits = problemDigits(problem.b).split("").reverse().map(Number);
+  const positions = new Set();
+  rightDigits.forEach((rightDigit, rightIndex) => {
+    let carry = 0;
+    leftDigits.forEach((leftDigit, leftIndex) => {
+      const value = leftDigit * rightDigit + carry;
+      if (value >= 10) positions.add(leftIndex + rightIndex);
+      carry = Math.floor(value / 10);
+    });
+    if (carry > 0) positions.add(leftDigits.length + rightIndex);
+  });
+  return positions.size
+    ? [...positions].sort((left, right) => left - right).join(",")
+    : "none";
+}
+
+function divisionBalanceMeta(problem) {
+  if (problem.op !== "÷") return null;
+  const quotient = String(problem.longDivision?.quotientRaw ?? problem.answer);
+  const digits = problemRawDigits(quotient);
+  return {
+    length: String(digits.length),
+    zero: digits.includes("0") ? "with-zero" : "without-zero",
+  };
+}
+
+function problemBalanceMeta(problem) {
+  const carryProfile = problem.op === "×"
+    ? multiplicationCarrySignature(problem)
+    : arithmeticCarrySignature(problem);
+  const carryClass = carryProfile === "none" ? "without" : "with";
+  const division = divisionBalanceMeta(problem);
+  const zeroCount = (problemRawDigits(problem.a) + problemRawDigits(problem.b))
+    .split("")
+    .filter((digit) => digit === "0")
+    .length;
+  const family = [
+    problemDigits(problem.a).length,
+    problemDigits(problem.b).length,
+    carryClass,
+    carryProfile,
+    zeroCount > 0 ? "zero" : "no-zero",
+    division?.length || "no-division",
+  ].join("|");
+  return {
+    carryClass,
+    carryProfile,
+    divisionLength: division?.length || "none",
+    divisionZero: division?.zero || "none",
+    zeroCount,
+    family,
+  };
+}
+
+function makeBucketTargets(candidates, count, getBucket) {
+  const availability = new Map();
+  candidates.forEach((problem) => {
+    const bucket = getBucket(problem);
+    availability.set(bucket, (availability.get(bucket) || 0) + 1);
+  });
+  const buckets = shuffle([...availability.keys()]);
+  const targets = new Map();
+  for (let index = 0; index < count; index += 1) {
+    const availableBuckets = buckets.filter((bucket) =>
+      (targets.get(bucket) || 0) < availability.get(bucket));
+    if (!availableBuckets.length) break;
+    const minimum = Math.min(...availableBuckets.map((bucket) => targets.get(bucket) || 0));
+    const choices = availableBuckets.filter((bucket) => (targets.get(bucket) || 0) === minimum);
+    const bucket = choices[randomInt(0, choices.length - 1)];
+    targets.set(bucket, (targets.get(bucket) || 0) + 1);
+  }
+  return targets;
+}
+
+function bucketBalanceScore(bucket, targets, counts, weight) {
+  if (!targets.has(bucket)) return 0;
+  const target = targets.get(bucket);
+  const current = counts.get(bucket) || 0;
+  if (current < target) return weight + (target - current) * 2;
+  return -weight;
 }
 
 function sheetSignature(settings) {
@@ -1216,29 +1344,95 @@ function sheetSignature(settings) {
 }
 
 function selectProblems(settings, usedKeys = new Set()) {
-  const pool = shuffle(makeCandidatePool(settings));
-  const selected = [];
-  const seen = new Set();
+  const requestedCount = Math.max(0, Number(settings.count) || 0);
+  if (!requestedCount) return [];
 
+  const pool = shuffle(makeCandidatePool(settings));
+  const uniquePool = [];
+  const poolKeys = new Set();
   pool.forEach((problem) => {
-    if (selected.length >= settings.count) return;
     const key = problemKey(problem);
-    if (!seen.has(key) && !usedKeys.has(key)) {
-      selected.push(problem);
-      seen.add(key);
-      usedKeys.add(key);
-    }
+    if (poolKeys.has(key)) return;
+    poolKeys.add(key);
+    uniquePool.push(problem);
   });
-  pool.forEach((problem) => {
-    if (selected.length >= settings.count) return;
-    const key = problemKey(problem);
-    if (!seen.has(key)) {
-      selected.push(problem);
-      seen.add(key);
-    }
-  });
-  while (selected.length < settings.count && pool.length) {
-    selected.push(pool[selected.length % pool.length]);
+
+  const eligiblePool = uniquePool.filter((problem) => !usedKeys.has(problemKey(problem)));
+  const selectionPool = eligiblePool.length >= requestedCount ? eligiblePool : uniquePool;
+  if (!selectionPool.length) return [];
+
+  const metaCache = new Map();
+  const getMeta = (problem) => {
+    if (!metaCache.has(problem)) metaCache.set(problem, problemBalanceMeta(problem));
+    return metaCache.get(problem);
+  };
+  const standardArithmetic = !String(settings.operation).startsWith("fraction");
+  const isArithmetic = standardArithmetic && selectionPool.some((problem) =>
+    ["+", "-", "×"].includes(problem.op));
+  const isDivision = standardArithmetic && selectionPool.some((problem) => problem.op === "÷");
+  const carryClassTargets = isArithmetic
+    ? makeBucketTargets(selectionPool, requestedCount, (problem) => getMeta(problem).carryClass)
+    : new Map();
+  const carryProfileTargets = isArithmetic
+    ? makeBucketTargets(selectionPool, requestedCount, (problem) => getMeta(problem).carryProfile)
+    : new Map();
+  const divisionLengthTargets = isDivision
+    ? makeBucketTargets(selectionPool, requestedCount, (problem) => getMeta(problem).divisionLength)
+    : new Map();
+  const divisionZeroTargets = isDivision
+    ? makeBucketTargets(selectionPool, requestedCount, (problem) => getMeta(problem).divisionZero)
+    : new Map();
+  const zeroCap = Math.floor(requestedCount * 0.2);
+  const selected = [];
+  const selectedKeys = new Set();
+  const bucketCounts = {
+    carryClass: new Map(),
+    carryProfile: new Map(),
+    divisionLength: new Map(),
+    divisionZero: new Map(),
+  };
+  let zeroCount = 0;
+  let previousMeta = null;
+
+  while (selected.length < requestedCount) {
+    const available = selectionPool.filter((problem) => !selectedKeys.has(problemKey(problem)));
+    if (!available.length) break;
+    const hasZeroFreeAlternative = available.some((problem) => getMeta(problem).zeroCount === 0);
+    const scored = available.map((problem) => {
+      const meta = getMeta(problem);
+      let score = Math.random() * 8;
+      score += bucketBalanceScore(meta.carryClass, carryClassTargets, bucketCounts.carryClass, 26);
+      score += bucketBalanceScore(meta.carryProfile, carryProfileTargets, bucketCounts.carryProfile, 7);
+      score += bucketBalanceScore(meta.divisionLength, divisionLengthTargets, bucketCounts.divisionLength, 16);
+      score += bucketBalanceScore(meta.divisionZero, divisionZeroTargets, bucketCounts.divisionZero, 7);
+      if (meta.zeroCount > 0 && zeroCount >= zeroCap && hasZeroFreeAlternative) score -= 100;
+      if (meta.zeroCount === 0 && zeroCount < zeroCap) score += 3;
+      if (previousMeta?.family === meta.family) score -= 18;
+      if (previousMeta?.carryProfile === meta.carryProfile) score -= 2;
+      return { problem, meta, score };
+    });
+    scored.sort((left, right) => right.score - left.score);
+    const top = scored.slice(0, Math.min(6, scored.length));
+    const chosen = top[randomInt(0, top.length - 1)];
+    const key = problemKey(chosen.problem);
+    selected.push(chosen.problem);
+    selectedKeys.add(key);
+    usedKeys.add(key);
+    previousMeta = chosen.meta;
+    if (chosen.meta.zeroCount > 0) zeroCount += 1;
+    [
+      ["carryClass", chosen.meta.carryClass],
+      ["carryProfile", chosen.meta.carryProfile],
+      ["divisionLength", chosen.meta.divisionLength],
+      ["divisionZero", chosen.meta.divisionZero],
+    ].forEach(([name, bucket]) => {
+      bucketCounts[name].set(bucket, (bucketCounts[name].get(bucket) || 0) + 1);
+    });
+  }
+
+  const fallbackPool = uniquePool.length ? uniquePool : pool;
+  while (selected.length < requestedCount && fallbackPool.length) {
+    selected.push(fallbackPool[selected.length % fallbackPool.length]);
   }
   return selected;
 }
