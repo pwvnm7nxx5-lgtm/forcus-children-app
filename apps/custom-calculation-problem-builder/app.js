@@ -285,7 +285,7 @@ function getSettings() {
     difficulty: "standard",
     count: getProblemCount(),
     columns: getColumns(),
-    showCarryBoxes: els.showCarryBoxes.checked,
+    showCarryBoxes: supportsMultiplicationVerticalLayout() && els.showCarryBoxes.checked,
     showWorkspaceDecimalPoint: els.showWorkspaceDecimalPoint.checked,
     showAnswerDecimalPoint: els.showAnswerDecimalPoint.checked,
     showWorkspaceOperator: els.showWorkspaceOperator.checked,
@@ -391,7 +391,10 @@ function syncSettingsControls() {
 
   els.layoutMode.disabled = !layoutSupported;
   if (!layoutSupported) els.layoutMode.value = "horizontal";
-  els.showCarryBoxes.disabled = !(simpleVertical || multiplicationVertical) || getActiveLayout() !== "vertical";
+  const carryBoxesVisible = multiplicationVertical && ["vertical", "horizontal-workspace"].includes(getActiveLayout());
+  els.showCarryBoxes.closest("label").hidden = !carryBoxesVisible;
+  els.showCarryBoxes.disabled = !carryBoxesVisible;
+  if (!multiplicationVertical) els.showCarryBoxes.checked = false;
 
   const max = getProblemCountMax();
   els.columns.max = String(getColumnsMax());
@@ -942,11 +945,12 @@ function getCalculationWorkspaceSize(pageProblems) {
   return { columns: getSimpleBoardSize(pageProblems), rows: 3 };
 }
 
-function makeWorkspaceDigitRow(digitData, totalColumns, operator = "", showCarryBoxes = false, blank = false, resultRow = false, operatorColumn = 1, showDecimal = false) {
+function makeWorkspaceDigitRow(digitData, totalColumns, operator = "", showCarryBoxes = false, blank = false, resultRow = false, operatorColumn = 1, showDecimal = false, helperDigits = null) {
   const row = makeDigitRow(digitData, operator, showCarryBoxes, blank, {
     totalColumns,
     operatorColumn,
     showDecimal,
+    helperDigits,
   });
   row.classList.add("workspace-digit-row");
   if (resultRow) {
@@ -984,10 +988,7 @@ function makeCalculationWorkspace(problem, showAnswer, settings, size) {
   }
 
   if (supportsMultiplicationVerticalLayout()) {
-    workspace.append(makeMultiplicationVerticalFormula(problem, showAnswer, {
-      ...settings,
-      showCarryBoxes: false,
-    }, size.columns, !showAnswer, size.columns));
+    workspace.append(makeMultiplicationVerticalFormula(problem, showAnswer, settings, size.columns, !showAnswer, size.columns));
     return workspace;
   }
 
@@ -1040,12 +1041,18 @@ function formatShiftedDigitData(value, width, shift) {
   return { digits, decimalAfterIndex: -1 };
 }
 
-function makeDigitCell(digit, showCarryBoxes, blank = false, showDecimal = false) {
+function makeDigitCell(digit, showCarryBoxes, blank = false, showDecimal = false, helperValue = "") {
   const cell = document.createElement("span");
   cell.className = "digit-cell";
   if (showCarryBoxes) {
     const helper = document.createElement("span");
     helper.className = "helper-box";
+    if (!blank && helperValue !== "") {
+      const value = document.createElement("span");
+      value.className = "helper-value";
+      value.textContent = helperValue;
+      helper.append(value);
+    }
     cell.append(helper);
   }
   if (!blank && digit !== " ") {
@@ -1069,6 +1076,7 @@ function makeDigitRow(digitData, operator = "", showCarryBoxes = true, blank = f
   const totalColumns = options.totalColumns || digits.length;
   const operatorColumn = options.operatorColumn || 1;
   const showDecimal = options.showDecimal === true;
+  const helperDigits = Array.isArray(options.helperDigits) ? options.helperDigits : [];
   const row = document.createElement("span");
   row.className = "digit-row";
   row.style.setProperty("--digit-count", String(totalColumns));
@@ -1083,7 +1091,7 @@ function makeDigitRow(digitData, operator = "", showCarryBoxes = true, blank = f
       row.append(operatorElement);
       return;
     }
-    row.append(makeDigitCell(digit, showCarryBoxes, blank, showDecimal && decimalAfterIndex === index));
+    row.append(makeDigitCell(digit, showCarryBoxes, blank, showDecimal && decimalAfterIndex === index, helperDigits[index] || ""));
   });
   return row;
 }
@@ -1123,6 +1131,46 @@ function multiplicationInteger(value) {
   return Number.parseInt(String(value).replaceAll(".", ""), 10);
 }
 
+function multiplicationCarryDigits(problem, multiplierDigit, totalColumns, shift = 0) {
+  const helperDigits = Array(totalColumns).fill("");
+  const multiplicandDigits = String(multiplicationInteger(problem.a)).split("").map(Number);
+  let carry = 0;
+
+  for (let sourceIndex = multiplicandDigits.length - 1; sourceIndex >= 0; sourceIndex -= 1) {
+    const total = multiplicandDigits[sourceIndex] * multiplierDigit + carry;
+    carry = Math.floor(total / 10);
+    const distanceFromRight = multiplicandDigits.length - sourceIndex + shift;
+    const targetIndex = totalColumns - 1 - distanceFromRight;
+    if (carry > 0 && targetIndex >= 0 && targetIndex < totalColumns) {
+      helperDigits[targetIndex] = String(carry);
+    }
+  }
+
+  return helperDigits;
+}
+
+function multiplicationAdditionCarryDigits(problem, totalColumns) {
+  const helperDigits = Array(totalColumns).fill("");
+  const multiplicand = multiplicationInteger(problem.a);
+  const addends = multiplicationDigits(problem).map((digit, placeIndex) => ({
+    digits: String(multiplicand * digit).split("").reverse().map(Number),
+    shift: placeIndex,
+  }));
+  let carry = 0;
+
+  for (let columnFromRight = 0; columnFromRight < totalColumns; columnFromRight += 1) {
+    const sum = carry + addends.reduce((total, addend) => {
+      const digitIndex = columnFromRight - addend.shift;
+      return total + (digitIndex >= 0 ? addend.digits[digitIndex] || 0 : 0);
+    }, 0);
+    carry = Math.floor(sum / 10);
+    const targetIndex = totalColumns - 2 - columnFromRight;
+    if (carry > 0 && targetIndex >= 0) helperDigits[targetIndex] = String(carry);
+  }
+
+  return helperDigits;
+}
+
 function multiplicationFormulaRows(problem) {
   const steps = multiplicationDigits(problem).length;
   return steps === 1 ? 4 : steps + 5;
@@ -1144,12 +1192,13 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
   const totalColumns = workspace ? workspaceTotalColumns : width;
   const operandWidth = Math.max(workspaceDigitCount(problem.a), workspaceDigitCount(problem.b));
   const operatorColumn = Math.max(1, totalColumns - operandWidth);
-  const makeRow = (data, operator = "", blank = false, result = false, showDecimal = false) => workspace
-    ? makeWorkspaceDigitRow(data, totalColumns, operator, settings.showCarryBoxes, blank, result, operatorColumn, showDecimal)
+  const makeRow = (data, operator = "", blank = false, result = false, showDecimal = false, helperDigits = null) => workspace
+    ? makeWorkspaceDigitRow(data, totalColumns, operator, settings.showCarryBoxes, blank, result, operatorColumn, showDecimal, helperDigits)
     : makeDigitRow(data, operator, settings.showCarryBoxes, blank, {
       totalColumns,
       operatorColumn,
       showDecimal,
+      helperDigits,
     });
   formula.style.setProperty("--digit-count", String(totalColumns));
   const showProblemDecimal = hideGiven ? settings.showWorkspaceDecimalPoint !== false : true;
@@ -1165,19 +1214,28 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
       const data = showAnswer
         ? formatShiftedDigitData(multiplicand * digit, totalColumns, placeIndex)
         : formatDigitData("", totalColumns);
-      formula.append(makeRow(data, "", !showAnswer));
+      const helperDigits = showAnswer
+        ? multiplicationCarryDigits(problem, digit, totalColumns, placeIndex)
+        : null;
+      formula.append(makeRow(data, "", !showAnswer, false, false, helperDigits));
     });
     const answerLine = document.createElement("span");
     answerLine.className = "vertical-line";
     formula.append(answerLine);
   }
 
+  const answerHelperDigits = showAnswer
+    ? steps.length === 1
+      ? multiplicationCarryDigits(problem, steps[0], totalColumns)
+      : multiplicationAdditionCarryDigits(problem, totalColumns)
+    : null;
   formula.append(makeRow(
     formatDigitData(problem.answer, totalColumns),
     "",
     !showAnswer,
     workspace,
     showAnswer || settings.showAnswerDecimalPoint,
+    answerHelperDigits,
   ));
   return formula;
 }

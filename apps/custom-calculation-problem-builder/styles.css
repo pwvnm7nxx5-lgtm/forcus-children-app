@@ -428,7 +428,7 @@ button:hover {
 
 .vertical-formula {
   --digit-size: var(--vertical-digit-size, 8mm);
-  --helper-size: 2.8mm;
+  --helper-size: calc(var(--digit-size) * 0.35);
   --operator-width: 7mm;
   --formula-gap: 1mm;
   display: grid;
@@ -479,11 +479,23 @@ button:hover {
   position: absolute;
   top: 0;
   right: 0;
+  display: grid;
+  place-items: center;
   width: var(--helper-size);
   height: var(--helper-size);
   border-left: 1px solid #d5dde6;
   border-bottom: 1px solid #d5dde6;
   background: #f8fafc;
+  overflow: hidden;
+}
+
+.helper-value {
+  position: relative;
+  z-index: 1;
+  color: var(--answer);
+  font-size: max(7px, calc(var(--digit-size) * 0.26));
+  font-weight: 700;
+  line-height: 1;
 }
 
 .digit-value {
