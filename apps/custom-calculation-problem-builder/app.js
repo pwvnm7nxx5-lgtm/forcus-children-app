@@ -202,13 +202,28 @@ function supportsMultiplicationVerticalLayout() {
 }
 
 function supportsLongDivisionLayout() {
-  return ["divide", "decimalDivideInteger", "integerDivideDecimal", "decimalDivideDecimal"].includes(getOperation());
+  return supportsLongDivisionLayoutForOperation(getOperation());
+}
+
+function supportsLongDivisionLayoutForOperation(operation) {
+  return ["divide", "decimalDivideInteger", "integerDivideDecimal", "decimalDivideDecimal"].includes(operation);
 }
 
 function supportsManualInteger(settings = null) {
   const operation = settings?.operation ?? getOperation();
   const layout = settings?.layout ?? getActiveLayout();
-  return ["add", "sub", "multiply", "divide"].includes(operation)
+  return [
+    "add",
+    "sub",
+    "multiply",
+    "divide",
+    "decimalAdd",
+    "decimalSub",
+    "decimalMultiply",
+    "decimalDivideInteger",
+    "integerDivideDecimal",
+    "decimalDivideDecimal",
+  ].includes(operation)
     && ["vertical", "horizontal", "horizontal-workspace"].includes(layout);
 }
 
@@ -466,8 +481,33 @@ function setStatus(message) {
 }
 
 function manualExpectedDigits(problem, position, fallback = 1) {
+  if (problem?.manualDecimal) {
+    return manualIntegerDigitCount(problem, position) + manualFractionDigitCount(problem, position);
+  }
   const key = position === "a" ? "manualDigitsA" : "manualDigitsB";
   return clampNumber(problem?.[key], 1, 5, fallback);
+}
+
+function manualIntegerDigitCount(problem, position) {
+  if (!problem?.manualDecimal) return manualExpectedDigits(problem, position);
+  const key = position === "a" ? "manualIntegerDigitsA" : "manualIntegerDigitsB";
+  return clampNumber(problem?.[key], 0, 5, 0);
+}
+
+function manualFractionDigitCount(problem, position) {
+  if (!problem?.manualDecimal) return 0;
+  const key = position === "a" ? "manualFractionDigitsA" : "manualFractionDigitsB";
+  return clampNumber(problem?.[key], 1, 3, 1);
+}
+
+function manualDisplayDigitCount(problem, position) {
+  return problem?.manualDecimal
+    ? Math.max(1, manualIntegerDigitCount(problem, position)) + manualFractionDigitCount(problem, position)
+    : manualExpectedDigits(problem, position);
+}
+
+function manualPreservesLeadingZeros(problem) {
+  return problem?.manualDecimal === true;
 }
 
 function manualOperandValue(problem, position) {
@@ -475,16 +515,114 @@ function manualOperandValue(problem, position) {
   return value === null || value === undefined ? "" : String(value);
 }
 
-function sanitizeManualValue(value, maxDigits) {
+function sanitizeManualValue(value, maxDigits, preserveLeadingZeros = false) {
   const digits = String(value ?? "").replace(/\D/g, "").slice(0, maxDigits);
+  if (preserveLeadingZeros) return digits;
   if (digits && maxDigits === 1 && /^0+$/.test(digits)) return "0";
   return digits.replace(/^0+/, "").slice(0, maxDigits);
+}
+
+function manualOperandDisplayText(problem, position, blank = false) {
+  if (!problem?.manualDecimal) return manualOperandValue(problem, position);
+  const integerDigits = manualIntegerDigitCount(problem, position);
+  const fractionDigits = manualFractionDigitCount(problem, position);
+  const raw = sanitizeManualValue(
+    manualOperandValue(problem, position),
+    manualExpectedDigits(problem, position),
+    true,
+  );
+  const padded = blank || raw === ""
+    ? ""
+    : raw.padEnd(manualExpectedDigits(problem, position), " ");
+  const integerPart = integerDigits === 0
+    ? "0"
+    : (blank || raw === "" ? " ".repeat(integerDigits) : padded.slice(0, integerDigits));
+  const fractionPart = blank || raw === ""
+    ? " ".repeat(fractionDigits)
+    : padded.slice(integerDigits, integerDigits + fractionDigits);
+  return `${integerPart}.${fractionPart}`;
+}
+
+function manualRawFromValue(value, problem, position) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  return problem?.manualDecimal
+    ? digits.slice(-manualExpectedDigits(problem, position))
+    : sanitizeManualValue(digits, manualExpectedDigits(problem, position));
+}
+
+function manualDecimalScaledValue(problem, position) {
+  const fractionDigits = manualFractionDigitCount(problem, position);
+  const raw = manualRawFromValue(manualOperandValue(problem, position), problem, position);
+  const padded = raw.padStart(manualExpectedDigits(problem, position), "0");
+  return {
+    numerator: Number(padded || 0),
+    scale: 10 ** fractionDigits,
+    places: fractionDigits,
+  };
+}
+
+function manualOperandNumber(problem, position) {
+  if (problem?.manualDecimal) {
+    const value = manualDecimalScaledValue(problem, position);
+    return value.numerator / value.scale;
+  }
+  return Number(manualOperandValue(problem, position));
+}
+
+function getManualDecimalDivisionResult(problem) {
+  if (!problem?.manualDecimal || problem.op !== "÷") return null;
+  if (!isManualOperandComplete(problem, "a") || !isManualOperandComplete(problem, "b")) return null;
+
+  const dividend = manualDecimalScaledValue(problem, "a");
+  const divisor = manualDecimalScaledValue(problem, "b");
+  if (divisor.numerator === 0) return null;
+
+  const numerator = dividend.numerator * (10 ** divisor.places);
+  const denominator = divisor.numerator * (10 ** dividend.places);
+  for (let places = 0; places <= 3; places += 1) {
+    const scaledNumerator = numerator * (10 ** places);
+    if (scaledNumerator % denominator !== 0) continue;
+    let quotientRaw = scaledNumerator / denominator;
+    let answerPlaces = places;
+    while (answerPlaces > 0 && quotientRaw % 10 === 0) {
+      quotientRaw /= 10;
+      answerPlaces -= 1;
+    }
+    const traceExponent = divisor.places + answerPlaces - dividend.places;
+    const traceDividend = dividend.numerator * (10 ** Math.max(0, traceExponent));
+    const traceDivisor = divisor.numerator * (10 ** Math.max(0, -traceExponent));
+    const quotientText = formatDecimal(quotientRaw, answerPlaces);
+    const quotientRawText = String(quotientRaw).padStart(answerPlaces + 1, "0");
+    return {
+      answer: quotientText,
+      longDivision: {
+        divisor: traceDivisor,
+        dividend: traceDividend,
+        dividendRaw: String(traceDividend),
+        quotient: quotientRaw,
+        quotientRaw: quotientRawText,
+        divisorDigits: String(traceDivisor).length,
+        divisorDecimalAfterIndex: decimalAfterIndex(manualOperandDisplayText(problem, "b")),
+        displayDivisor: manualOperandDisplayText(problem, "b"),
+        displayDividend: manualOperandDisplayText(problem, "a"),
+        answerDisplayDividend: String(traceDividend),
+        dividendDecimalAfterIndex: decimalAfterIndex(manualOperandDisplayText(problem, "a")),
+        quotientDecimalAfterIndex: answerPlaces > 0 ? quotientRawText.length - answerPlaces - 1 : -1,
+      },
+    };
+  }
+  return null;
 }
 
 function isManualOperandComplete(problem, position) {
   const value = manualOperandValue(problem, position);
   const expectedDigits = manualExpectedDigits(problem, position);
-  return value.length === expectedDigits && (expectedDigits === 1 || !value.startsWith("0"));
+  if (value.length !== expectedDigits) return false;
+  if (problem?.manualDecimal) {
+    const integerDigits = manualIntegerDigitCount(problem, position);
+    return integerDigits === 0 || !value.startsWith("0");
+  }
+  return expectedDigits === 1 || !value.startsWith("0");
 }
 
 function manualProblemStatus(problem) {
@@ -500,13 +638,22 @@ function manualProblemStatus(problem) {
     return { state: "partial", complete: false, message: "上下の数を最後まで入力してください。" };
   }
 
-  const numberA = Number(valueA);
-  const numberB = Number(valueB);
+  const numberA = manualOperandNumber(problem, "a");
+  const numberB = manualOperandNumber(problem, "b");
   if (problem.op === "-" && numberA < numberB) {
     return { state: "invalid", complete: false, message: "ひき算は上の数を下の数以上にしてください。" };
   }
-  if (problem.op === "÷" && (numberB === 0 || numberA < numberB || numberA % numberB !== 0)) {
-    return { state: "invalid", complete: false, message: "わり算は、0で割らず、余りなしで割り切れる数にしてください。" };
+  if (problem.op === "÷") {
+    if (numberB === 0) {
+      return { state: "invalid", complete: false, message: "わる数は0以外にしてください。" };
+    }
+    if (problem.manualDecimal) {
+      if (!getManualDecimalDivisionResult(problem)) {
+        return { state: "invalid", complete: false, message: "小数のわり算は、有限小数になる組み合わせにしてください。" };
+      }
+    } else if (numberA < numberB || numberA % numberB !== 0) {
+      return { state: "invalid", complete: false, message: "わり算は、0で割らず、余りなしで割り切れる数にしてください。" };
+    }
   }
   return { state: "complete", complete: true, message: "" };
 }
@@ -529,14 +676,27 @@ function updateManualProblemAnswer(problem) {
   const status = manualProblemStatus(problem);
   if (!status.complete) {
     problem.answer = "";
+  } else if (problem.manualDecimal && (problem.op === "+" || problem.op === "-")) {
+    const a = manualDecimalScaledValue(problem, "a");
+    const b = manualDecimalScaledValue(problem, "b");
+    const places = Math.max(a.places, b.places);
+    const normalizedA = a.numerator * (10 ** (places - a.places));
+    const normalizedB = b.numerator * (10 ** (places - b.places));
+    problem.answer = formatDecimal(problem.op === "+" ? normalizedA + normalizedB : normalizedA - normalizedB, places);
+  } else if (problem.manualDecimal && problem.op === "×") {
+    const a = manualDecimalScaledValue(problem, "a");
+    const b = manualDecimalScaledValue(problem, "b");
+    problem.answer = formatDecimal(a.numerator * b.numerator, a.places + b.places);
+  } else if (problem.manualDecimal && problem.op === "÷") {
+    problem.answer = getManualDecimalDivisionResult(problem)?.answer || "";
   } else if (problem.op === "+") {
-    problem.answer = Number(problem.a) + Number(problem.b);
+    problem.answer = manualOperandNumber(problem, "a") + manualOperandNumber(problem, "b");
   } else if (problem.op === "-") {
-    problem.answer = Number(problem.a) - Number(problem.b);
+    problem.answer = manualOperandNumber(problem, "a") - manualOperandNumber(problem, "b");
   } else if (problem.op === "×") {
-    problem.answer = Number(problem.a) * Number(problem.b);
+    problem.answer = manualOperandNumber(problem, "a") * manualOperandNumber(problem, "b");
   } else if (problem.op === "÷") {
-    problem.answer = Number(problem.a) / Number(problem.b);
+    problem.answer = manualOperandNumber(problem, "a") / manualOperandNumber(problem, "b");
   }
   problem.manualErrorVisible = manualProblemNeedsAttention(problem);
   if (problem.op === "÷") problem.longDivision = makeManualLongDivisionDetails(problem);
@@ -551,14 +711,32 @@ function createManualProblem(settings, source = "blank") {
   const problem = {
     a: "",
     b: "",
-    op: { add: "+", sub: "-", multiply: "×", divide: "÷" }[settings.operation] || "+",
+    op: {
+      add: "+",
+      sub: "-",
+      multiply: "×",
+      divide: "÷",
+      decimalAdd: "+",
+      decimalSub: "-",
+      decimalMultiply: "×",
+      decimalDivideInteger: "÷",
+      integerDivideDecimal: "÷",
+      decimalDivideDecimal: "÷",
+    }[settings.operation] || "+",
     answer: "",
     manualEntry: true,
     manualSource: source,
     manualDigitsA: settings.digitsA,
     manualDigitsB: settings.digitsB,
+    manualDecimal: isDecimalOperation(settings.operation),
+    manualIntegerDigitsA: settings.digitsA,
+    manualIntegerDigitsB: settings.digitsB,
+    manualFractionDigitsA: settings.decimalPlacesA,
+    manualFractionDigitsB: settings.decimalPlacesB,
   };
-  if (settings.operation === "divide") problem.longDivision = makeManualLongDivisionDetails(problem);
+  if (supportsLongDivisionLayoutForOperation(settings.operation)) {
+    problem.longDivision = makeManualLongDivisionDetails(problem);
+  }
   return problem;
 }
 
@@ -567,6 +745,10 @@ function createManualProblems(settings, source = "blank") {
 }
 
 function makeManualLongDivisionDetails(problem) {
+  if (problem?.manualDecimal) {
+    const result = getManualDecimalDivisionResult(problem);
+    if (result) return result.longDivision;
+  }
   const displayDivisor = manualOperandValue(problem, "b");
   const displayDividend = manualOperandValue(problem, "a");
   const divisor = Number(displayDivisor) > 0 ? Number(displayDivisor) : 1;
@@ -578,10 +760,11 @@ function makeManualLongDivisionDetails(problem) {
     quotient,
     dividendRaw: String(dividend),
     quotientRaw: String(quotient),
-    divisorDigits: manualExpectedDigits(problem, "b"),
-    displayDivisor,
-    displayDividend,
-    dividendDecimalAfterIndex: -1,
+    divisorDigits: problem?.manualDecimal ? manualDisplayDigitCount(problem, "b") : manualExpectedDigits(problem, "b"),
+    displayDivisor: problem?.manualDecimal ? manualOperandDisplayText(problem, "b") : displayDivisor,
+    displayDividend: problem?.manualDecimal ? manualOperandDisplayText(problem, "a") : displayDividend,
+    divisorDecimalAfterIndex: problem?.manualDecimal ? decimalAfterIndex(manualOperandDisplayText(problem, "b")) : -1,
+    dividendDecimalAfterIndex: problem?.manualDecimal ? decimalAfterIndex(manualOperandDisplayText(problem, "a")) : -1,
     quotientDecimalAfterIndex: -1,
   };
 }
@@ -595,7 +778,16 @@ function makeEditableProblem(problem, settings, source = "auto") {
     manualSource: source,
     manualDigitsA: settings.digitsA,
     manualDigitsB: settings.digitsB,
+    manualDecimal: isDecimalOperation(settings.operation),
+    manualIntegerDigitsA: settings.digitsA,
+    manualIntegerDigitsB: settings.digitsB,
+    manualFractionDigitsA: settings.decimalPlacesA,
+    manualFractionDigitsB: settings.decimalPlacesB,
   };
+  if (editable.manualDecimal) {
+    editable.a = manualRawFromValue(problem.a, editable, "a");
+    editable.b = manualRawFromValue(problem.b, editable, "b");
+  }
   if (editable.op === "÷") editable.longDivision = makeManualLongDivisionDetails(editable);
   return editable;
 }
@@ -610,7 +802,8 @@ function hasEnteredManualProblems() {
 
 function isProblemSettingsChanged(previous, next) {
   if (!previous) return false;
-  return ["operation", "digitsA", "digitsB", "layout", "creationMode"].some((key) => previous[key] !== next[key]);
+  return ["operation", "digitsA", "digitsB", "decimalPlacesA", "decimalPlacesB", "layout", "creationMode"]
+    .some((key) => previous[key] !== next[key]);
 }
 
 function restoreSettingsControls(settings) {
@@ -1013,6 +1206,8 @@ function sheetSignature(settings) {
     operation: settings.operation,
     digitsA: settings.digitsA,
     digitsB: settings.digitsB,
+    decimalPlacesA: settings.decimalPlacesA,
+    decimalPlacesB: settings.decimalPlacesB,
     carryMode: settings.carryMode,
     layout: settings.layout,
     creationMode: settings.creationMode,
@@ -1139,23 +1334,47 @@ function formulaValueText(value, showDecimal) {
 }
 
 function makeHorizontalManualOperand(problem, operand, problemIndex, editable) {
-  const digits = manualExpectedDigits(problem, operand);
-  const value = manualOperandValue(problem, operand).padEnd(digits, " ").slice(0, digits);
+  const inputDigits = manualExpectedDigits(problem, operand);
+  const integerDigits = manualIntegerDigitCount(problem, operand);
+  const fractionDigits = manualFractionDigitCount(problem, operand);
+  const value = sanitizeManualValue(
+    manualOperandValue(problem, operand),
+    inputDigits,
+    manualPreservesLeadingZeros(problem),
+  ).padEnd(inputDigits, " ").slice(0, inputDigits);
   const wrapper = document.createElement("span");
   wrapper.className = "horizontal-manual-operand";
-  wrapper.style.setProperty("--manual-digit-count", String(digits));
-  value.split("").forEach((digit) => {
+  wrapper.style.setProperty("--manual-digit-count", String(manualDisplayDigitCount(problem, operand)));
+  wrapper.style.setProperty("--manual-integer-digit-count", String(Math.max(1, integerDigits)));
+  const appendCell = (digit, fixed = false) => {
     const cell = document.createElement("span");
-    cell.className = "horizontal-manual-cell";
+    cell.className = fixed ? "horizontal-manual-cell horizontal-manual-fixed-zero" : "horizontal-manual-cell";
     if (digit.trim()) cell.textContent = digit;
     wrapper.append(cell);
+  };
+  if (problem.manualDecimal && integerDigits === 0) appendCell("0", true);
+  value.split("").forEach((digit, index) => {
+    if (problem.manualDecimal && fractionDigits > 0 && index === integerDigits) {
+      const decimal = document.createElement("span");
+      decimal.className = "horizontal-manual-decimal";
+      decimal.textContent = ".";
+      wrapper.append(decimal);
+    }
+    appendCell(digit);
   });
+  if (problem.manualDecimal && fractionDigits > 0 && integerDigits === inputDigits) {
+    const decimal = document.createElement("span");
+    decimal.className = "horizontal-manual-decimal";
+    decimal.textContent = ".";
+    wrapper.append(decimal);
+  }
   if (editable) {
     wrapper.append(makeManualEntryInput({
       problemIndex,
       operand,
-      digits,
+      digits: inputDigits,
       value: manualOperandValue(problem, operand),
+      preserveLeadingZeros: manualPreservesLeadingZeros(problem),
     }));
   }
   return wrapper;
@@ -1188,9 +1407,15 @@ function makeHorizontalFormula(problem, showAnswer, settings = null, problemInde
   } else {
     const expression = document.createElement("span");
     expression.className = "formula-expression";
-    const valueA = manualProblem && showAnswer ? (manualOperandValue(problem, "a") || "□") : problem.a;
-    const valueB = manualProblem && showAnswer ? (manualOperandValue(problem, "b") || "□") : problem.b;
-    expression.textContent = `${formulaValueText(valueA, true)} ${problem.op} ${formulaValueText(valueB, true)} =`;
+    const valueA = manualProblem
+      ? (manualOperandDisplayText(problem, "a") || "□")
+      : problem.a;
+    const valueB = manualProblem
+      ? (manualOperandDisplayText(problem, "b") || "□")
+      : problem.b;
+    const displayValueA = manualProblem && !manualOperandValue(problem, "a") ? "□" : valueA;
+    const displayValueB = manualProblem && !manualOperandValue(problem, "b") ? "□" : valueB;
+    expression.textContent = `${formulaValueText(manualProblem && !manualOperandValue(problem, "a") ? "\u25a1" : valueA, true)} ${problem.op} ${formulaValueText(manualProblem && !manualOperandValue(problem, "b") ? "\u25a1" : valueB, true)} =`;
     formula.append(expression);
   }
   const answer = document.createElement("span");
@@ -1239,19 +1464,28 @@ function fractionDigitCount(value) {
 }
 
 function isDecimalAddSub(problem) {
-  return ["+", "-"].includes(problem.op) && (String(problem.a).includes(".") || String(problem.b).includes("."));
+  return ["+", "-"].includes(problem.op)
+    && (problem.manualDecimal === true || String(problem.a).includes(".") || String(problem.b).includes("."));
 }
 
 function getSimpleProblemLayout(problem, totalColumns) {
   if (isDecimalAddSub(problem)) {
-    const integerWidth = Math.max(integerDigitCount(problem.a), integerDigitCount(problem.b));
-    const fractionWidth = Math.max(fractionDigitCount(problem.a), fractionDigitCount(problem.b));
+    const integerWidth = problem.manualDecimal
+      ? Math.max(manualIntegerDigitCount(problem, "a"), manualIntegerDigitCount(problem, "b"), 1)
+      : Math.max(integerDigitCount(problem.a), integerDigitCount(problem.b));
+    const fractionWidth = problem.manualDecimal
+      ? Math.max(manualFractionDigitCount(problem, "a"), manualFractionDigitCount(problem, "b"))
+      : Math.max(fractionDigitCount(problem.a), fractionDigitCount(problem.b));
     const numericWidth = integerWidth + fractionWidth;
     const startIndex = Math.max(0, totalColumns - numericWidth);
     return {
       operatorColumn: Math.max(1, startIndex),
-      first: formatAlignedDecimalData(problem.a, totalColumns, integerWidth, fractionWidth),
-      second: formatAlignedDecimalData(problem.b, totalColumns, integerWidth, fractionWidth),
+      first: problem.manualDecimal
+        ? formatManualAlignedDecimalData(problem, "a", totalColumns, integerWidth, fractionWidth)
+        : formatAlignedDecimalData(problem.a, totalColumns, integerWidth, fractionWidth),
+      second: problem.manualDecimal
+        ? formatManualAlignedDecimalData(problem, "b", totalColumns, integerWidth, fractionWidth)
+        : formatAlignedDecimalData(problem.b, totalColumns, integerWidth, fractionWidth),
       answer: formatAlignedAnswerData(problem.answer, totalColumns, fractionWidth),
     };
   }
@@ -1275,12 +1509,16 @@ function getSimpleProblemLayout(problem, totalColumns) {
 function getSimpleBoardSize(pageProblems) {
   return pageProblems.reduce((size, problem) => {
     if (isDecimalAddSub(problem)) {
-      const integerWidth = Math.max(integerDigitCount(problem.a), integerDigitCount(problem.b));
-      const fractionWidth = Math.max(fractionDigitCount(problem.a), fractionDigitCount(problem.b));
+      const integerWidth = problem.manualDecimal
+        ? Math.max(manualIntegerDigitCount(problem, "a"), manualIntegerDigitCount(problem, "b"), 1)
+        : Math.max(integerDigitCount(problem.a), integerDigitCount(problem.b));
+      const fractionWidth = problem.manualDecimal
+        ? Math.max(manualFractionDigitCount(problem, "a"), manualFractionDigitCount(problem, "b"))
+        : Math.max(fractionDigitCount(problem.a), fractionDigitCount(problem.b));
       return Math.max(size, integerWidth + fractionWidth + 1);
     }
     if (isManualEntryProblem(problem)) {
-      const operandWidth = Math.max(manualExpectedDigits(problem, "a"), manualExpectedDigits(problem, "b"));
+      const operandWidth = Math.max(manualDisplayDigitCount(problem, "a"), manualDisplayDigitCount(problem, "b"));
       return Math.max(size, operandWidth + 1, workspaceDigitCount(problem.answer));
     }
     return Math.max(size, workspaceDigitCount(problem.a) + 1, workspaceDigitCount(problem.b) + 1, workspaceDigitCount(problem.answer));
@@ -1367,6 +1605,44 @@ function formatManualDigitData(value, totalColumns, operandWidth) {
   };
 }
 
+function formatManualOperandData(problem, operand, totalColumns) {
+  const integerDigits = manualIntegerDigitCount(problem, operand);
+  const fractionDigits = manualFractionDigitCount(problem, operand);
+  const inputDigits = manualExpectedDigits(problem, operand);
+  const raw = sanitizeManualValue(
+    manualOperandValue(problem, operand),
+    inputDigits,
+    manualPreservesLeadingZeros(problem),
+  ).padEnd(inputDigits, " ");
+  const integerPart = integerDigits === 0 ? "0" : raw.slice(0, integerDigits);
+  const fractionPart = fractionDigits > 0 ? raw.slice(integerDigits, integerDigits + fractionDigits) : "";
+  const numeric = `${integerPart}${fractionPart}`;
+  const padding = Math.max(0, totalColumns - numeric.length);
+  return {
+    digits: `${" ".repeat(padding)}${numeric}`.slice(-totalColumns).split(""),
+    decimalAfterIndex: fractionDigits > 0 ? padding + integerPart.length - 1 : -1,
+  };
+}
+
+function formatManualAlignedDecimalData(problem, operand, totalColumns, integerWidth, fractionWidth) {
+  const sourceIntegerDigits = manualIntegerDigitCount(problem, operand);
+  const sourceFractionDigits = manualFractionDigitCount(problem, operand);
+  const inputDigits = manualExpectedDigits(problem, operand);
+  const raw = sanitizeManualValue(
+    manualOperandValue(problem, operand),
+    inputDigits,
+    manualPreservesLeadingZeros(problem),
+  ).padEnd(inputDigits, " ");
+  const integerPart = sourceIntegerDigits === 0 ? "0" : raw.slice(0, sourceIntegerDigits);
+  const fractionPart = sourceFractionDigits > 0 ? raw.slice(sourceIntegerDigits, sourceIntegerDigits + sourceFractionDigits) : "";
+  const numeric = `${integerPart.padStart(integerWidth, " ")}${fractionPart.padEnd(fractionWidth, " ")}`;
+  const padding = Math.max(0, totalColumns - numeric.length);
+  return {
+    digits: `${" ".repeat(padding)}${numeric}`.slice(-totalColumns).split(""),
+    decimalAfterIndex: fractionWidth > 0 ? padding + integerWidth - 1 : -1,
+  };
+}
+
 function formatAlignedDecimalData(value, totalColumns, integerWidth, fractionWidth) {
   const [integerPart, fractionPart = ""] = String(value).split(".");
   const numeric = `${integerPart.padStart(integerWidth, " ").slice(-integerWidth)}${fractionPart.padEnd(fractionWidth, " ").slice(0, fractionWidth)}`;
@@ -1431,13 +1707,14 @@ function makeManualEntryInput(config) {
   input.inputMode = "numeric";
   input.autocomplete = "off";
   input.maxLength = config.digits;
-  input.value = sanitizeManualValue(config.value, config.digits);
+  input.value = sanitizeManualValue(config.value, config.digits, config.preserveLeadingZeros === true);
   input.setAttribute("aria-label", `${config.problemIndex + 1}番 ${config.operand === "a" ? "上の数" : "下の数"}`);
   input.title = "数字を入力";
   input.dataset.manualEntry = "true";
   input.dataset.problemIndex = String(config.problemIndex);
   input.dataset.operand = config.operand;
   input.dataset.digits = String(config.digits);
+  input.dataset.preserveLeadingZeros = config.preserveLeadingZeros === true ? "true" : "false";
   return input;
 }
 
@@ -1486,6 +1763,7 @@ function makeVerticalFormula(problem, showAnswer, settings, width, problemIndex 
       operand: "a",
       digits: manualExpectedDigits(problem, "a"),
       value: manualOperandValue(problem, "a"),
+      preserveLeadingZeros: manualPreservesLeadingZeros(problem),
     } : null,
   }));
   formula.append(makeDigitRow(layout.second, problem.op, settings.showCarryBoxes, false, {
@@ -1497,6 +1775,7 @@ function makeVerticalFormula(problem, showAnswer, settings, width, problemIndex 
       operand: "b",
       digits: manualExpectedDigits(problem, "b"),
       value: manualOperandValue(problem, "b"),
+      preserveLeadingZeros: manualPreservesLeadingZeros(problem),
     } : null,
   }));
   const line = document.createElement("span");
@@ -1512,7 +1791,10 @@ function makeVerticalFormula(problem, showAnswer, settings, width, problemIndex 
 }
 
 function multiplicationDigits(problem) {
-  return String(problem.b).replaceAll(".", "").split("").reverse().map((digit) => Number.parseInt(digit, 10));
+  const raw = isManualEntryProblem(problem)
+    ? manualOperandValue(problem, "b")
+    : String(problem.b).replaceAll(".", "").replace(/^0+(?=\d)/, "");
+  return raw.split("").filter((digit) => /\d/.test(digit)).reverse().map((digit) => Number.parseInt(digit, 10));
 }
 
 function multiplicationStepCount(problem) {
@@ -1522,7 +1804,8 @@ function multiplicationStepCount(problem) {
 }
 
 function multiplicationInteger(value) {
-  return Number.parseInt(String(value).replaceAll(".", ""), 10);
+  const raw = String(value).replaceAll(".", "").replace(/^0+(?=\d)/, "");
+  return Number.parseInt(raw || "0", 10);
 }
 
 function multiplicationCarryDigits(problem, multiplierDigit, totalColumns, shift = 0) {
@@ -1572,8 +1855,8 @@ function multiplicationFormulaRows(problem) {
 
 function multiplicationFormulaWidth(problem) {
   if (isManualEntryProblem(problem)) {
-    const expectedA = manualExpectedDigits(problem, "a");
-    const expectedB = manualExpectedDigits(problem, "b");
+    const expectedA = manualDisplayDigitCount(problem, "a");
+    const expectedB = manualDisplayDigitCount(problem, "b");
     const answerWidth = isCompleteManualProblem(problem) ? digitCount(problem.answer) : 0;
     return Math.max(2, expectedA, expectedB, expectedA + expectedB, answerWidth);
   }
@@ -1596,7 +1879,7 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
   const workspace = Number.isInteger(workspaceTotalColumns);
   const totalColumns = workspace ? workspaceTotalColumns : width;
   const operandWidth = manualProblem
-    ? Math.max(manualExpectedDigits(problem, "a"), manualExpectedDigits(problem, "b"))
+    ? Math.max(manualDisplayDigitCount(problem, "a"), manualDisplayDigitCount(problem, "b"))
     : Math.max(workspaceDigitCount(problem.a), workspaceDigitCount(problem.b));
   const operatorColumn = Math.max(1, totalColumns - operandWidth);
   const makeRow = (data, operator = "", blank = false, result = false, showDecimal = false, helperDigits = null) => workspace
@@ -1607,8 +1890,10 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
       showDecimal,
       helperDigits,
     });
-  const formatOperand = (value, operand) => manualProblem
-    ? formatManualDigitData(value, totalColumns, manualExpectedDigits(problem, operand))
+  const formatOperand = (value, operand) => manualProblem && problem.manualDecimal
+    ? formatManualOperandData(problem, operand, totalColumns)
+    : manualProblem
+      ? formatManualDigitData(value, totalColumns, manualExpectedDigits(problem, operand))
     : formatDigitData(value, totalColumns);
   const editable = !showAnswer && !workspace && isManualInputActive(settings) && manualProblem && Number.isInteger(problemIndex);
   formula.style.setProperty("--digit-count", String(totalColumns));
@@ -1622,6 +1907,7 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
       operand: "a",
       digits: manualExpectedDigits(problem, "a"),
       value: manualOperandValue(problem, "a"),
+      preserveLeadingZeros: manualPreservesLeadingZeros(problem),
     }));
     rows[0]?.classList.add("manual-entry-row");
     rows[1]?.append(makeManualEntryInput({
@@ -1629,6 +1915,7 @@ function makeMultiplicationVerticalFormula(problem, showAnswer, settings, width,
       operand: "b",
       digits: manualExpectedDigits(problem, "b"),
       value: manualOperandValue(problem, "b"),
+      preserveLeadingZeros: manualPreservesLeadingZeros(problem),
     }));
     rows[1]?.classList.add("manual-entry-row");
   }
@@ -1809,6 +2096,7 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
         digits: manualExpectedDigits(problem, "b"),
         value: manualOperandValue(problem, "b"),
         startColumn: 1,
+        preserveLeadingZeros: manualPreservesLeadingZeros(problem),
       });
       addDivisionManualEntryInput(board, {
         problemIndex,
@@ -1816,6 +2104,7 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
         digits: manualExpectedDigits(problem, "a"),
         value: manualOperandValue(problem, "a"),
         startColumn: details.divisorDigits + 1,
+        preserveLeadingZeros: manualPreservesLeadingZeros(problem),
       });
     }
   } else if (showProblemDecimal) {
@@ -1864,10 +2153,10 @@ function getLongDivisionBoardSize(pageProblems) {
   return pageProblems.reduce((size, problem) => {
     const trace = buildLongDivisionTrace(problem.longDivision);
     const divisorDigits = isManualEntryProblem(problem)
-      ? manualExpectedDigits(problem, "b")
+      ? Math.max(manualDisplayDigitCount(problem, "b"), problem.longDivision.divisorDigits || 0)
       : problem.longDivision.divisorDigits;
     const dividendDigits = isManualEntryProblem(problem)
-      ? manualExpectedDigits(problem, "a")
+      ? Math.max(manualDisplayDigitCount(problem, "a"), divisionValueDigitLength(problem.longDivision.answerDisplayDividend ?? problem.longDivision.dividend))
       : Math.max(
         divisionValueDigitLength(problem.longDivision.dividendRaw ?? problem.longDivision.dividend),
         divisionValueDigitLength(problem.longDivision.displayDividend ?? problem.longDivision.dividend),
@@ -1899,8 +2188,8 @@ function getMultiplicationBoardSize(pageProblems) {
 function getMultiplicationWorkspaceSize(pageProblems) {
   const boardSize = getMultiplicationBoardSize(pageProblems);
   const operandDigits = Math.max(1, ...pageProblems.map((problem) => Math.max(
-    digitCount(problem.a),
-    digitCount(problem.b),
+    isManualEntryProblem(problem) ? manualDisplayDigitCount(problem, "a") : digitCount(problem.a),
+    isManualEntryProblem(problem) ? manualDisplayDigitCount(problem, "b") : digitCount(problem.b),
   )));
   return {
     rows: boardSize.rows,
@@ -2178,7 +2467,11 @@ function updateManualEntry(input, value) {
   if (!problem || !["a", "b"].includes(operand)) return;
 
   const digits = manualExpectedDigits(problem, operand, Number(input.dataset.digits));
-  const sanitized = sanitizeManualValue(value, digits);
+  const sanitized = sanitizeManualValue(
+    value,
+    digits,
+    problem.manualDecimal || input.dataset.preserveLeadingZeros === "true",
+  );
   problem[operand] = sanitized;
   problem.manualSource = manualOperandValue(problem, "a") === "" && manualOperandValue(problem, "b") === ""
     ? "blank"

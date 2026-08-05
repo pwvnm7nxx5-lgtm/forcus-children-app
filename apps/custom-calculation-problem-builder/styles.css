@@ -388,8 +388,8 @@ button:hover {
 
 .horizontal-manual-operand {
   position: relative;
-  display: grid;
-  grid-template-columns: repeat(var(--manual-digit-count), minmax(0, 1em));
+  display: inline-flex;
+  align-items: baseline;
   flex: 0 0 auto;
   min-width: 0;
 }
@@ -405,13 +405,25 @@ button:hover {
   line-height: 1;
 }
 
+.horizontal-manual-decimal {
+  display: inline-block;
+  width: 0.34em;
+  color: #425466;
+  text-align: center;
+  line-height: 1;
+}
+
+.horizontal-manual-fixed-zero {
+  color: #425466;
+}
+
 .calculation-workspace .horizontal-manual-formula {
   gap: 0.22em;
   font-size: min(var(--problem-font), 24px);
 }
 
 .calculation-workspace .horizontal-manual-operand {
-  grid-template-columns: repeat(var(--manual-digit-count), minmax(0, 1em));
+  align-items: center;
 }
 
 .calculation-workspace .horizontal-manual-cell {
@@ -654,6 +666,11 @@ button:hover {
 @media print {
   .manual-entry-input {
     display: none;
+  }
+
+  .horizontal-manual-cell {
+    border-color: transparent;
+    background: transparent;
   }
 
   .manual-entry-row:focus-within .digit-cell {
