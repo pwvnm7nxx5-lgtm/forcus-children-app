@@ -11,6 +11,10 @@ const els = {
   operation: document.querySelector("#operation"),
   digitsA: document.querySelector("#digitsA"),
   digitsB: document.querySelector("#digitsB"),
+  operandALabel: document.querySelector("#operandALabel"),
+  operandBLabel: document.querySelector("#operandBLabel"),
+  operandAFields: document.querySelector("#operandAFields"),
+  operandBFields: document.querySelector("#operandBFields"),
   digitsALabel: document.querySelector("#digitsALabel"),
   digitsBLabel: document.querySelector("#digitsBLabel"),
   decimalPlacesALabel: document.querySelector("#decimalPlacesALabel"),
@@ -371,6 +375,12 @@ function syncSettingsControls() {
     els.decimalPlacesALabel.textContent = "1つ目の小数";
     els.decimalPlacesBLabel.textContent = "2つ目の小数";
   }
+  els.operandALabel.textContent = decimalDivision || division ? "わられる数" : "1つ目の数";
+  els.operandBLabel.textContent = decimalDivision || division ? "わる数" : "2つ目の数";
+  els.digitsALabel.textContent = isDecimalOperation(operation) ? "整数部分の桁数" : "桁数";
+  els.digitsBLabel.textContent = isDecimalOperation(operation) ? "整数部分の桁数" : "桁数";
+  els.decimalPlacesALabel.textContent = "小数部分の桁数";
+  els.decimalPlacesBLabel.textContent = "小数部分の桁数";
   Array.from(els.digitsA.options).forEach((option) => { option.disabled = false; });
   Array.from(els.digitsB.options).forEach((option) => {
     if (operation === "decimalSub") {
@@ -408,6 +418,8 @@ function syncSettingsControls() {
   });
   els.decimalPlacesA.closest(".field").hidden = !decimalAVisible;
   els.decimalPlacesB.closest(".field").hidden = !decimalBVisible;
+  els.operandAFields.classList.toggle("has-decimal", decimalAVisible);
+  els.operandBFields.classList.toggle("has-decimal", decimalBVisible);
   const workspaceDecimalControls = decimalOperation && getActiveLayout() === "horizontal-workspace";
   const answerDecimalControls = decimalOperation && ["vertical", "horizontal-workspace"].includes(getActiveLayout());
   els.showWorkspaceDecimalPoint.closest("label").hidden = !workspaceDecimalControls;

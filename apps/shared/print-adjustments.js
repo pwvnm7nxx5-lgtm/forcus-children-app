@@ -242,7 +242,7 @@
       } else if (checkRow) {
         checkRow.prepend(row);
       } else {
-        document.querySelector(".settings-grid")?.append(row);
+        printSettingsContainer()?.append(row);
       }
       input = document.querySelector("#printAutoFit");
     }
@@ -275,12 +275,12 @@
   function upsertOrientationControl(settings) {
     let select = document.querySelector("#printOrientation");
     if (!select) {
-      const target = fieldFor("printProblemScale") || document.querySelector(".settings-grid")?.lastElementChild;
+      const target = fieldFor("printProblemScale") || printSettingsContainer()?.lastElementChild;
       const control = createOrientationControl(settings);
       if (target) {
         target.before(control);
       } else {
-        document.querySelector(".settings-grid")?.append(control);
+        printSettingsContainer()?.append(control);
       }
       select = document.querySelector("#printOrientation");
     }
@@ -314,12 +314,12 @@
   function upsertPunchGuideControl(settings) {
     let select = document.querySelector("#printPunchGuide");
     if (!select) {
-      const target = fieldFor("printProblemScale") || document.querySelector(".settings-grid")?.lastElementChild;
+      const target = fieldFor("printProblemScale") || printSettingsContainer()?.lastElementChild;
       const control = createPunchGuideControl(settings);
       if (target) {
         target.before(control);
       } else {
-        document.querySelector(".settings-grid")?.append(control);
+        printSettingsContainer()?.append(control);
       }
       select = document.querySelector("#printPunchGuide");
     }
@@ -330,6 +330,10 @@
   function fieldFor(id) {
     const input = document.querySelector(`#${id}`);
     return input?.closest(".field") || input?.parentElement || null;
+  }
+
+  function printSettingsContainer() {
+    return document.querySelector("#printSettingsFields") || document.querySelector(".settings-grid");
   }
 
   function createRangeNumberControl({ id, label, min, max, step, value, unit }) {
@@ -371,7 +375,7 @@
     if (existingField) {
       existingField.replaceWith(replacement);
     } else {
-      document.querySelector(".settings-grid")?.append(replacement);
+      printSettingsContainer()?.append(replacement);
     }
   }
 
@@ -400,7 +404,7 @@
     if (typeof window.__printAdjustmentsGenerateSheets !== "function") return null;
     let input = document.querySelector("#printSheetCount");
     if (!input) {
-      document.querySelector(".settings-grid")?.append(createSheetCountControl(settings.sheetCount));
+      printSettingsContainer()?.append(createSheetCountControl(settings.sheetCount));
       input = document.querySelector("#printSheetCount");
     }
     if (input) input.value = String(settings.sheetCount);
