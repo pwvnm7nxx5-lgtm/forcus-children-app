@@ -557,8 +557,24 @@ button:hover {
 
 .calculation-workspace {
   display: grid;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   justify-self: start;
   gap: 2.5mm;
+}
+
+.calculation-workspace > .formula {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  justify-content: flex-start;
+}
+
+.calculation-workspace-layout:not(.answer-page) .calculation-workspace > .formula .answer-value,
+.calculation-workspace-layout:not(.answer-page) .calculation-workspace > .formula .blank {
+  margin-left: auto;
 }
 
 .vertical-formula.calculation-workspace-board {

@@ -507,7 +507,12 @@
         grid.classList.remove("problem-block-grid");
         grid.style.removeProperty("--problem-block-height");
 
-        const tallest = Math.max(...problems.map((problem) => problem.getBoundingClientRect().height));
+        // offsetHeight/scrollHeight stay in the page's logical coordinate space.
+        // getBoundingClientRect() includes the mobile preview transform and made
+        // the synchronized row height too short when the A4 page was scaled.
+        const tallest = Math.max(...problems.map((problem) => (
+          Math.max(problem.offsetHeight, problem.scrollHeight)
+        )));
         if (!Number.isFinite(tallest) || tallest <= 0) return;
 
         grid.style.setProperty("--problem-block-height", `${Math.ceil(tallest)}px`);
@@ -688,6 +693,9 @@
       if (options.previewZoom !== false) applyPreviewZoom();
     } finally {
       applying = false;
+    }
+    if (options.notify !== false) {
+      window.dispatchEvent(new CustomEvent("print-adjustments:applied"));
     }
   }
 
