@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="app-release" content="20260805-1">
+  <meta name="app-release" content="20260805-3">
   <title>計算問題作成</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="styles.css?v=20260805-1">
+  <link rel="stylesheet" href="styles.css?v=20260805-3">
 </head>
 <body>
   <div class="app-shell">
@@ -28,6 +28,7 @@
         <label class="field"><span id="digitsBLabel">2つ目の整数部分</span><select id="digitsB"><option value="1">1桁</option><option value="2">2桁</option><option value="3" selected>3桁</option><option value="4">4桁</option><option value="5">5桁</option></select></label>
         <label class="field decimal-setting" hidden><span id="decimalPlacesBLabel">2つ目の小数</span><select id="decimalPlacesB"><option value="1" selected>小数第1位まで</option><option value="2">小数第2位まで</option><option value="3">小数第3位まで</option></select></label>
         <label class="field"><span>表示</span><select id="layoutMode"><option value="horizontal" selected>横式</option><option value="horizontal-workspace">横式＋計算スペース</option><option value="vertical">筆算</option></select></label>
+        <label id="creationModeField" class="field" hidden><span>問題の作り方</span><select id="creationMode"><option value="auto">自動生成</option><option value="manual">自分で入力</option><option value="hybrid">自分で入力＋自動生成</option></select></label>
         <label class="field"><span>問題数</span><input id="problemCount" type="number" min="1" max="60" step="1" value="30" inputmode="numeric"></label>
         <label class="field"><span>列数</span><input id="columns" type="number" min="1" max="6" step="1" value="3" inputmode="numeric"></label>
       </div>
@@ -38,8 +39,10 @@
         <label class="workspace-setting" hidden><input id="showWorkspaceOperator" type="checkbox" checked> 計算スペースに記号を表示する</label>
         <label><input id="includeAnswers" type="checkbox" checked> 答えページをつける</label>
       </div>
+      <p id="manualInputHint" class="manual-input-hint" hidden>筆算のマスをクリックして、数字を入力できます。</p>
       <div class="actions">
-        <button id="printBtn" type="button">印刷 / PDF保存</button>
+        <button id="fillRemainingBtn" type="button" hidden>残りを自動生成</button>
+        <button id="printBtn" class="primary-action" type="button">印刷 / PDF保存</button>
         <button id="regenerateBtn" type="button">作り直す</button>
         <button id="copyLinkBtn" type="button">共有URLをコピー</button>
       </div>
@@ -59,7 +62,7 @@
     </section>
   </template>
   <script src="release-check.js"></script>
-  <script src="app.js?v=20260805-1"></script>
+  <script src="app.js?v=20260805-3"></script>
   <script src="../shared/print-adjustments.js?v=20260803-1"></script>
 </body>
 </html>
