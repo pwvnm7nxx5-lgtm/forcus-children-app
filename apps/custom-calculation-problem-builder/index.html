@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="app-release" content="20260805-13">
+  <meta name="app-release" content="20260819-1">
   <title>計算問題作成</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="styles.css?v=20260805-13">
+  <link rel="stylesheet" href="styles.css?v=20260819-1">
 </head>
 <body>
   <div class="app-shell">
@@ -29,6 +29,7 @@
           </div>
           <div class="settings-row">
             <label class="field"><span>繰り上がり・繰り下がり</span><select id="carryMode"><option value="any">指定なし</option><option value="with">あり</option><option value="without">なし</option></select></label>
+            <label id="resultRangeField" class="field" hidden><span>答えの範囲</span><select id="resultRange"><option value="any">指定なし</option><option value="ten">10まで</option></select></label>
           </div>
         </section>
         <section class="settings-section settings-section-numbers" aria-labelledby="numberSettingsHeading">
@@ -119,8 +120,8 @@
   </dialog>
   <script>window.__calculationProblemBuilderStorageNamespace = "integrated";</script>
   <script src="release-check.js"></script>
-  <script src="app.js?v=20260805-13"></script>
-  <script src="../shared/print-adjustments.js?v=20260805-13"></script>
-  <script src="saved-worksheets.js?v=20260805-13"></script>
+  <script src="app.js?v=result-range-ten-v1"></script>
+  <script src="../shared/print-adjustments.js?v=20260819-1"></script>
+  <script src="saved-worksheets.js?v=20260819-1"></script>
 </body>
 </html>

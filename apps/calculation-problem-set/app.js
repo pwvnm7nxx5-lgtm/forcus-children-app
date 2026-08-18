@@ -11,6 +11,8 @@ const els = {
   grade: document.querySelector("#grade"),
   operation: document.querySelector("#operation"),
   digits: document.querySelector("#digits"),
+  resultRangeField: document.querySelector("#resultRangeField"),
+  resultRange: document.querySelector("#resultRange"),
   carryMode: document.querySelector("#carryMode"),
   layoutMode: document.querySelector("#layoutMode"),
   problemCount: document.querySelector("#problemCount"),
@@ -149,6 +151,16 @@ function getDigits() {
   return clampChoice(els.digits.value, options, options[0]);
 }
 
+function supportsResultRange() {
+  return getGrade() === "1" && getDigits() === "one-one";
+}
+
+function getResultRange() {
+  return supportsResultRange()
+    ? clampChoice(els.resultRange.value, ["any", "ten"], "any")
+    : "any";
+}
+
 function supportsSimpleVerticalLayout() {
   return (Number(getGrade()) <= 4 && ["add", "sub", "mix"].includes(getOperation()))
     || (["3", "4"].includes(getGrade()) && ["decimalAdd", "decimalSub", "decimalMix", "decimalAddSubMix"].includes(getOperation()));
@@ -227,6 +239,7 @@ function getSettings() {
     grade: getGrade(),
     operation: getOperation(),
     digits: getDigits(),
+    resultRange: getResultRange(),
     carryMode: clampChoice(els.carryMode.value, ["any", "with", "without"], "any"),
     layout: getActiveLayout(),
     difficulty: "standard",
@@ -261,6 +274,9 @@ function syncSettingsControls() {
   const workspaceSupported = supportsCalculationWorkspace();
   const layoutSupported = simpleVertical || multiplicationVertical || supportsLongDivisionLayout() || workspaceSupported;
   const decimalOperation = getOperation().startsWith("decimal") || getOperation() === "integerDivideDecimal";
+  const resultRangeAvailable = supportsResultRange();
+  els.resultRangeField.hidden = !resultRangeAvailable;
+  if (!resultRangeAvailable) els.resultRange.value = "any";
   const carryModeSupported = (Number(getGrade()) <= 4 && ["add", "sub", "mix", "decimalAdd", "decimalSub", "decimalMix", "decimalAddSubMix"].includes(getOperation())) && !(
     getGrade() === "1" && getDigits() === "one-one" && getOperation() !== "add"
   );
@@ -300,6 +316,7 @@ function applySettings(settings) {
   els.operation.value = clampChoice(settings.operation, allowedOperations(), allowedOperations()[0]);
   syncSettingsControls();
   els.digits.value = clampChoice(settings.digits, digitOptions().map(([value]) => value), digitOptions()[0][0]);
+  els.resultRange.value = clampChoice(settings.resultRange, ["any", "ten"], "any");
   els.carryMode.value = clampChoice(settings.carryMode, ["any", "with", "without"], "any");
   els.layoutMode.value = clampChoice(settings.layout, ["horizontal", "horizontal-workspace", "vertical"], "horizontal");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, getProblemCountMax(), 30));
@@ -370,6 +387,10 @@ function matchesCarryMode(problem, settings) {
   return settings.carryMode === "with" ? carries : !carries;
 }
 
+function matchesResultRange(problem, settings) {
+  return settings.resultRange !== "ten" || Number(problem.answer) <= 10;
+}
+
 function buildRandomPool(settings, makeProblem) {
   const target = Math.max(240, settings.count * 8);
   const candidates = [];
@@ -393,7 +414,7 @@ function makeAddCandidates(settings) {
     const b = randomInt(bBounds.min, bBounds.max);
     const problem = { a, b, op: "+", answer: a + b };
     if (settings.grade === "1" && problem.answer > 20) return null;
-    return matchesCarryMode(problem, settings) ? problem : null;
+    return matchesCarryMode(problem, settings) && matchesResultRange(problem, settings) ? problem : null;
   });
 }
 
@@ -404,7 +425,7 @@ function makeSubCandidates(settings) {
     const a = randomInt(aBounds.min, aBounds.max);
     const b = randomInt(bBounds.min, Math.min(bBounds.max, a));
     const problem = { a, b, op: "-", answer: a - b };
-    return matchesCarryMode(problem, settings) ? problem : null;
+    return matchesCarryMode(problem, settings) && matchesResultRange(problem, settings) ? problem : null;
   });
 }
 
@@ -414,7 +435,8 @@ function makeMultiplyCandidates(settings) {
     return buildRandomPool(settings, () => {
       const a = randomInt(1, max);
       const b = randomInt(1, max);
-      return { a, b, op: "×", answer: a * b };
+      const problem = { a, b, op: "×", answer: a * b };
+      return matchesResultRange(problem, settings) ? problem : null;
     });
   }
   const aBounds = numberBounds(settings, "a");
@@ -422,7 +444,8 @@ function makeMultiplyCandidates(settings) {
   return buildRandomPool(settings, () => {
     const a = randomInt(aBounds.min, aBounds.max);
     const b = randomInt(bBounds.min, bBounds.max);
-    return { a, b, op: "×", answer: a * b };
+    const problem = { a, b, op: "×", answer: a * b };
+    return matchesResultRange(problem, settings) ? problem : null;
   });
 }
 
@@ -437,6 +460,7 @@ function makeDivideCandidates(settings) {
     const dividend = divisor * quotient;
     if (dividend < dividendBounds.min) return null;
     const problem = { a: dividend, b: divisor, op: "÷", answer: quotient };
+    if (!matchesResultRange(problem, settings)) return null;
     if (["vertical", "horizontal-workspace"].includes(settings.layout)) {
       problem.longDivision = {
         divisor,
@@ -677,6 +701,7 @@ function sheetSignature(settings) {
     grade: settings.grade,
     operation: settings.operation,
     digits: settings.digits,
+    resultRange: settings.resultRange,
     carryMode: settings.carryMode,
     layout: settings.layout,
     difficulty: settings.difficulty,
@@ -1487,7 +1512,7 @@ function bindEvents() {
   els.layoutMode.addEventListener("change", () => {
     if (isLongDivisionLayout() && Number(els.columns.value) === 2) els.columns.value = "3";
   });
-  [els.grade, els.operation, els.digits, els.carryMode, els.layoutMode].forEach((control) => {
+  [els.grade, els.operation, els.digits, els.resultRange, els.carryMode, els.layoutMode].forEach((control) => {
     control.addEventListener("change", generateProblems);
   });
   els.showCarryBoxes.addEventListener("change", render);

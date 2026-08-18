@@ -21,6 +21,8 @@ const els = {
   decimalPlacesBLabel: document.querySelector("#decimalPlacesBLabel"),
   decimalPlacesA: document.querySelector("#decimalPlacesA"),
   decimalPlacesB: document.querySelector("#decimalPlacesB"),
+  resultRangeField: document.querySelector("#resultRangeField"),
+  resultRange: document.querySelector("#resultRange"),
   carryMode: document.querySelector("#carryMode"),
   layoutMode: document.querySelector("#layoutMode"),
   creationModeField: document.querySelector("#creationModeField"),
@@ -178,6 +180,19 @@ function getDecimalPlaces(position) {
   return clampNumber(control.value, 1, 3, 1);
 }
 
+function supportsResultRange() {
+  return !isDecimalOperation()
+    && ["add", "sub", "multiply", "divide"].includes(getOperation())
+    && getOperandDigits("a") === 1
+    && getOperandDigits("b") === 1;
+}
+
+function getResultRange() {
+  return supportsResultRange()
+    ? clampChoice(els.resultRange.value, ["any", "ten"], "any")
+    : "any";
+}
+
 function decimalDigitOptions() {
   return [
     ["under-one", "0（1未満）"],
@@ -319,6 +334,7 @@ function getSettings() {
     decimalDigitB: els.digitsB.value,
     decimalPlacesA: getDecimalPlaces("a"),
     decimalPlacesB: getDecimalPlaces("b"),
+    resultRange: getResultRange(),
     carryMode: clampChoice(els.carryMode.value, ["any", "with", "without"], "any"),
     layout: getActiveLayout(),
     creationMode: getCreationMode(),
@@ -420,6 +436,9 @@ function syncSettingsControls() {
   els.decimalPlacesB.closest(".field").hidden = !decimalBVisible;
   els.operandAFields.classList.toggle("has-decimal", decimalAVisible);
   els.operandBFields.classList.toggle("has-decimal", decimalBVisible);
+  const resultRangeAvailable = supportsResultRange();
+  els.resultRangeField.hidden = !resultRangeAvailable;
+  if (!resultRangeAvailable) els.resultRange.value = "any";
   const workspaceDecimalControls = decimalOperation && getActiveLayout() === "horizontal-workspace";
   const answerDecimalControls = decimalOperation && ["vertical", "horizontal-workspace"].includes(getActiveLayout());
   els.showWorkspaceDecimalPoint.closest("label").hidden = !workspaceDecimalControls;
@@ -471,6 +490,7 @@ function applySettings(settings) {
   els.digitsB.value = settings.decimalDigitB || (settings.digitsB === 0 ? "under-one" : String(clampNumber(settings.digitsB, 1, 5, 3)));
   els.decimalPlacesA.value = String(clampNumber(settings.decimalPlacesA, 1, 3, 1));
   els.decimalPlacesB.value = String(clampNumber(settings.decimalPlacesB, 1, 3, 1));
+  els.resultRange.value = clampChoice(settings.resultRange, ["any", "ten"], "any");
   els.carryMode.value = clampChoice(settings.carryMode, ["any", "with", "without"], "any");
   els.layoutMode.value = clampChoice(settings.layout, ["horizontal", "horizontal-workspace", "vertical"], "horizontal");
   els.creationMode.value = clampChoice(settings.creationMode, manualCreationModes, "auto");
@@ -667,6 +687,18 @@ function manualProblemStatus(problem) {
       return { state: "invalid", complete: false, message: "わり算は、0で割らず、余りなしで割り切れる数にしてください。" };
     }
   }
+  if (!problem.manualDecimal && (problem.resultRange ?? getResultRange()) === "ten") {
+    const answer = problem.op === "+"
+      ? numberA + numberB
+      : problem.op === "-"
+        ? numberA - numberB
+        : problem.op === "×"
+          ? numberA * numberB
+          : numberA / numberB;
+    if (answer > 10) {
+      return { state: "invalid", complete: false, message: "答えが10以下になるようにしてください。" };
+    }
+  }
   return { state: "complete", complete: true, message: "" };
 }
 
@@ -740,6 +772,7 @@ function createManualProblem(settings, source = "blank") {
     manualSource: source,
     manualDigitsA: settings.digitsA,
     manualDigitsB: settings.digitsB,
+    resultRange: settings.resultRange,
     manualDecimal: isDecimalOperation(settings.operation),
     manualIntegerDigitsA: settings.digitsA,
     manualIntegerDigitsB: settings.digitsB,
@@ -790,6 +823,7 @@ function makeEditableProblem(problem, settings, source = "auto") {
     manualSource: source,
     manualDigitsA: settings.digitsA,
     manualDigitsB: settings.digitsB,
+    resultRange: settings.resultRange,
     manualDecimal: isDecimalOperation(settings.operation),
     manualIntegerDigitsA: settings.digitsA,
     manualIntegerDigitsB: settings.digitsB,
@@ -814,7 +848,7 @@ function hasEnteredManualProblems() {
 
 function isProblemSettingsChanged(previous, next) {
   if (!previous) return false;
-  return ["operation", "digitsA", "digitsB", "decimalPlacesA", "decimalPlacesB", "layout", "creationMode"]
+  return ["operation", "digitsA", "digitsB", "decimalPlacesA", "decimalPlacesB", "resultRange", "layout", "creationMode"]
     .some((key) => previous[key] !== next[key]);
 }
 
@@ -864,6 +898,10 @@ function matchesCarryMode(problem, settings) {
   return settings.carryMode === "with" ? carries : !carries;
 }
 
+function matchesResultRange(problem, settings) {
+  return settings.resultRange !== "ten" || Number(problem.answer) <= 10;
+}
+
 function buildRandomPool(settings, makeProblem) {
   const target = Math.max(240, settings.count * 8);
   const candidates = [];
@@ -886,7 +924,7 @@ function makeAddCandidates(settings) {
     const a = randomInt(aBounds.min, aBounds.max);
     const b = randomInt(bBounds.min, bBounds.max);
     const problem = { a, b, op: "+", answer: a + b };
-    return matchesCarryMode(problem, settings) ? problem : null;
+    return matchesCarryMode(problem, settings) && matchesResultRange(problem, settings) ? problem : null;
   });
 }
 
@@ -897,7 +935,7 @@ function makeSubCandidates(settings) {
     const a = randomInt(aBounds.min, aBounds.max);
     const b = randomInt(bBounds.min, Math.min(bBounds.max, a));
     const problem = { a, b, op: "-", answer: a - b };
-    return matchesCarryMode(problem, settings) ? problem : null;
+    return matchesCarryMode(problem, settings) && matchesResultRange(problem, settings) ? problem : null;
   });
 }
 
@@ -907,7 +945,8 @@ function makeMultiplyCandidates(settings) {
   return buildRandomPool(settings, () => {
     const a = randomInt(aBounds.min, aBounds.max);
     const b = randomInt(bBounds.min, bBounds.max);
-    return { a, b, op: "×", answer: a * b };
+    const problem = { a, b, op: "×", answer: a * b };
+    return matchesResultRange(problem, settings) ? problem : null;
   });
 }
 
@@ -923,6 +962,7 @@ function makeDivideCandidates(settings) {
     const dividend = divisor * quotient;
     if (dividend < dividendBounds.min || dividend > dividendBounds.max) return null;
     const problem = { a: dividend, b: divisor, op: "÷", answer: quotient };
+    if (!matchesResultRange(problem, settings)) return null;
     if (usesVerticalProblemData(settings)) {
       problem.longDivision = {
         divisor,
@@ -1348,6 +1388,7 @@ function sheetSignature(settings) {
     digitsB: settings.digitsB,
     decimalPlacesA: settings.decimalPlacesA,
     decimalPlacesB: settings.decimalPlacesB,
+    resultRange: settings.resultRange,
     carryMode: settings.carryMode,
     layout: settings.layout,
     creationMode: settings.creationMode,
@@ -2826,7 +2867,7 @@ function bindEvents() {
       render();
     });
   });
-  [els.operation, els.digitsA, els.digitsB, els.decimalPlacesA, els.decimalPlacesB, els.carryMode, els.layoutMode].forEach((control) => {
+  [els.operation, els.digitsA, els.digitsB, els.decimalPlacesA, els.decimalPlacesB, els.resultRange, els.carryMode, els.layoutMode].forEach((control) => {
     control.addEventListener("change", handleProblemSettingsChange);
   });
   els.creationMode.addEventListener("change", handleCreationModeChange);
