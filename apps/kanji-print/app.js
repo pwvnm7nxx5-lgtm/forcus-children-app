@@ -22,6 +22,7 @@ const els = {
   letterSpacing: document.querySelector("#letterSpacing"),
   opacity: document.querySelector("#opacity"),
   stripSpaces: document.querySelector("#stripSpaces"),
+  spaceAsBlank: document.querySelector("#spaceAsBlank"),
   lineBreakColumn: document.querySelector("#lineBreakColumn"),
   fillExtraKanji: document.querySelector("#fillExtraKanji"),
   extraBlankCount: document.querySelector("#extraBlankCount"),
@@ -161,7 +162,7 @@ function normalizeText(text, cols, rows) {
   const columnBreak = "\uE000";
   let source = text.replace(/\r\n?/g, "\n");
 
-  if (els.stripSpaces.checked) {
+  if (!els.spaceAsBlank.checked && els.stripSpaces.checked) {
     source = source.replace(/[ \t　]/g, "");
   }
 
@@ -227,7 +228,8 @@ function normalizeText(text, cols, rows) {
       continue;
     }
 
-    pushCell(char, false, guide);
+    const isBlankSpace = els.spaceAsBlank.checked && /[ \t\u3000]/u.test(char);
+    pushCell(isBlankSpace ? "" : char, false, guide);
     if (isSentenceEndChar(char)) {
       addPracticeToColumn();
     }
@@ -607,6 +609,7 @@ function getState() {
     rubyOpacity: els.rubyOpacity.value,
     rubySpacing: els.rubySpacing.value,
     stripSpaces: els.stripSpaces.checked,
+    spaceAsBlank: els.spaceAsBlank.checked,
     lineBreakColumn: els.lineBreakColumn.checked,
     fillExtraKanji: els.fillExtraKanji.checked,
     extraBlankCount: els.extraBlankCount.value,
@@ -631,6 +634,7 @@ function getTemplateSettings() {
     rubyOpacity: els.rubyOpacity.value,
     rubySpacing: els.rubySpacing.value,
     stripSpaces: els.stripSpaces.checked,
+    spaceAsBlank: els.spaceAsBlank.checked,
     lineBreakColumn: els.lineBreakColumn.checked,
     fillExtraKanji: els.fillExtraKanji.checked,
     extraBlankCount: els.extraBlankCount.value,
@@ -680,6 +684,12 @@ function applyState(state) {
 
   if (state.stripSpaces !== undefined) {
     els.stripSpaces.checked = Boolean(state.stripSpaces);
+  }
+  if (state.spaceAsBlank !== undefined) {
+    els.spaceAsBlank.checked = Boolean(state.spaceAsBlank);
+  }
+  if (els.spaceAsBlank.checked) {
+    els.stripSpaces.checked = false;
   }
   if (state.lineBreakColumn !== undefined) {
     els.lineBreakColumn.checked = Boolean(state.lineBreakColumn);
@@ -877,7 +887,6 @@ function bindEvents() {
     els.rubyFontSize,
     els.rubyOpacity,
     els.rubySpacing,
-    els.stripSpaces,
     els.lineBreakColumn,
     els.fillExtraKanji,
     els.extraBlankCount,
@@ -887,6 +896,21 @@ function bindEvents() {
   controls.forEach((control) => {
     control.addEventListener("input", render);
     control.addEventListener("change", render);
+  });
+
+  els.spaceAsBlank.addEventListener("change", () => {
+    if (els.spaceAsBlank.checked) {
+      els.stripSpaces.checked = false;
+    } else {
+      els.stripSpaces.checked = true;
+    }
+    render();
+  });
+  els.stripSpaces.addEventListener("change", () => {
+    if (els.stripSpaces.checked) {
+      els.spaceAsBlank.checked = false;
+    }
+    render();
   });
 
   els.printBtn.addEventListener("click", async () => {
