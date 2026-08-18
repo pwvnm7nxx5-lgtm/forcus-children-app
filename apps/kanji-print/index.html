@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>漢字なぞりプリント</title>
-  <link rel="stylesheet" href="styles.css?v=space-as-blank">
+  <link rel="stylesheet" href="styles.css?v=auto-kanji-blank">
 </head>
 <body>
   <div class="app-shell">
@@ -34,6 +34,13 @@
           <label><input id="stripSpaces" type="checkbox" checked> 空白を詰める</label>
           <label><input id="lineBreakColumn" type="checkbox" checked> 改行で次の列</label>
         </div>
+        <div class="check-row">
+          <label><input id="autoKanjiBlank" type="checkbox"> 漢字を自動で空欄にする</label>
+        </div>
+        <label class="field">
+          <span>対象漢字（空欄ですべて）</span>
+          <input id="blankKanji" type="text" placeholder="例: 紹" disabled>
+        </label>
       </section>
 
       <section class="control-section">
@@ -207,6 +214,6 @@
     </section>
   </template>
 
-  <script src="app.js?v=space-as-blank"></script>
+  <script src="app.js?v=auto-kanji-blank"></script>
 </body>
 </html>

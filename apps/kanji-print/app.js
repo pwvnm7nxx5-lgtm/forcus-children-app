@@ -23,6 +23,8 @@ const els = {
   opacity: document.querySelector("#opacity"),
   stripSpaces: document.querySelector("#stripSpaces"),
   spaceAsBlank: document.querySelector("#spaceAsBlank"),
+  autoKanjiBlank: document.querySelector("#autoKanjiBlank"),
+  blankKanji: document.querySelector("#blankKanji"),
   lineBreakColumn: document.querySelector("#lineBreakColumn"),
   fillExtraKanji: document.querySelector("#fillExtraKanji"),
   extraBlankCount: document.querySelector("#extraBlankCount"),
@@ -229,7 +231,8 @@ function normalizeText(text, cols, rows) {
     }
 
     const isBlankSpace = els.spaceAsBlank.checked && /[ \t\u3000]/u.test(char);
-    pushCell(isBlankSpace ? "" : char, false, guide);
+    const isAutoKanjiBlank = shouldBlankKanji(char);
+    pushCell(isBlankSpace || isAutoKanjiBlank ? "" : char, false, guide);
     if (isSentenceEndChar(char)) {
       addPracticeToColumn();
     }
@@ -276,6 +279,24 @@ function parseMarkedCharacters(source) {
 
 function isKanji(char) {
   return /[\u3400-\u9fff々]/u.test(char);
+}
+
+function shouldBlankKanji(char) {
+  if (!els.autoKanjiBlank.checked || !isKanji(char)) {
+    return false;
+  }
+
+  const targetText = els.blankKanji.value.trim();
+  if (!targetText) {
+    return true;
+  }
+
+  const targets = Array.from(targetText).filter(isKanji);
+  return targets.includes(char);
+}
+
+function syncAutoKanjiBlank() {
+  els.blankKanji.disabled = !els.autoKanjiBlank.checked;
 }
 
 function getUniqueKanji(text) {
@@ -378,6 +399,7 @@ function makeReadingMarks(cols, direction) {
 
 function render() {
   syncReadingPanel();
+  syncAutoKanjiBlank();
   const cols = clampNumber(els.cols.value, 6, 14, 10);
   const rows = clampNumber(els.rows.value, 8, 20, 14);
   const fontSize = clampNumber(els.fontSize.value, 18, 72, 34);
@@ -610,6 +632,8 @@ function getState() {
     rubySpacing: els.rubySpacing.value,
     stripSpaces: els.stripSpaces.checked,
     spaceAsBlank: els.spaceAsBlank.checked,
+    autoKanjiBlank: els.autoKanjiBlank.checked,
+    blankKanji: els.blankKanji.value,
     lineBreakColumn: els.lineBreakColumn.checked,
     fillExtraKanji: els.fillExtraKanji.checked,
     extraBlankCount: els.extraBlankCount.value,
@@ -635,6 +659,8 @@ function getTemplateSettings() {
     rubySpacing: els.rubySpacing.value,
     stripSpaces: els.stripSpaces.checked,
     spaceAsBlank: els.spaceAsBlank.checked,
+    autoKanjiBlank: els.autoKanjiBlank.checked,
+    blankKanji: els.blankKanji.value,
     lineBreakColumn: els.lineBreakColumn.checked,
     fillExtraKanji: els.fillExtraKanji.checked,
     extraBlankCount: els.extraBlankCount.value,
@@ -667,6 +693,7 @@ function applyState(state) {
     ["rubyOpacity", "rubyOpacity"],
     ["rubySpacing", "rubySpacing"],
     ["extraBlankCount", "extraBlankCount"],
+    ["blankKanji", "blankKanji"],
   ];
   assignments.forEach(([elementKey, stateKey]) => {
     if (state[stateKey] !== undefined) {
@@ -688,6 +715,10 @@ function applyState(state) {
   if (state.spaceAsBlank !== undefined) {
     els.spaceAsBlank.checked = Boolean(state.spaceAsBlank);
   }
+  if (state.autoKanjiBlank !== undefined) {
+    els.autoKanjiBlank.checked = Boolean(state.autoKanjiBlank);
+  }
+  syncAutoKanjiBlank();
   if (els.spaceAsBlank.checked) {
     els.stripSpaces.checked = false;
   }
@@ -887,6 +918,8 @@ function bindEvents() {
     els.rubyFontSize,
     els.rubyOpacity,
     els.rubySpacing,
+    els.autoKanjiBlank,
+    els.blankKanji,
     els.lineBreakColumn,
     els.fillExtraKanji,
     els.extraBlankCount,
