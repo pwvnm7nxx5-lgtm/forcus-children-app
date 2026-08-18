@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>漢字なぞりプリント</title>
-  <link rel="stylesheet" href="styles.css?v=simple-guide-markers">
+  <link rel="stylesheet" href="styles.css?v=non-kanji-blank">
 </head>
 <body>
   <div class="app-shell">
@@ -30,8 +30,19 @@
           <button id="markGuideTextBtn" class="editor-tool" type="button" title="選択した部分を '...' で囲んで濃い見本文字にする" aria-label="選択した部分を濃い見本文字にする"><strong aria-hidden="true">B</strong></button>
         </div>
         <div class="check-row">
+          <label><input id="spaceAsBlank" type="checkbox"> 空白を1マス空ける</label>
           <label><input id="stripSpaces" type="checkbox" checked> 空白を詰める</label>
           <label><input id="lineBreakColumn" type="checkbox" checked> 改行で次の列</label>
+        </div>
+        <div class="check-row">
+          <label><input id="autoKanjiBlank" type="checkbox"> 漢字を自動で空欄にする</label>
+        </div>
+        <label class="field">
+          <span>対象漢字（空欄ですべて）</span>
+          <input id="blankKanji" type="text" placeholder="例: 紹" disabled>
+        </label>
+        <div class="check-row">
+          <label><input id="autoNonKanjiBlank" type="checkbox"> 漢字以外を自動で空欄にする</label>
         </div>
       </section>
 
@@ -206,6 +217,6 @@
     </section>
   </template>
 
-  <script src="app.js?v=simple-guide-markers"></script>
+  <script src="app.js?v=non-kanji-blank"></script>
 </body>
 </html>
