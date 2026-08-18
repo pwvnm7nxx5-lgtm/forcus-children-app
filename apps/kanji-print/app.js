@@ -233,7 +233,7 @@ function normalizeText(text, cols, rows) {
 
     const isBlankSpace = els.spaceAsBlank.checked && /[ \t\u3000]/u.test(char);
     const isAutoKanjiBlank = shouldBlankKanji(char);
-    const isAutoNonKanjiBlank = els.autoNonKanjiBlank.checked && !isKanji(char);
+    const isAutoNonKanjiBlank = els.autoNonKanjiBlank.checked && !isKanji(char) && !isNumber(char);
     pushCell(isBlankSpace || isAutoKanjiBlank || isAutoNonKanjiBlank ? "" : char, false, guide);
     if (isSentenceEndChar(char)) {
       addPracticeToColumn();
@@ -281,6 +281,10 @@ function parseMarkedCharacters(source) {
 
 function isKanji(char) {
   return /[\u3400-\u9fff々]/u.test(char);
+}
+
+function isNumber(char) {
+  return /\p{Number}/u.test(char);
 }
 
 function shouldBlankKanji(char) {
