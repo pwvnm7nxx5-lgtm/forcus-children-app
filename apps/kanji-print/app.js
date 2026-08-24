@@ -3,8 +3,11 @@ const els = {
   markGuideTextBtn: document.querySelector("#markGuideTextBtn"),
   addReadings: document.querySelector("#addReadings"),
   readingPanel: document.querySelector("#readingPanel"),
-  readingText: document.querySelector("#readingText"),
   extractReadingsBtn: document.querySelector("#extractReadingsBtn"),
+  readingProgress: document.querySelector("#readingProgress"),
+  readingStatusText: document.querySelector("#readingStatusText"),
+  annotationSummary: document.querySelector("#annotationSummary"),
+  readingAnnotations: document.querySelector("#readingAnnotations"),
   rubyFontSize: document.querySelector("#rubyFontSize"),
   rubyOpacity: document.querySelector("#rubyOpacity"),
   rubySpacing: document.querySelector("#rubySpacing"),
@@ -52,6 +55,13 @@ const smallKana = new Set([
 let statusTimer;
 const stateStorageKey = "kanji-tracing-print";
 const templateStorageKey = "kanji-tracing-templates";
+const readingState = {
+  annotations: [],
+  sourceText: "",
+  status: "idle",
+  error: "",
+  enginePromise: null,
+};
 const fontStacks = {
   kyokasho: '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", "BIZ UDPGothic", "Yu Gothic", sans-serif',
   kyokashoBold: '"UD Digi Kyokasho N-B", "UD デジタル 教科書体 N-B", "BIZ UDPGothic", "Yu Gothic", sans-serif',
@@ -161,6 +171,195 @@ function setStatus(message) {
   }, 2800);
 }
 
+function setReadingStatus(message, status = "idle") {
+  readingState.status = status;
+  readingState.error = status === "error" ? message : "";
+  if (els.readingStatusText) {
+    els.readingStatusText.textContent = message;
+  }
+}
+
+function toHiragana(text) {
+  return Array.from(text || "", (char) => {
+    const codePoint = char.codePointAt(0);
+    return codePoint >= 0x30a1 && codePoint <= 0x30f6
+      ? String.fromCodePoint(codePoint - 0x60)
+      : char;
+  }).join("");
+}
+
+function getReadingCandidates(char) {
+  const candidates = window.KANJI_READING_CANDIDATES?.[char] || [];
+  return [...new Set(candidates.map(toHiragana).filter(Boolean))];
+}
+
+function splitReadingByCandidates(surface, reading) {
+  const chars = Array.from(surface);
+  const target = toHiragana(reading);
+  const memo = new Map();
+
+  function find(charIndex, readingIndex) {
+    const key = `${charIndex}:${readingIndex}`;
+    if (memo.has(key)) {
+      return memo.get(key);
+    }
+    if (charIndex === chars.length) {
+      const result = readingIndex === target.length ? [] : null;
+      memo.set(key, result);
+      return result;
+    }
+
+    const char = chars[charIndex];
+    const candidates = getReadingCandidates(char);
+    if (chars.length === 1) {
+      candidates.unshift(target);
+    }
+    candidates.sort((left, right) => right.length - left.length);
+    for (const candidate of [...new Set(candidates)]) {
+      if (!candidate || !target.startsWith(candidate, readingIndex)) {
+        continue;
+      }
+      const rest = find(charIndex + 1, readingIndex + candidate.length);
+      if (rest) {
+        const result = [{ surface: char, reading: candidate }, ...rest];
+        memo.set(key, result);
+        return result;
+      }
+    }
+
+    memo.set(key, null);
+    return null;
+  }
+
+  return find(0, 0);
+}
+
+function makeReadingAnnotation(surface, reading, sourceStart, sourceEnd) {
+  const chars = Array.from(surface);
+  if (!chars.some(isKanji)) {
+    return null;
+  }
+
+  const normalizedReading = toHiragana(reading);
+  const pieces = chars.every(isKanji)
+    ? splitReadingByCandidates(surface, normalizedReading)
+    : null;
+
+  const resolvedPieces = pieces
+    ? pieces.map((piece, index) => ({
+      ...piece,
+      sourceStart: sourceStart + index,
+      sourceEnd: sourceStart + index + 1,
+    }))
+    : [];
+
+  return {
+    id: `reading-${sourceStart}-${sourceEnd}`,
+    surface,
+    reading: normalizedReading,
+    mode: pieces ? "split" : "group",
+    pieces: resolvedPieces,
+    sourceStart,
+    sourceEnd,
+    needsReview: !pieces,
+    manual: false,
+  };
+}
+
+function getReadingInputUnits(text) {
+  const normalized = String(text || "").replace(/\r\n?/g, "\n");
+  return parseMarkedCharacters(normalized).map((entry, inputIndex) => ({
+    ...entry,
+    inputIndex: entry.sourceIndex ?? inputIndex,
+  }));
+}
+
+function findTokenStart(units, cursor, surface) {
+  const tokenChars = Array.from(surface);
+  for (let start = cursor; start <= units.length - tokenChars.length; start += 1) {
+    if (units.slice(start, start + tokenChars.length).map((entry) => entry.char).join("") === surface) {
+      return start;
+    }
+  }
+  return -1;
+}
+
+async function loadReadingEngine(onProgress = () => {}) {
+  if (readingState.enginePromise) {
+    return readingState.enginePromise;
+  }
+
+  readingState.enginePromise = (async () => {
+    onProgress("読み仮名辞書を読み込んでいます…", 10);
+    const KuroshiroConstructor = window.Kuroshiro?.default || window.Kuroshiro;
+    if (typeof KuroshiroConstructor !== "function" || typeof window.KuromojiAnalyzer !== "function") {
+      throw new Error("読み仮名辞書のスクリプトを読み込めませんでした。");
+    }
+
+    const analyzer = new window.KuromojiAnalyzer({ dictPath: "vendor/dict/" });
+    const kuroshiro = new KuroshiroConstructor();
+    onProgress("読み仮名辞書を準備しています…", 35);
+    await kuroshiro.init(analyzer);
+    onProgress("読み仮名辞書の準備ができました。", 60);
+    return { analyzer, kuroshiro };
+  })();
+
+  try {
+    return await readingState.enginePromise;
+  } catch (error) {
+    readingState.enginePromise = null;
+    throw error;
+  }
+}
+
+async function generateReadingAnnotations(sourceText, onProgress = () => {}) {
+  const units = getReadingInputUnits(sourceText);
+  const analysisText = units.map((entry) => entry.char).join("");
+  if (!analysisText.trim()) {
+    return { sourceText, annotations: [] };
+  }
+
+  const engine = await loadReadingEngine(onProgress);
+  onProgress("本文を解析しています…", 70);
+  const tokens = await engine.analyzer.parse(analysisText);
+  const annotations = [];
+  let cursor = 0;
+
+  for (const token of tokens) {
+    const surface = token.surface_form || "";
+    if (!surface) {
+      continue;
+    }
+    const tokenStart = findTokenStart(units, cursor, surface);
+    if (tokenStart < 0) {
+      continue;
+    }
+    const tokenEnd = tokenStart + Array.from(surface).length;
+    cursor = tokenEnd;
+    if (!Array.from(surface).some(isKanji)) {
+      continue;
+    }
+
+    let reading = toHiragana(token.reading || "");
+    if (!reading || reading === surface) {
+      reading = toHiragana(await engine.kuroshiro.convert(surface, {
+        to: "hiragana",
+        mode: "normal",
+      }));
+    }
+
+    const sourceStart = units[tokenStart].inputIndex;
+    const sourceEnd = units[tokenEnd - 1].inputIndex + 1;
+    const annotation = makeReadingAnnotation(surface, reading, sourceStart, sourceEnd);
+    if (annotation) {
+      annotations.push(annotation);
+    }
+  }
+
+  onProgress("読み仮名を作りました。", 100);
+  return { sourceText, annotations };
+}
+
 function normalizeText(text, cols, rows) {
   const columnBreak = "\uE000";
   let source = text.replace(/\r\n?/g, "\n");
@@ -179,8 +378,8 @@ function normalizeText(text, cols, rows) {
   let position = 0;
   let columnStart = 0;
 
-  function pushCell(char, practice = false, guide = false) {
-    cells.push({ char, practice, guide });
+  function pushCell(char, practice = false, guide = false, sourceIndex = null, originalChar = char) {
+    cells.push({ char, originalChar, practice, guide, sourceIndex });
     position += 1;
   }
 
@@ -225,7 +424,7 @@ function normalizeText(text, cols, rows) {
     fillColumnWithBlanks(true);
   }
 
-  for (const { char, guide } of parseMarkedCharacters(source)) {
+  for (const { char, guide, sourceIndex } of parseMarkedCharacters(source)) {
     if (char === columnBreak) {
       fillColumnWithBlanks();
       continue;
@@ -234,7 +433,13 @@ function normalizeText(text, cols, rows) {
     const isBlankSpace = els.spaceAsBlank.checked && /[ \t\u3000]/u.test(char);
     const isAutoKanjiBlank = shouldBlankKanji(char);
     const isAutoNonKanjiBlank = els.autoNonKanjiBlank.checked && !isKanji(char) && !isNumber(char);
-    pushCell(isBlankSpace || isAutoKanjiBlank || isAutoNonKanjiBlank ? "" : char, false, guide);
+    pushCell(
+      isBlankSpace || isAutoKanjiBlank || isAutoNonKanjiBlank ? "" : char,
+      false,
+      guide,
+      sourceIndex,
+      char,
+    );
     if (isSentenceEndChar(char)) {
       addPracticeToColumn();
     }
@@ -272,7 +477,7 @@ function parseMarkedCharacters(source) {
 
     const codePoint = source.codePointAt(index);
     const char = String.fromCodePoint(codePoint);
-    characters.push({ char, guide: Boolean(closingMarker) });
+    characters.push({ char, guide: Boolean(closingMarker), sourceIndex: index });
     index += char.length;
   }
 
@@ -313,86 +518,269 @@ function isSentenceEndChar(char) {
   return ["\u3002", "\uff0e", ".", "\uff01", "!", "\uff1f", "?"].includes(char);
 }
 
-function parseReadingQueues() {
-  const queues = new Map();
-  els.readingText.value.split(/\n+/).forEach((line) => {
-    const trimmed = line.trim();
-    if (!trimmed) {
+function getActiveReadingAnnotations() {
+  if (!els.addReadings.checked || readingState.sourceText !== els.sourceText.value) {
+    return [];
+  }
+  return Array.isArray(readingState.annotations) ? readingState.annotations : [];
+}
+
+function makeSplitPieces(annotation) {
+  const pieces = splitReadingByCandidates(annotation.surface, annotation.reading);
+  return pieces
+    ? pieces.map((piece, index) => ({
+      ...piece,
+      sourceStart: annotation.sourceStart + index,
+      sourceEnd: annotation.sourceStart + index + 1,
+    }))
+    : Array.from(annotation.surface).map((surface, index) => ({
+      surface,
+      reading: "",
+      sourceStart: annotation.sourceStart + index,
+      sourceEnd: annotation.sourceStart + index + 1,
+    }));
+}
+
+function normalizeReadingAnnotation(entry, index) {
+  const annotation = {
+    id: String(entry?.id || `reading-${index}`),
+    surface: String(entry?.surface || ""),
+    reading: toHiragana(String(entry?.reading || "")),
+    mode: entry?.mode === "split" ? "split" : "group",
+    pieces: Array.isArray(entry?.pieces) ? entry.pieces.map((piece) => ({
+      surface: String(piece?.surface || ""),
+      reading: toHiragana(String(piece?.reading || "")),
+      sourceStart: Number(piece?.sourceStart),
+      sourceEnd: Number(piece?.sourceEnd),
+    })) : [],
+    sourceStart: Number(entry?.sourceStart),
+    sourceEnd: Number(entry?.sourceEnd),
+    needsReview: Boolean(entry?.needsReview),
+    manual: Boolean(entry?.manual),
+  };
+  if (!Number.isFinite(annotation.sourceStart)) annotation.sourceStart = 0;
+  if (!Number.isFinite(annotation.sourceEnd)) annotation.sourceEnd = annotation.sourceStart + Array.from(annotation.surface).length;
+  if (annotation.mode === "split" && !annotation.pieces.length) {
+    annotation.pieces = makeSplitPieces(annotation);
+  }
+  return annotation;
+}
+
+function updateReadingAnnotation(id, update) {
+  const annotation = readingState.annotations.find((entry) => entry.id === id);
+  if (!annotation) {
+    return;
+  }
+  Object.assign(annotation, update, { manual: true });
+  if (annotation.mode === "split") {
+    annotation.pieces = makeSplitPieces(annotation);
+    annotation.needsReview = annotation.pieces.some((piece) => !piece.reading);
+  }
+  render();
+}
+
+function renderReadingAnnotations() {
+  if (!els.annotationSummary || !els.readingAnnotations) {
+    return;
+  }
+
+  els.readingAnnotations.textContent = "";
+  const annotations = Array.isArray(readingState.annotations) ? readingState.annotations : [];
+  if (!els.addReadings.checked) {
+    els.annotationSummary.textContent = "読み仮名を付けるを選ぶと、ここで読みを確認できます。";
+    return;
+  }
+  if (readingState.sourceText && readingState.sourceText !== els.sourceText.value) {
+    els.annotationSummary.textContent = "本文を変更しました。読み仮名を作り直してください。";
+  } else if (!annotations.length) {
+    els.annotationSummary.textContent = "「読み仮名を作る」を押すと、本文から読みを作成します。";
+  } else {
+    const reviewCount = annotations.filter((entry) => entry.needsReview).length;
+    els.annotationSummary.textContent = reviewCount
+      ? `${annotations.length}件の読みを作成しました。黄色の項目を確認してください。`
+      : `${annotations.length}件の読みを作成しました。必要なら読み方を修正できます。`;
+  }
+
+  annotations.forEach((annotation, index) => {
+    const row = document.createElement("div");
+    row.className = "annotation-row";
+    row.classList.toggle("needs-review", Boolean(annotation.needsReview));
+    row.dataset.annotationId = annotation.id;
+
+    const heading = document.createElement("div");
+    heading.className = "annotation-heading";
+    const number = document.createElement("span");
+    number.className = "annotation-index";
+    number.textContent = String(index + 1);
+    const surface = document.createElement("strong");
+    surface.className = "annotation-surface";
+    surface.textContent = annotation.surface;
+    heading.append(number, surface);
+
+    const badge = document.createElement("span");
+    badge.className = `annotation-badge${annotation.needsReview ? " review" : ""}`;
+    badge.textContent = annotation.needsReview ? "要確認" : annotation.mode === "split" ? "分けて表示" : "まとめて表示";
+    heading.append(badge);
+    if (annotation.manual) {
+      const manualBadge = document.createElement("span");
+      manualBadge.className = "annotation-badge manual";
+      manualBadge.textContent = "修正済み";
+      heading.append(manualBadge);
+    }
+
+    const edit = document.createElement("div");
+    edit.className = "annotation-edit";
+    const readingLabel = document.createElement("label");
+    readingLabel.className = "annotation-reading-label";
+    readingLabel.append(document.createTextNode("読み"));
+    const readingInput = document.createElement("input");
+    readingInput.className = "annotation-reading-input";
+    readingInput.type = "text";
+    readingInput.value = annotation.reading || "";
+    readingInput.inputMode = "kana";
+    readingInput.setAttribute("aria-label", `${annotation.surface}の読み`);
+    readingInput.addEventListener("change", () => {
+      updateReadingAnnotation(annotation.id, { reading: toHiragana(readingInput.value), needsReview: false });
+    });
+    readingLabel.append(readingInput);
+    edit.append(readingLabel);
+
+    const mode = document.createElement("div");
+    mode.className = "annotation-mode";
+    [
+      ["split", "分ける"],
+      ["group", "まとめる"],
+    ].forEach(([value, label]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.classList.toggle("active", annotation.mode === value);
+      button.addEventListener("click", () => {
+        const pieces = value === "split" ? makeSplitPieces(annotation) : [];
+        updateReadingAnnotation(annotation.id, {
+          mode: value,
+          pieces,
+          needsReview: value === "split" && pieces.some((piece) => !piece.reading),
+        });
+      });
+      mode.append(button);
+    });
+    edit.append(mode);
+    row.append(heading, edit);
+
+    if (annotation.mode === "split") {
+      const pieces = document.createElement("div");
+      pieces.className = "annotation-pieces";
+      annotation.pieces.forEach((piece, pieceIndex) => {
+        const label = document.createElement("label");
+        label.className = "annotation-piece-label";
+        label.append(document.createTextNode(piece.surface));
+        const input = document.createElement("input");
+        input.className = "annotation-piece-input";
+        input.type = "text";
+        input.value = piece.reading || "";
+        input.inputMode = "kana";
+        input.setAttribute("aria-label", `${piece.surface}の読み`);
+        input.addEventListener("change", () => {
+          const target = readingState.annotations.find((entry) => entry.id === annotation.id);
+          if (!target?.pieces[pieceIndex]) return;
+          target.pieces[pieceIndex].reading = toHiragana(input.value);
+          target.needsReview = target.pieces.some((entry) => !entry.reading);
+          target.manual = true;
+          render();
+        });
+        label.append(input);
+        pieces.append(label);
+      });
+      row.append(pieces);
+    }
+
+    els.readingAnnotations.append(row);
+  });
+}
+
+function buildPageReadingLayout(chars, annotations, rows, cols, direction) {
+  const sourceCells = new Map();
+  chars.forEach((cell, index) => {
+    if (cell.sourceIndex === null || cell.sourceIndex === undefined) return;
+    const col = Math.floor(index / rows);
+    const row = index % rows;
+    const visualCol = direction === "rtl" ? cols - 1 - col : col;
+    sourceCells.set(cell.sourceIndex, { row, col: visualCol, cell });
+  });
+
+  const cellReadings = new Map();
+  const groups = [];
+  annotations.forEach((annotation) => {
+    if (annotation.mode === "split") {
+      annotation.pieces.forEach((piece) => {
+        if (piece.reading) cellReadings.set(piece.sourceStart, piece.reading);
+      });
       return;
     }
 
-    const separatorIndex = trimmed.search(/[=\uff1d:\uff1a\s\u3000]/u);
-    const rawKanji = separatorIndex >= 0 ? trimmed.slice(0, separatorIndex) : trimmed;
-    const reading = separatorIndex >= 0
-      ? trimmed.slice(separatorIndex + 1).replace(/^[=\uff1d:\uff1a\s\u3000]+/u, "").trim()
-      : "";
-    const kanji = Array.from(rawKanji || "").find(isKanji);
-    if (kanji) {
-      if (!queues.has(kanji)) {
-        queues.set(kanji, []);
+    const positions = [];
+    for (const [sourceIndex, position] of sourceCells) {
+      if (
+        sourceIndex >= annotation.sourceStart
+        && sourceIndex < annotation.sourceEnd
+        && (position.cell.originalChar || position.cell.char)
+      ) {
+        positions.push(position);
       }
-      queues.get(kanji).push(reading);
+    }
+    positions.sort((left, right) => left.col - right.col || left.row - right.row);
+    const first = positions[0];
+    const last = positions[positions.length - 1];
+    const sameRow = first && last && positions.every((position) => position.row === first.row);
+    const sameColumn = first && last && positions.every((position) => position.col === first.col);
+    const horizontalContiguous = sameRow && positions.length > 0
+      && last.col - first.col + 1 === positions.length;
+    const verticalContiguous = sameColumn && positions.length > 0
+      && last.row - first.row + 1 === positions.length;
+    const contiguous = horizontalContiguous || verticalContiguous;
+    if (contiguous && annotation.reading) {
+      groups.push({
+        annotation,
+        row: first.row,
+        col: first.col,
+        span: positions.length,
+        orientation: verticalContiguous ? "vertical" : "horizontal",
+      });
+    } else if (first && annotation.reading) {
+      cellReadings.set(first.cell.sourceIndex, annotation.reading);
     }
   });
-  return queues;
+
+  return { cellReadings, groups };
 }
 
-function makeReadingResolver() {
-  const queues = parseReadingQueues();
-  const used = new Map();
-
-  return (char) => {
-    const readings = queues.get(char);
-    if (!readings || !readings.length) {
-      return "";
+function createGroupedRubyLayer(cols, rows, groups) {
+  if (!groups.length) return null;
+  const layer = document.createElement("div");
+  layer.className = "ruby-group-layer";
+  layer.style.gridTemplateColumns = `repeat(${cols}, var(--cell-w) var(--ruby-w))`;
+  layer.style.gridTemplateRows = `repeat(${rows}, var(--cell-h))`;
+  groups.forEach(({ annotation, row, col, span, orientation }) => {
+    const group = document.createElement("div");
+    group.className = `grouped-ruby-cell grouped-ruby-${orientation}`;
+    if (orientation === "vertical") {
+      group.style.gridColumn = String(col * 2 + 2);
+      group.style.gridRow = `${row + 1} / span ${span}`;
+    } else {
+      group.style.gridColumn = `${col * 2 + 1} / span ${span * 2}`;
+      group.style.gridRow = String(row + 1);
     }
-
-    if (readings.length === 1) {
-      return readings[0];
-    }
-
-    const index = used.get(char) || 0;
-    used.set(char, index + 1);
-    return readings[index] || "";
-  };
-}
-
-function makeAutoReadingLines(text) {
-  const chars = Array.from(text);
-  const readings = Array.from({ length: chars.length }, () => "");
-  let index = 0;
-
-  while (index < chars.length) {
-    const matched = wordReadings.find(([word]) => text.startsWith(word, index));
-    if (matched) {
-      const [word, wordReading] = matched;
-      const readingsForWord = [...wordReading];
-      Array.from(word).forEach((char, offset) => {
-        if (isKanji(char)) {
-          readings[index + offset] = readingsForWord.shift() || kanjiReadingFallback[char] || "";
-        }
-      });
-      index += Array.from(word).length;
-      continue;
-    }
-
-    const char = chars[index];
-    if (isKanji(char)) {
-      readings[index] = kanjiReadingFallback[char] || "";
-    }
-    index += 1;
-  }
-
-  return chars
-    .map((char, charIndex) => (isKanji(char) ? `${char}=${readings[charIndex] || ""}` : ""))
-    .filter(Boolean)
-    .join("\n");
+    const text = document.createElement("span");
+    text.className = "ruby-text";
+    text.textContent = annotation.reading;
+    group.append(text);
+    layer.append(group);
+  });
+  return layer;
 }
 
 function syncReadingPanel() {
-  if (els.addReadings.disabled) {
-    els.addReadings.checked = false;
-  }
   els.readingPanel.hidden = !els.addReadings.checked;
 }
 
@@ -405,6 +793,7 @@ function makeReadingMarks(cols, direction) {
 
 function render() {
   syncReadingPanel();
+  renderReadingAnnotations();
   syncAutoKanjiBlank();
   const cols = clampNumber(els.cols.value, 6, 14, 10);
   const rows = clampNumber(els.rows.value, 8, 20, 14);
@@ -420,7 +809,7 @@ function render() {
   const sheetCount = clampNumber(els.sheetCount.value, 1, 30, 1);
   const direction = getDirection();
   const pageData = normalizeText(els.sourceText.value, cols, rows);
-  const resolveReading = els.addReadings.checked ? makeReadingResolver() : () => "";
+  const activeAnnotations = getActiveReadingAnnotations();
   const pageTotal = pageData.length;
   const layout = calculateSheetLayout(cols, rows);
 
@@ -461,15 +850,25 @@ function render() {
     });
 
     const grid = page.querySelector("[data-grid]");
-    const cells = Array.from({ length: cols * rows }, () => ({ char: "", practice: false, guide: false, reading: "" }));
+    const cells = Array.from({ length: cols * rows }, () => ({
+      char: "",
+      originalChar: "",
+      practice: false,
+      guide: false,
+      reading: "",
+    }));
+    const readingLayout = buildPageReadingLayout(chars, activeAnnotations, rows, cols, direction);
     chars.forEach((sourceCell, index) => {
       const col = Math.floor(index / rows);
       const row = index % rows;
       const visualCol = direction === "rtl" ? cols - 1 - col : col;
       const char = sourceCell.char || "";
+      const sourceChar = sourceCell.originalChar || char;
       cells[row * cols + visualCol] = {
         ...sourceCell,
-        reading: els.addReadings.checked && !sourceCell.practice && isKanji(char) ? resolveReading(char) : "",
+        reading: els.addReadings.checked && !sourceCell.practice && isKanji(sourceChar)
+          ? readingLayout.cellReadings.get(sourceCell.sourceIndex) || ""
+          : "",
       };
     });
 
@@ -479,6 +878,11 @@ function render() {
         grid.append(createTextCell(cell.char, cell.guide));
         grid.append(createRubyCell(cell.reading));
       }
+    }
+
+    const groupedRubyLayer = createGroupedRubyLayer(cols, rows, readingLayout.groups);
+    if (groupedRubyLayer) {
+      grid.append(groupedRubyLayer);
     }
 
     applyPunchGuide(page);
@@ -578,18 +982,40 @@ function applyPunchGuide(page) {
   page.append(guide);
 }
 
-function extractReadingsFromText() {
-  if (els.addReadings.disabled) {
-    syncReadingPanel();
-    setStatus("読み仮名は現在利用できません。");
-    return;
-  }
+async function extractReadingsFromText() {
   els.addReadings.checked = true;
   syncReadingPanel();
-
-  els.readingText.value = makeAutoReadingLines(els.sourceText.value);
-  render();
-  setStatus("本文中の漢字を読み仮名欄に出しました。");
+  const sourceText = els.sourceText.value;
+  els.extractReadingsBtn.disabled = true;
+  if (els.readingProgress) {
+    els.readingProgress.hidden = false;
+    els.readingProgress.value = 0;
+  }
+  setReadingStatus("読み仮名を準備しています…", "working");
+  try {
+    const result = await generateReadingAnnotations(sourceText, (message, progress) => {
+      setReadingStatus(message, "working");
+      if (els.readingProgress && Number.isFinite(progress)) {
+        els.readingProgress.value = progress;
+      }
+    });
+    readingState.sourceText = result.sourceText;
+    readingState.annotations = result.annotations;
+    setReadingStatus(`${result.annotations.length}件の読みを作りました。`, "ready");
+    render();
+    setStatus("読み仮名を作成しました。");
+  } catch (error) {
+    readingState.annotations = [];
+    readingState.sourceText = "";
+    setReadingStatus(`読み仮名を作れませんでした: ${error.message || "辞書を確認してください"}`, "error");
+    render();
+    setStatus("読み仮名の作成に失敗しました。");
+  } finally {
+    els.extractReadingsBtn.disabled = false;
+    if (els.readingProgress) {
+      els.readingProgress.hidden = true;
+    }
+  }
 }
 
 function clampNumber(value, min, max, fallback) {
@@ -618,8 +1044,9 @@ function normalizeFontWeight(value) {
 function getState() {
   return {
     text: els.sourceText.value,
-    addReadings: !els.addReadings.disabled && els.addReadings.checked,
-    readings: els.readingText.value,
+    addReadings: els.addReadings.checked,
+    readingAnnotations: readingState.annotations,
+    readingSourceText: readingState.sourceText,
     name: els.studentName.value,
     date: els.worksheetDate.value,
     cols: els.cols.value,
@@ -650,6 +1077,9 @@ function getState() {
 
 function getTemplateSettings() {
   return {
+    addReadings: els.addReadings.checked,
+    readingAnnotations: readingState.annotations,
+    readingSourceText: readingState.sourceText,
     cols: els.cols.value,
     rows: els.rows.value,
     sheetCount: els.sheetCount.value,
@@ -683,7 +1113,6 @@ function applyState(state) {
 
   const assignments = [
     ["sourceText", "text"],
-    ["readingText", "readings"],
     ["studentName", "name"],
     ["worksheetDate", "date"],
     ["cols", "cols"],
@@ -737,8 +1166,14 @@ function applyState(state) {
   if (state.lineBreakColumn !== undefined) {
     els.lineBreakColumn.checked = Boolean(state.lineBreakColumn);
   }
-  if (state.addReadings !== undefined && !els.addReadings.disabled) {
+  if (state.addReadings !== undefined) {
     els.addReadings.checked = Boolean(state.addReadings);
+  }
+  if (Array.isArray(state.readingAnnotations)) {
+    readingState.annotations = state.readingAnnotations.map(normalizeReadingAnnotation);
+  }
+  if (typeof state.readingSourceText === "string") {
+    readingState.sourceText = state.readingSourceText;
   }
   if (state.fillExtraKanji !== undefined) {
     els.fillExtraKanji.checked = Boolean(state.fillExtraKanji);
@@ -913,7 +1348,6 @@ function bindEvents() {
   const controls = [
     els.sourceText,
     els.addReadings,
-    els.readingText,
     els.studentName,
     els.worksheetDate,
     els.cols,
@@ -969,9 +1403,6 @@ function bindEvents() {
   els.markGuideTextBtn.addEventListener("click", markSelectedTextAsGuide);
   els.extractReadingsBtn.addEventListener("click", extractReadingsFromText);
   els.addReadings.addEventListener("change", () => {
-    if (els.addReadings.checked && !els.readingText.value.trim()) {
-      els.readingText.value = makeAutoReadingLines(els.sourceText.value);
-    }
     render();
   });
   els.saveTemplateBtn.addEventListener("click", saveTemplate);
