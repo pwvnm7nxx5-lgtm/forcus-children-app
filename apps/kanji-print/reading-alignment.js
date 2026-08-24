@@ -146,11 +146,42 @@
       .sort((left, right) => right.length - left.length);
   }
 
-  function splitReadingByCandidates(surface, reading, getCandidates) {
+  function normalizeExactPieces(surface, reading, exactPieces) {
+    const chars = Array.from(surface || "");
+    const target = toHiragana(reading);
+    if (!Array.isArray(exactPieces) || exactPieces.length !== chars.length) {
+      return null;
+    }
+
+    let readingIndex = 0;
+    const pieces = exactPieces.map((piece, index) => {
+      const pieceSurface = String(piece?.surface || "");
+      const pieceReading = toHiragana(piece?.reading || "");
+      if (pieceSurface !== chars[index] || !pieceReading || !target.startsWith(pieceReading, readingIndex)) {
+        return null;
+      }
+      readingIndex += pieceReading.length;
+      return { surface: pieceSurface, reading: pieceReading };
+    });
+    return pieces.every(Boolean) && readingIndex === target.length ? pieces : null;
+  }
+
+  function splitReadingByCandidates(surface, reading, getCandidates, getExactWordReading) {
     const chars = Array.from(surface || "");
     const target = toHiragana(reading);
     if (!chars.length || !target) {
       return null;
+    }
+
+    if (typeof getExactWordReading === "function") {
+      const exactPieces = normalizeExactPieces(
+        surface,
+        target,
+        getExactWordReading(surface, target),
+      );
+      if (exactPieces) {
+        return exactPieces;
+      }
     }
 
     const paths = [];
@@ -184,11 +215,19 @@
     return paths.length === 1 ? paths[0] : null;
   }
 
-  function createAnnotation(run, reading, sourceIndices, getCandidates, needsReview, reviewReason) {
+  function createAnnotation(
+    run,
+    reading,
+    sourceIndices,
+    getCandidates,
+    getExactWordReading,
+    needsReview,
+    reviewReason,
+  ) {
     const normalizedReading = toHiragana(reading);
     const range = getSourceRange(sourceIndices, run.start, run.end);
     const splitPieces = !needsReview && normalizedReading
-      ? splitReadingByCandidates(run.surface, normalizedReading, getCandidates)
+      ? splitReadingByCandidates(run.surface, normalizedReading, getCandidates, getExactWordReading)
       : null;
     const resolvedReview = Boolean(needsReview || !normalizedReading || !splitPieces);
     const pieces = splitPieces
@@ -229,6 +268,7 @@
           { start: 0, end: entries.length, surface },
           "",
           sourceIndices,
+          null,
           null,
           true,
           reason,
@@ -298,6 +338,70 @@
     return { items, cursor };
   }
 
+  function mergeReadingTokenItems(items, getMatch) {
+    const entries = Array.isArray(items) ? items : [];
+    if (typeof getMatch !== "function") {
+      return entries;
+    }
+
+    const merged = [];
+    for (let index = 0; index < entries.length; index += 1) {
+      const first = entries[index];
+      if (first?.type !== "token") {
+        merged.push(first);
+        continue;
+      }
+
+      let surface = "";
+      let reading = "";
+      let previous = null;
+      let best = null;
+
+      for (let candidateIndex = index; candidateIndex < entries.length; candidateIndex += 1) {
+        const candidate = entries[candidateIndex];
+        if (candidate?.type !== "token") {
+          break;
+        }
+        if (previous && candidate.start !== previous.end) {
+          break;
+        }
+
+        surface += String(candidate.surface || "");
+        reading += toHiragana(candidate.token?.reading || "");
+        const match = getMatch(surface, reading);
+        if (candidateIndex > index && match) {
+          best = {
+            endIndex: candidateIndex,
+            end: candidate.end,
+            kind: match.kind || "exact",
+            reading,
+            surface,
+          };
+        }
+        previous = candidate;
+      }
+
+      if (!best) {
+        merged.push(first);
+        continue;
+      }
+
+      merged.push({
+        ...first,
+        end: best.end,
+        readingKind: best.kind,
+        surface: best.surface,
+        token: {
+          ...first.token,
+          surface_form: best.surface,
+          reading: best.reading,
+        },
+      });
+      index = best.endIndex;
+    }
+    return merged;
+  }
+
   function alignSurfaceReading(surface, reading, options = {}) {
     const text = String(surface || "");
     const chars = Array.from(text);
@@ -311,9 +415,10 @@
 
     const sourceIndices = normalizeSourceIndices(chars, options.sourceIndices);
     const getCandidates = options.getCandidates;
+    const getExactWordReading = options.getExactWordReading;
     const runReadings = new Map();
-    let needsReview = false;
-    let reviewReason = "";
+    let needsReview = Boolean(options.forceReview);
+    let reviewReason = needsReview ? (options.reviewReason || "forced-review") : "";
     const anchorRuns = parts.filter((part) => part.kind === "kana");
 
     if (!anchorRuns.length) {
@@ -371,6 +476,7 @@
         runReading,
         sourceIndices,
         getCandidates,
+        getExactWordReading,
         needsReview || !runReading,
         reviewReason,
       );
@@ -384,6 +490,8 @@
     findTokenStart,
     isKana,
     isKanji,
+    mergeReadingTokenItems,
+    normalizeExactPieces,
     splitReadingByCandidates,
     toHiragana,
   };
