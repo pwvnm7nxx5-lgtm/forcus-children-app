@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>漢字なぞりプリント</title>
-  <link rel="stylesheet" href="styles.css?v=non-kanji-blank">
+  <link rel="stylesheet" href="styles.css?v=furigana-v1">
 </head>
 <body>
   <div class="app-shell">
@@ -49,23 +49,20 @@
       <section class="control-section">
         <div class="section-heading">
           <h2>読み仮名</h2>
-          <span class="disabled-badge">利用不可</span>
         </div>
         <div class="check-row">
-          <label class="disabled-option"><input id="addReadings" type="checkbox" disabled> 読み仮名を付ける</label>
+          <label><input id="addReadings" type="checkbox"> 読み仮名を付ける</label>
         </div>
         <div id="readingPanel" class="option-panel" hidden>
-          <label class="field">
-            <span>読み仮名</span>
-            <textarea id="readingText" rows="5" spellcheck="false" placeholder="例:
-大=おお
-木=き
-木=もく
-日=び"></textarea>
-          </label>
           <div class="sub-actions">
-            <button id="extractReadingsBtn" type="button">読み仮名を自動入力</button>
+            <button id="extractReadingsBtn" type="button">読み仮名を作る</button>
           </div>
+          <div class="reading-status" aria-live="polite">
+            <progress id="readingProgress" class="reading-progress" max="100" value="0" hidden></progress>
+            <span id="readingStatusText"></span>
+          </div>
+          <div id="annotationSummary" class="annotation-summary"></div>
+          <div id="readingAnnotations" class="reading-annotations"></div>
           <div class="settings-grid reading-settings">
             <label class="field">
               <span>サイズ</span>
@@ -217,6 +214,9 @@
     </section>
   </template>
 
-  <script src="app.js?v=non-kanji-blank"></script>
+  <script src="vendor/kuroshiro-1.2.0.min.js?v=furigana-v1"></script>
+  <script src="vendor/kuroshiro-analyzer-kuromoji-1.1.0.min.js?v=furigana-v1"></script>
+  <script src="reading-candidates.js?v=furigana-v1"></script>
+  <script src="app.js?v=furigana-v1"></script>
 </body>
 </html>
