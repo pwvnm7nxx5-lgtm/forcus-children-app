@@ -62,7 +62,15 @@ const readingState = {
   error: "",
   enginePromise: null,
 };
+const readingModeFocusState = {
+  annotationId: null,
+  returnDescriptor: null,
+};
 const readingAlignment = window.KANJI_READING_ALIGNMENT;
+const readingWordMap = window.KANJI_READING_WORD_MAP;
+const readingLayoutApi = window.KANJI_READING_LAYOUT;
+const readingKeyboard = window.KANJI_READING_KEYBOARD;
+const readingInputState = window.KANJI_READING_INPUT_STATE;
 const fontStacks = {
   kyokasho: '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", "BIZ UDPGothic", "Yu Gothic", sans-serif',
   kyokashoBold: '"UD Digi Kyokasho N-B", "UD デジタル 教科書体 N-B", "BIZ UDPGothic", "Yu Gothic", sans-serif',
@@ -190,13 +198,20 @@ function getReadingCandidates(char) {
 }
 
 function splitReadingByCandidates(surface, reading) {
-  return readingAlignment.splitReadingByCandidates(surface, reading, getReadingCandidates);
+  return readingAlignment.splitReadingByCandidates(
+    surface,
+    reading,
+    getReadingCandidates,
+    readingWordMap?.lookupExactWordReading,
+  );
 }
 
-function makeReadingAnnotations(surface, reading, sourceIndices) {
+function makeReadingAnnotations(surface, reading, sourceIndices, options = {}) {
   return readingAlignment.alignSurfaceReading(surface, reading, {
     sourceIndices,
     getCandidates: getReadingCandidates,
+    getExactWordReading: readingWordMap?.lookupExactWordReading,
+    ...options,
   });
 }
 
@@ -249,7 +264,19 @@ async function generateReadingAnnotations(sourceText, onProgress = () => {}) {
   const annotations = [];
 
   const tokenAlignment = readingAlignment.alignTokenPositions(units, tokens);
-  for (const item of tokenAlignment.items) {
+  const readingItems = readingAlignment.mergeReadingTokenItems(
+    tokenAlignment.items,
+    (surface, reading) => {
+      if (readingWordMap?.lookupExactWordReading(surface, reading)) {
+        return { kind: "exact" };
+      }
+      if (readingWordMap?.isReviewWordSurface(surface)) {
+        return { kind: "review" };
+      }
+      return null;
+    },
+  );
+  for (const item of readingItems) {
     if (item.type === "fallback") {
       annotations.push(...item.annotations);
       continue;
@@ -271,7 +298,14 @@ async function generateReadingAnnotations(sourceText, onProgress = () => {}) {
     const sourceIndices = units
       .slice(tokenStart, tokenEnd)
       .map((entry) => entry.inputIndex);
-    annotations.push(...makeReadingAnnotations(surface, reading, sourceIndices));
+    annotations.push(...makeReadingAnnotations(
+      surface,
+      reading,
+      sourceIndices,
+      (item.readingKind === "review" || readingWordMap?.isReviewWordSurface(surface))
+        ? { forceReview: true, reviewReason: "word-review" }
+        : {},
+    ));
   }
 
   onProgress("読み仮名を作りました。", 100);
@@ -279,18 +313,10 @@ async function generateReadingAnnotations(sourceText, onProgress = () => {}) {
 }
 
 function normalizeText(text, cols, rows) {
-  const columnBreak = "\uE000";
   let source = text.replace(/\r\n?/g, "\n");
-
-  if (!els.spaceAsBlank.checked && !els.autoNonKanjiBlank.checked && els.stripSpaces.checked) {
-    source = source.replace(/[ \t　]/g, "");
-  }
-
-  if (els.lineBreakColumn.checked) {
-    source = source.replace(/\n+/g, columnBreak);
-  } else {
-    source = source.replace(/\n+/g, "");
-  }
+  const stripSpaces = !els.spaceAsBlank.checked
+    && !els.autoNonKanjiBlank.checked
+    && els.stripSpaces.checked;
 
   const cells = [];
   let position = 0;
@@ -342,9 +368,18 @@ function normalizeText(text, cols, rows) {
     fillColumnWithBlanks(true);
   }
 
+  let previousWasLineBreak = false;
   for (const { char, guide, sourceIndex } of parseMarkedCharacters(source)) {
-    if (char === columnBreak) {
-      fillColumnWithBlanks();
+    if (char === "\n") {
+      if (els.lineBreakColumn.checked && !previousWasLineBreak) {
+        fillColumnWithBlanks();
+      }
+      previousWasLineBreak = true;
+      continue;
+    }
+    previousWasLineBreak = false;
+
+    if (stripSpaces && /[ \t\u3000]/u.test(char)) {
       continue;
     }
 
@@ -523,6 +558,266 @@ function normalizeReadingAnnotations(entries) {
   });
 }
 
+function getReadingFocusSequence() {
+  return readingKeyboard.getReadingFocusSequence(readingState.annotations);
+}
+
+function getReadingInputDescriptor(input) {
+  const row = input?.closest(".annotation-row");
+  if (!row?.dataset.annotationId) {
+    return null;
+  }
+  const role = input.dataset.readingRole === "piece" ? "piece" : "word";
+  return {
+    annotationId: row.dataset.annotationId,
+    role,
+    pieceIndex: role === "piece" ? Number(input.dataset.pieceIndex) : -1,
+  };
+}
+
+function getAdjacentReadingFocus(descriptor, direction) {
+  return readingKeyboard.getAdjacentReadingFocus(
+    readingState.annotations,
+    descriptor,
+    direction,
+  );
+}
+
+function findReadingInput(descriptor) {
+  const rows = Array.from(els.readingAnnotations?.querySelectorAll(".annotation-row") || []);
+  const row = rows.find((entry) => entry.dataset.annotationId === descriptor.annotationId);
+  if (!row) {
+    return null;
+  }
+  if (descriptor.role === "piece") {
+    return row.querySelector(`input[data-reading-role="piece"][data-piece-index="${descriptor.pieceIndex}"]`);
+  }
+  return row.querySelector('input[data-reading-role="word"]');
+}
+
+function commitReadingInput(input) {
+  const descriptor = getReadingInputDescriptor(input);
+  if (!descriptor) {
+    return false;
+  }
+  const annotation = readingState.annotations.find((entry) => entry.id === descriptor.annotationId);
+  if (!annotation) {
+    return false;
+  }
+
+  const changed = readingInputState.applyReadingInputValue(
+    annotation,
+    descriptor,
+    input.value,
+    toHiragana,
+  );
+  if (!changed) {
+    return false;
+  }
+
+  if (descriptor.role === "piece") {
+    annotation.needsReview = annotation.pieces.some((entry) => !entry.reading);
+  } else {
+    if (annotation.mode === "split") {
+      annotation.pieces = makeSplitPieces(annotation);
+      annotation.needsReview = annotation.pieces.some((entry) => !entry.reading);
+    } else {
+      annotation.needsReview = false;
+    }
+  }
+  return true;
+}
+
+function handleReadingInputChange(input) {
+  if (commitReadingInput(input)) {
+    render();
+  }
+}
+
+function focusReadingInput(descriptor) {
+  const input = findReadingInput(descriptor);
+  if (!input) {
+    return;
+  }
+  input.focus({ preventScroll: true });
+  input.select();
+  input.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+function getModeButtons(row) {
+  return Array.from(row?.querySelectorAll(".annotation-mode button") || []);
+}
+
+function focusReadingModeButton(annotationId, modeValue = "") {
+  const rows = Array.from(els.readingAnnotations?.querySelectorAll(".annotation-row") || []);
+  const row = rows.find((entry) => entry.dataset.annotationId === annotationId);
+  const buttons = getModeButtons(row);
+  const button = buttons.find((entry) => entry.dataset.modeValue === modeValue)
+    || buttons.find((entry) => entry.classList.contains("active"))
+    || buttons[0];
+  if (!button) {
+    return false;
+  }
+  button.focus({ preventScroll: true });
+  button.scrollIntoView({ block: "nearest", inline: "nearest" });
+  return true;
+}
+
+function getReadingModeReturnDescriptor() {
+  const descriptor = readingModeFocusState.returnDescriptor;
+  if (!descriptor) {
+    return null;
+  }
+  if (findReadingInput(descriptor)) {
+    return descriptor;
+  }
+  return {
+    annotationId: descriptor.annotationId,
+    role: "word",
+    pieceIndex: -1,
+  };
+}
+
+function clearReadingModeFocusState() {
+  readingModeFocusState.annotationId = null;
+  readingModeFocusState.returnDescriptor = null;
+}
+
+function enterReadingModeControls(input) {
+  const descriptor = getReadingInputDescriptor(input);
+  const row = input?.closest(".annotation-row");
+  const buttons = getModeButtons(row);
+  const annotation = readingState.annotations.find((entry) => entry.id === descriptor?.annotationId);
+  const activeButton = buttons.find((button) => button.classList.contains("active"))
+    || buttons[0];
+  if (!descriptor || !annotation || !activeButton) {
+    return;
+  }
+
+  const changed = commitReadingInput(input);
+  readingModeFocusState.annotationId = descriptor.annotationId;
+  readingModeFocusState.returnDescriptor = descriptor;
+  if (changed) {
+    render();
+    focusReadingModeButton(descriptor.annotationId, annotation.mode);
+    return;
+  }
+  activeButton.focus({ preventScroll: true });
+  activeButton.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+function returnFromReadingModeControls() {
+  const descriptor = getReadingModeReturnDescriptor();
+  clearReadingModeFocusState();
+  if (descriptor) {
+    focusReadingInput(descriptor);
+  }
+}
+
+function handleReadingModeKeydown(event) {
+  const action = readingKeyboard.getModeKeyAction(event.key, event.shiftKey);
+  if (!action) {
+    return;
+  }
+
+  const button = event.currentTarget;
+  const row = button.closest(".annotation-row");
+  const buttons = getModeButtons(row);
+  if (!buttons.length) {
+    return;
+  }
+
+  if (action.type === "move") {
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      return;
+    }
+    const currentIndex = buttons.indexOf(button);
+    const targetIndex = readingKeyboard.getModeButtonIndex(
+      currentIndex,
+      action.direction,
+      buttons.length,
+    );
+    const target = buttons[targetIndex];
+    if (!target) {
+      return;
+    }
+    event.preventDefault();
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: "nearest", inline: "nearest" });
+    return;
+  }
+
+  if (action.type === "return") {
+    event.preventDefault();
+    returnFromReadingModeControls();
+    return;
+  }
+
+  if (action.type === "activate") {
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      return;
+    }
+    event.preventDefault();
+    button.click();
+    return;
+  }
+
+  if (action.type === "reading") {
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      return;
+    }
+    const descriptor = getReadingModeReturnDescriptor();
+    const target = descriptor
+      ? getAdjacentReadingFocus(descriptor, action.direction)
+      : null;
+    if (!target) {
+      return;
+    }
+    event.preventDefault();
+    clearReadingModeFocusState();
+    focusReadingInput(target);
+  }
+}
+
+function handleReadingInputKeydown(event) {
+  if (event.isComposing || event.ctrlKey || event.metaKey) {
+    return;
+  }
+
+  if (
+    (event.key === "ArrowDown" && event.altKey)
+    || (event.key === "F2" && !event.altKey && !event.shiftKey)
+  ) {
+    event.preventDefault();
+    enterReadingModeControls(event.currentTarget);
+    return;
+  }
+
+  if (
+    !["Tab", "Enter"].includes(event.key)
+    || event.altKey
+  ) {
+    return;
+  }
+
+  const descriptor = getReadingInputDescriptor(event.currentTarget);
+  if (!descriptor) {
+    return;
+  }
+  const target = getAdjacentReadingFocus(descriptor, event.shiftKey ? -1 : 1);
+  if (!target) {
+    commitReadingInput(event.currentTarget);
+    saveState();
+    return;
+  }
+
+  event.preventDefault();
+  clearReadingModeFocusState();
+  commitReadingInput(event.currentTarget);
+  render();
+  focusReadingInput(target);
+}
+
 function updateReadingAnnotation(id, update) {
   const annotation = readingState.annotations.find((entry) => entry.id === id);
   if (!annotation) {
@@ -592,18 +887,24 @@ function renderReadingAnnotations() {
     readingLabel.append(document.createTextNode("読み"));
     const readingInput = document.createElement("input");
     readingInput.className = "annotation-reading-input";
+    readingInput.dataset.readingRole = "word";
     readingInput.type = "text";
     readingInput.value = annotation.reading || "";
     readingInput.inputMode = "kana";
+    readingInput.setAttribute("aria-describedby", "readingModeKeyboardHint");
+    readingInput.setAttribute("aria-keyshortcuts", "Alt+ArrowDown F2");
     readingInput.setAttribute("aria-label", `${annotation.surface}の読み`);
     readingInput.addEventListener("change", () => {
-      updateReadingAnnotation(annotation.id, { reading: toHiragana(readingInput.value), needsReview: false });
+      handleReadingInputChange(readingInput);
     });
+    readingInput.addEventListener("keydown", handleReadingInputKeydown);
     readingLabel.append(readingInput);
     edit.append(readingLabel);
 
     const mode = document.createElement("div");
     mode.className = "annotation-mode";
+    mode.setAttribute("role", "group");
+    mode.setAttribute("aria-label", annotation.surface + "の表示方法");
     [
       ["split", "分ける"],
       ["group", "まとめる"],
@@ -611,14 +912,22 @@ function renderReadingAnnotations() {
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = label;
+      button.dataset.modeValue = value;
+      button.tabIndex = -1;
       button.classList.toggle("active", annotation.mode === value);
+      button.setAttribute("aria-pressed", String(annotation.mode === value));
+      button.addEventListener("keydown", handleReadingModeKeydown);
       button.addEventListener("click", () => {
+        const keepModeFocus = readingModeFocusState.annotationId === annotation.id;
         const pieces = value === "split" ? makeSplitPieces(annotation) : [];
         updateReadingAnnotation(annotation.id, {
           mode: value,
           pieces,
           needsReview: value === "split" && pieces.some((piece) => !piece.reading),
         });
+        if (keepModeFocus) {
+          focusReadingModeButton(annotation.id, value);
+        }
       });
       mode.append(button);
     });
@@ -634,18 +943,18 @@ function renderReadingAnnotations() {
         label.append(document.createTextNode(piece.surface));
         const input = document.createElement("input");
         input.className = "annotation-piece-input";
+        input.dataset.readingRole = "piece";
+        input.dataset.pieceIndex = String(pieceIndex);
         input.type = "text";
         input.value = piece.reading || "";
         input.inputMode = "kana";
+        input.setAttribute("aria-describedby", "readingModeKeyboardHint");
+        input.setAttribute("aria-keyshortcuts", "Alt+ArrowDown F2");
         input.setAttribute("aria-label", `${piece.surface}の読み`);
         input.addEventListener("change", () => {
-          const target = readingState.annotations.find((entry) => entry.id === annotation.id);
-          if (!target?.pieces[pieceIndex]) return;
-          target.pieces[pieceIndex].reading = toHiragana(input.value);
-          target.needsReview = target.pieces.some((entry) => !entry.reading);
-          target.manual = true;
-          render();
+          handleReadingInputChange(input);
         });
+        input.addEventListener("keydown", handleReadingInputKeydown);
         label.append(input);
         pieces.append(label);
       });
@@ -676,36 +985,21 @@ function buildPageReadingLayout(chars, annotations, rows, cols, direction) {
       return;
     }
 
+    const annotationSourceIndices = new Set(getAnnotationSourceIndices(annotation));
     const positions = [];
     for (const [sourceIndex, position] of sourceCells) {
       if (
-        sourceIndex >= annotation.sourceStart
-        && sourceIndex < annotation.sourceEnd
+        annotationSourceIndices.has(Number(sourceIndex))
         && (position.cell.originalChar || position.cell.char)
       ) {
-        positions.push(position);
+        positions.push({ ...position, sourceIndex: Number(sourceIndex) });
       }
     }
-    positions.sort((left, right) => left.col - right.col || left.row - right.row);
-    const first = positions[0];
-    const last = positions[positions.length - 1];
-    const sameRow = first && last && positions.every((position) => position.row === first.row);
-    const sameColumn = first && last && positions.every((position) => position.col === first.col);
-    const horizontalContiguous = sameRow && positions.length > 0
-      && last.col - first.col + 1 === positions.length;
-    const verticalContiguous = sameColumn && positions.length > 0
-      && last.row - first.row + 1 === positions.length;
-    const contiguous = horizontalContiguous || verticalContiguous;
-    if (contiguous && annotation.reading) {
-      groups.push({
-        annotation,
-        row: first.row,
-        col: first.col,
-        span: positions.length,
-        orientation: verticalContiguous ? "vertical" : "horizontal",
+    if (annotation.reading) {
+      const fragments = readingLayoutApi.buildReadingFragments(positions);
+      fragments.forEach((fragment) => {
+        groups.push({ annotation, ...fragment });
       });
-    } else if (first && annotation.reading) {
-      cellReadings.set(first.cell.sourceIndex, annotation.reading);
     }
   });
 
@@ -725,7 +1019,7 @@ function createGroupedRubyLayer(cols, rows, groups) {
       group.style.gridColumn = String(col * 2 + 2);
       group.style.gridRow = `${row + 1} / span ${span}`;
     } else {
-      group.style.gridColumn = `${col * 2 + 1} / span ${span * 2}`;
+      group.style.gridColumn = `${col * 2 + 2} / span ${span * 2 - 1}`;
       group.style.gridRow = String(row + 1);
     }
     const text = document.createElement("span");
