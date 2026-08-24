@@ -62,6 +62,7 @@ const readingState = {
   error: "",
   enginePromise: null,
 };
+const readingAlignment = window.KANJI_READING_ALIGNMENT;
 const fontStacks = {
   kyokasho: '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", "BIZ UDPGothic", "Yu Gothic", sans-serif',
   kyokashoBold: '"UD Digi Kyokasho N-B", "UD デジタル 教科書体 N-B", "BIZ UDPGothic", "Yu Gothic", sans-serif',
@@ -180,12 +181,7 @@ function setReadingStatus(message, status = "idle") {
 }
 
 function toHiragana(text) {
-  return Array.from(text || "", (char) => {
-    const codePoint = char.codePointAt(0);
-    return codePoint >= 0x30a1 && codePoint <= 0x30f6
-      ? String.fromCodePoint(codePoint - 0x60)
-      : char;
-  }).join("");
+  return readingAlignment.toHiragana(text);
 }
 
 function getReadingCandidates(char) {
@@ -194,76 +190,14 @@ function getReadingCandidates(char) {
 }
 
 function splitReadingByCandidates(surface, reading) {
-  const chars = Array.from(surface);
-  const target = toHiragana(reading);
-  const memo = new Map();
-
-  function find(charIndex, readingIndex) {
-    const key = `${charIndex}:${readingIndex}`;
-    if (memo.has(key)) {
-      return memo.get(key);
-    }
-    if (charIndex === chars.length) {
-      const result = readingIndex === target.length ? [] : null;
-      memo.set(key, result);
-      return result;
-    }
-
-    const char = chars[charIndex];
-    const candidates = getReadingCandidates(char);
-    if (chars.length === 1) {
-      candidates.unshift(target);
-    }
-    candidates.sort((left, right) => right.length - left.length);
-    for (const candidate of [...new Set(candidates)]) {
-      if (!candidate || !target.startsWith(candidate, readingIndex)) {
-        continue;
-      }
-      const rest = find(charIndex + 1, readingIndex + candidate.length);
-      if (rest) {
-        const result = [{ surface: char, reading: candidate }, ...rest];
-        memo.set(key, result);
-        return result;
-      }
-    }
-
-    memo.set(key, null);
-    return null;
-  }
-
-  return find(0, 0);
+  return readingAlignment.splitReadingByCandidates(surface, reading, getReadingCandidates);
 }
 
-function makeReadingAnnotation(surface, reading, sourceStart, sourceEnd) {
-  const chars = Array.from(surface);
-  if (!chars.some(isKanji)) {
-    return null;
-  }
-
-  const normalizedReading = toHiragana(reading);
-  const pieces = chars.every(isKanji)
-    ? splitReadingByCandidates(surface, normalizedReading)
-    : null;
-
-  const resolvedPieces = pieces
-    ? pieces.map((piece, index) => ({
-      ...piece,
-      sourceStart: sourceStart + index,
-      sourceEnd: sourceStart + index + 1,
-    }))
-    : [];
-
-  return {
-    id: `reading-${sourceStart}-${sourceEnd}`,
-    surface,
-    reading: normalizedReading,
-    mode: pieces ? "split" : "group",
-    pieces: resolvedPieces,
-    sourceStart,
-    sourceEnd,
-    needsReview: !pieces,
-    manual: false,
-  };
+function makeReadingAnnotations(surface, reading, sourceIndices) {
+  return readingAlignment.alignSurfaceReading(surface, reading, {
+    sourceIndices,
+    getCandidates: getReadingCandidates,
+  });
 }
 
 function getReadingInputUnits(text) {
@@ -272,16 +206,6 @@ function getReadingInputUnits(text) {
     ...entry,
     inputIndex: entry.sourceIndex ?? inputIndex,
   }));
-}
-
-function findTokenStart(units, cursor, surface) {
-  const tokenChars = Array.from(surface);
-  for (let start = cursor; start <= units.length - tokenChars.length; start += 1) {
-    if (units.slice(start, start + tokenChars.length).map((entry) => entry.char).join("") === surface) {
-      return start;
-    }
-  }
-  return -1;
 }
 
 async function loadReadingEngine(onProgress = () => {}) {
@@ -323,19 +247,15 @@ async function generateReadingAnnotations(sourceText, onProgress = () => {}) {
   onProgress("本文を解析しています…", 70);
   const tokens = await engine.analyzer.parse(analysisText);
   const annotations = [];
-  let cursor = 0;
 
-  for (const token of tokens) {
-    const surface = token.surface_form || "";
-    if (!surface) {
+  const tokenAlignment = readingAlignment.alignTokenPositions(units, tokens);
+  for (const item of tokenAlignment.items) {
+    if (item.type === "fallback") {
+      annotations.push(...item.annotations);
       continue;
     }
-    const tokenStart = findTokenStart(units, cursor, surface);
-    if (tokenStart < 0) {
-      continue;
-    }
-    const tokenEnd = tokenStart + Array.from(surface).length;
-    cursor = tokenEnd;
+
+    const { token, surface, start: tokenStart, end: tokenEnd } = item;
     if (!Array.from(surface).some(isKanji)) {
       continue;
     }
@@ -348,12 +268,10 @@ async function generateReadingAnnotations(sourceText, onProgress = () => {}) {
       }));
     }
 
-    const sourceStart = units[tokenStart].inputIndex;
-    const sourceEnd = units[tokenEnd - 1].inputIndex + 1;
-    const annotation = makeReadingAnnotation(surface, reading, sourceStart, sourceEnd);
-    if (annotation) {
-      annotations.push(annotation);
-    }
+    const sourceIndices = units
+      .slice(tokenStart, tokenEnd)
+      .map((entry) => entry.inputIndex);
+    annotations.push(...makeReadingAnnotations(surface, reading, sourceIndices));
   }
 
   onProgress("読み仮名を作りました。", 100);
@@ -525,19 +443,31 @@ function getActiveReadingAnnotations() {
   return Array.isArray(readingState.annotations) ? readingState.annotations : [];
 }
 
+function getAnnotationSourceIndices(annotation) {
+  const length = Array.from(annotation.surface).length;
+  const stored = Array.isArray(annotation.sourceIndices)
+    ? annotation.sourceIndices.map((value) => Number(value))
+    : [];
+  if (stored.length === length && stored.every((value) => Number.isFinite(value))) {
+    return stored;
+  }
+  return Array.from({ length }, (_, index) => annotation.sourceStart + index);
+}
+
 function makeSplitPieces(annotation) {
+  const sourceIndices = getAnnotationSourceIndices(annotation);
   const pieces = splitReadingByCandidates(annotation.surface, annotation.reading);
   return pieces
     ? pieces.map((piece, index) => ({
       ...piece,
-      sourceStart: annotation.sourceStart + index,
-      sourceEnd: annotation.sourceStart + index + 1,
+      sourceStart: sourceIndices[index],
+      sourceEnd: sourceIndices[index] + 1,
     }))
     : Array.from(annotation.surface).map((surface, index) => ({
       surface,
       reading: "",
-      sourceStart: annotation.sourceStart + index,
-      sourceEnd: annotation.sourceStart + index + 1,
+      sourceStart: sourceIndices[index],
+      sourceEnd: sourceIndices[index] + 1,
     }));
 }
 
@@ -553,17 +483,44 @@ function normalizeReadingAnnotation(entry, index) {
       sourceStart: Number(piece?.sourceStart),
       sourceEnd: Number(piece?.sourceEnd),
     })) : [],
+    sourceIndices: Array.isArray(entry?.sourceIndices)
+      ? entry.sourceIndices.map((value) => Number(value))
+      : [],
     sourceStart: Number(entry?.sourceStart),
     sourceEnd: Number(entry?.sourceEnd),
     needsReview: Boolean(entry?.needsReview),
     manual: Boolean(entry?.manual),
+    reviewReason: String(entry?.reviewReason || ""),
   };
   if (!Number.isFinite(annotation.sourceStart)) annotation.sourceStart = 0;
   if (!Number.isFinite(annotation.sourceEnd)) annotation.sourceEnd = annotation.sourceStart + Array.from(annotation.surface).length;
+  annotation.sourceIndices = getAnnotationSourceIndices(annotation);
   if (annotation.mode === "split" && !annotation.pieces.length) {
     annotation.pieces = makeSplitPieces(annotation);
   }
   return annotation;
+}
+
+function isMixedReadingSurface(surface) {
+  const chars = Array.from(surface);
+  return chars.some(isKanji) && chars.some((char) => readingAlignment.isKana(char));
+}
+
+function normalizeReadingAnnotations(entries) {
+  return entries.flatMap((entry, index) => {
+    const annotation = normalizeReadingAnnotation(entry, index);
+    if (!annotation.manual && isMixedReadingSurface(annotation.surface)) {
+      const migrated = makeReadingAnnotations(
+        annotation.surface,
+        annotation.reading,
+        getAnnotationSourceIndices(annotation),
+      );
+      if (migrated.length) {
+        return migrated;
+      }
+    }
+    return [annotation];
+  });
 }
 
 function updateReadingAnnotation(id, update) {
@@ -1170,7 +1127,7 @@ function applyState(state) {
     els.addReadings.checked = Boolean(state.addReadings);
   }
   if (Array.isArray(state.readingAnnotations)) {
-    readingState.annotations = state.readingAnnotations.map(normalizeReadingAnnotation);
+    readingState.annotations = normalizeReadingAnnotations(state.readingAnnotations);
   }
   if (typeof state.readingSourceText === "string") {
     readingState.sourceText = state.readingSourceText;
