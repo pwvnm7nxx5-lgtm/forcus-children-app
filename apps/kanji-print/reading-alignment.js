@@ -29,6 +29,16 @@
     );
   }
 
+  const NON_WORD_TOKEN_POS = new Set(["助詞", "助動詞", "記号", "フィラー", "接続詞"]);
+
+  function isMergeBoundaryToken(token) {
+    const surface = String(token?.surface_form || token?.surface || "");
+    const pos = String(token?.pos || "");
+    return !surface
+      || NON_WORD_TOKEN_POS.has(pos)
+      || /[\s。、，．,.！？!?「」『』（）()［］【】〈〉《》・…]/u.test(surface);
+  }
+
   function getSurfaceParts(chars, isKanjiFn) {
     if (!chars.length) {
       return [];
@@ -149,21 +159,31 @@
   function normalizeExactPieces(surface, reading, exactPieces) {
     const chars = Array.from(surface || "");
     const target = toHiragana(reading);
-    if (!Array.isArray(exactPieces) || exactPieces.length !== chars.length) {
+    if (!chars.length || !target || !Array.isArray(exactPieces) || !exactPieces.length) {
       return null;
     }
 
+    let surfaceIndex = 0;
     let readingIndex = 0;
-    const pieces = exactPieces.map((piece, index) => {
+    const pieces = exactPieces.map((piece) => {
       const pieceSurface = String(piece?.surface || "");
       const pieceReading = toHiragana(piece?.reading || "");
-      if (pieceSurface !== chars[index] || !pieceReading || !target.startsWith(pieceReading, readingIndex)) {
+      const pieceChars = Array.from(pieceSurface);
+      if (
+        !pieceChars.length
+        || !pieceReading
+        || chars.slice(surfaceIndex, surfaceIndex + pieceChars.length).join("") !== pieceSurface
+        || !target.startsWith(pieceReading, readingIndex)
+      ) {
         return null;
       }
+      surfaceIndex += pieceChars.length;
       readingIndex += pieceReading.length;
       return { surface: pieceSurface, reading: pieceReading };
     });
-    return pieces.every(Boolean) && readingIndex === target.length ? pieces : null;
+    return pieces.every(Boolean) && surfaceIndex === chars.length && readingIndex === target.length
+      ? pieces
+      : null;
   }
 
   function splitReadingByCandidates(surface, reading, getCandidates, getExactWordReading) {
@@ -230,10 +250,25 @@
       ? splitReadingByCandidates(run.surface, normalizedReading, getCandidates, getExactWordReading)
       : null;
     const resolvedReview = Boolean(needsReview || !normalizedReading || !splitPieces);
+    let pieceSurfaceIndex = 0;
     const pieces = splitPieces
-      ? splitPieces.map((piece, index) => {
-        const pieceRange = getSourceRange(sourceIndices, run.start + index, run.start + index + 1);
-        return { ...piece, ...pieceRange };
+      ? splitPieces.map((piece) => {
+        const pieceLength = Array.from(piece.surface).length;
+        const pieceRange = getSourceRange(
+          sourceIndices,
+          run.start + pieceSurfaceIndex,
+          run.start + pieceSurfaceIndex + pieceLength,
+        );
+        const normalizedPiece = {
+          ...piece,
+          sourceIndices: sourceIndices.slice(
+            run.start + pieceSurfaceIndex,
+            run.start + pieceSurfaceIndex + pieceLength,
+          ),
+          ...pieceRange,
+        };
+        pieceSurfaceIndex += pieceLength;
+        return normalizedPiece;
       })
       : [];
 
@@ -250,6 +285,75 @@
       manual: false,
       reviewReason: resolvedReview ? (reviewReason || "reading-split-unavailable") : "",
     };
+  }
+
+  function alignExactSurfaceReading(surface, reading, exactPieces, sourceIndices, options = {}) {
+    const text = String(surface || "");
+    const normalizedReading = toHiragana(reading);
+    const pieces = normalizeExactPieces(text, normalizedReading, exactPieces);
+    if (!pieces) {
+      return null;
+    }
+
+    const chars = Array.from(text);
+    const normalizedSourceIndices = normalizeSourceIndices(chars, sourceIndices);
+    const parts = getSurfaceParts(chars, options.isKanji || isKanji);
+    const kanjiRuns = parts.filter((part) => part.kind === "kanji");
+    const ranges = [];
+    let surfaceIndex = 0;
+    for (const piece of pieces) {
+      const length = Array.from(piece.surface).length;
+      ranges.push({
+        ...piece,
+        start: surfaceIndex,
+        end: surfaceIndex + length,
+      });
+      surfaceIndex += length;
+    }
+
+    const annotations = [];
+    for (const run of kanjiRuns) {
+      const runPieces = ranges.filter((piece) => piece.start >= run.start && piece.end <= run.end);
+      const coveredLength = runPieces.reduce((total, piece) => total + (piece.end - piece.start), 0);
+      const crossesRun = ranges.some((piece) => (
+        (piece.start < run.start && piece.end > run.start)
+        || (piece.start < run.end && piece.end > run.end)
+      ));
+      if (crossesRun || coveredLength !== run.end - run.start) {
+        return null;
+      }
+
+      const grouped = Boolean(options.forceReview)
+        || runPieces.some((piece) => piece.end - piece.start > 1);
+      const runReading = runPieces.map((piece) => piece.reading).join("");
+      const range = getSourceRange(normalizedSourceIndices, run.start, run.end);
+      const review = Boolean(options.forceReview);
+      annotations.push({
+        id: "reading-" + range.sourceStart + "-" + range.sourceEnd,
+        surface: run.surface,
+        reading: runReading,
+        mode: grouped ? "group" : "split",
+        pieces: grouped
+          ? []
+          : runPieces.map((piece) => {
+            const pieceRange = getSourceRange(normalizedSourceIndices, piece.start, piece.end);
+            return {
+              surface: piece.surface,
+              reading: piece.reading,
+              sourceIndices: normalizedSourceIndices.slice(piece.start, piece.end),
+              sourceStart: pieceRange.sourceStart,
+              sourceEnd: pieceRange.sourceEnd,
+            };
+          }),
+        sourceIndices: normalizedSourceIndices.slice(run.start, run.end),
+        sourceStart: range.sourceStart,
+        sourceEnd: range.sourceEnd,
+        needsReview: review,
+        manual: false,
+        reviewReason: review ? (options.reviewReason || "forced-review") : "",
+      });
+    }
+    return annotations.length ? annotations : null;
   }
 
   function createFallbackAnnotations(units, start, end, reason, isKanjiFn) {
@@ -338,6 +442,136 @@
     return { items, cursor };
   }
 
+  function clipTokenItem(item, units, start, end) {
+    if (end <= start) {
+      return null;
+    }
+    const surface = units.slice(start, end).map((entry) => entry?.char || "").join("");
+    if (!surface) {
+      return null;
+    }
+    const isWholeToken = start === item.start && end === item.end;
+    const token = {
+      ...item.token,
+      surface_form: surface,
+      reading: isWholeToken ? item.token?.reading || "" : "",
+    };
+    return {
+      ...item,
+      token,
+      surface,
+      start,
+      end,
+    };
+  }
+
+  function normalizeExactMatches(items, units, matches) {
+    const tokenItems = items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => item?.type === "token");
+    const normalized = (Array.isArray(matches) ? matches : [])
+      .map((match) => {
+        const start = Number(match?.start);
+        const end = Number(match?.end);
+        const surface = String(match?.surface || "");
+        const reading = toHiragana(match?.reading || "");
+        const owner = tokenItems.find(({ item }) => item.start < end && item.end > start);
+        return {
+          ...match,
+          start,
+          end,
+          surface,
+          reading,
+          ownerIndex: owner?.index ?? -1,
+        };
+      })
+      .filter((match) => (
+        Number.isInteger(match.start)
+        && Number.isInteger(match.end)
+        && match.start >= 0
+        && match.end > match.start
+        && match.end <= units.length
+        && match.surface
+        && match.reading
+        && match.ownerIndex >= 0
+      ))
+      .sort((left, right) => left.start - right.start || right.end - left.end);
+
+    const result = [];
+    let coveredUntil = -1;
+    for (const match of normalized) {
+      if (match.start < coveredUntil) {
+        continue;
+      }
+      result.push(match);
+      coveredUntil = match.end;
+    }
+    return result;
+  }
+
+  function insertExactSurfaceMatches(items, units, matches) {
+    const entries = Array.isArray(items) ? items : [];
+    const sourceUnits = Array.isArray(units) ? units : [];
+    const exactMatches = normalizeExactMatches(entries, sourceUnits, matches);
+    if (!exactMatches.length) {
+      return entries;
+    }
+
+    const output = [];
+    entries.forEach((item, itemIndex) => {
+      if (item?.type !== "token") {
+        output.push(item);
+        return;
+      }
+
+      const overlaps = exactMatches.filter((match) => item.start < match.end && item.end > match.start);
+      if (!overlaps.length) {
+        output.push(item);
+        return;
+      }
+
+      const boundaries = new Set([item.start, item.end]);
+      overlaps.forEach((match) => {
+        if (match.start > item.start && match.start < item.end) boundaries.add(match.start);
+        if (match.end > item.start && match.end < item.end) boundaries.add(match.end);
+      });
+      const sortedBoundaries = [...boundaries].sort((left, right) => left - right);
+      for (let index = 0; index < sortedBoundaries.length - 1; index += 1) {
+        const start = sortedBoundaries[index];
+        const end = sortedBoundaries[index + 1];
+        const covering = overlaps.find((match) => match.start <= start && match.end >= end);
+        if (covering) {
+          if (covering.ownerIndex === itemIndex && start === covering.start) {
+            const sourceIndices = sourceUnits
+              .slice(covering.start, covering.end)
+              .map((unit, offset) => getUnitInputIndex(unit, covering.start + offset));
+            const sourceRange = getSourceRange(sourceIndices, 0, sourceIndices.length);
+            output.push({
+              ...item,
+              start: covering.start,
+              end: covering.end,
+              surface: covering.surface,
+              sourceIndices,
+              sourceStart: sourceRange.sourceStart,
+              sourceEnd: sourceRange.sourceEnd,
+              readingKind: "exact",
+              dictionaryMatch: covering,
+              token: {
+                ...item.token,
+                surface_form: covering.surface,
+                reading: covering.reading,
+              },
+            });
+          }
+          continue;
+        }
+        const clipped = clipTokenItem(item, sourceUnits, start, end);
+        if (clipped) output.push(clipped);
+      }
+    });
+    return output;
+  }
+
   function mergeReadingTokenItems(items, getMatch) {
     const entries = Array.isArray(items) ? items : [];
     if (typeof getMatch !== "function") {
@@ -351,6 +585,10 @@
         merged.push(first);
         continue;
       }
+      if (isMergeBoundaryToken(first.token)) {
+        merged.push(first);
+        continue;
+      }
 
       let surface = "";
       let reading = "";
@@ -360,6 +598,9 @@
       for (let candidateIndex = index; candidateIndex < entries.length; candidateIndex += 1) {
         const candidate = entries[candidateIndex];
         if (candidate?.type !== "token") {
+          break;
+        }
+        if (candidateIndex > index && isMergeBoundaryToken(candidate.token)) {
           break;
         }
         if (previous && candidate.start !== previous.end) {
@@ -407,6 +648,19 @@
     const chars = Array.from(text);
     const normalizedReading = toHiragana(reading);
     const isKanjiFn = options.isKanji || isKanji;
+    const getExactWordReading = options.getExactWordReading;
+    if (typeof getExactWordReading === "function") {
+      const exactAnnotations = alignExactSurfaceReading(
+        text,
+        normalizedReading,
+        getExactWordReading(text, normalizedReading),
+        options.sourceIndices,
+        options,
+      );
+      if (exactAnnotations) {
+        return exactAnnotations;
+      }
+    }
     const parts = getSurfaceParts(chars, isKanjiFn);
     const kanjiRuns = parts.filter((part) => part.kind === "kanji");
     if (!kanjiRuns.length) {
@@ -415,7 +669,6 @@
 
     const sourceIndices = normalizeSourceIndices(chars, options.sourceIndices);
     const getCandidates = options.getCandidates;
-    const getExactWordReading = options.getExactWordReading;
     const runReadings = new Map();
     let needsReview = Boolean(options.forceReview);
     let reviewReason = needsReview ? (options.reviewReason || "forced-review") : "";
@@ -486,12 +739,14 @@
   return {
     alignSurfaceReading,
     alignTokenPositions,
+    insertExactSurfaceMatches,
     findAnchorAlignment,
     findTokenStart,
     isKana,
     isKanji,
     mergeReadingTokenItems,
     normalizeExactPieces,
+    alignExactSurfaceReading,
     splitReadingByCandidates,
     toHiragana,
   };

@@ -17,13 +17,15 @@ function summarize(fragments) {
   }));
 }
 
-test("contiguous horizontal and vertical positions become one full-span fragment", () => {
+test("only contiguous cells in one ruby column become a merged fragment", () => {
   assert.deepEqual(summarize(layout.buildReadingFragments([
     position(2, 1, 10),
     position(2, 2, 11),
     position(2, 3, 12),
   ])), [
-    { row: 2, col: 1, span: 3, orientation: "horizontal", sourceIndices: [10, 11, 12] },
+    { row: 2, col: 1, span: 1, orientation: "vertical", sourceIndices: [10] },
+    { row: 2, col: 2, span: 1, orientation: "vertical", sourceIndices: [11] },
+    { row: 2, col: 3, span: 1, orientation: "vertical", sourceIndices: [12] },
   ]);
   assert.deepEqual(summarize(layout.buildReadingFragments([
     position(1, 4, 20),
@@ -39,20 +41,20 @@ test("noncontiguous positions become safe fragments instead of a first-cell fall
     position(0, 0, 30),
     position(0, 2, 32),
   ])), [
-    { row: 0, col: 0, span: 1, orientation: "horizontal", sourceIndices: [30] },
-    { row: 0, col: 2, span: 1, orientation: "horizontal", sourceIndices: [32] },
+    { row: 0, col: 0, span: 1, orientation: "vertical", sourceIndices: [30] },
+    { row: 0, col: 2, span: 1, orientation: "vertical", sourceIndices: [32] },
   ]);
 });
 
-test("each contiguous run keeps its full span when a lane is fragmented", () => {
+test("each contiguous vertical run keeps its full span when a lane is fragmented", () => {
   assert.deepEqual(summarize(layout.buildReadingFragments([
-    position(4, 1, 60),
-    position(4, 2, 61),
+    position(1, 4, 60),
+    position(2, 4, 61),
     position(4, 4, 63),
-    position(4, 5, 64),
+    position(5, 4, 64),
   ])), [
-    { row: 4, col: 1, span: 2, orientation: "horizontal", sourceIndices: [60, 61] },
-    { row: 4, col: 4, span: 2, orientation: "horizontal", sourceIndices: [63, 64] },
+    { row: 1, col: 4, span: 2, orientation: "vertical", sourceIndices: [60, 61] },
+    { row: 4, col: 4, span: 2, orientation: "vertical", sourceIndices: [63, 64] },
   ]);
 });
 

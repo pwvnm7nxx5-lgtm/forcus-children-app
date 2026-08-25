@@ -717,29 +717,22 @@ button:hover {
 }
 
 .grouped-ruby-cell {
+  box-sizing: border-box;
   display: flex;
   align-items: flex-start;
   justify-content: center;
   min-width: 0;
   overflow: hidden;
   padding: 0.7mm 0.4mm 0;
-  background: rgba(255, 255, 255, 0.96);
-  border: 0;
+  background: #fff;
+  border: 1.2px solid var(--line);
 }
 
 .grouped-ruby-cell.grouped-ruby-horizontal {
-  align-items: flex-start;
+  /* Kept for old saved markup; runtime fragments are physical vertical lanes. */
+  align-items: center;
   justify-content: center;
-  padding: 0.7mm 0.4mm 0;
-  background-color: transparent;
-  background-image: repeating-linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0.96) 0,
-    rgba(255, 255, 255, 0.96) var(--ruby-w),
-    transparent var(--ruby-w),
-    transparent calc(var(--ruby-w) + var(--cell-w))
-  );
-  background-repeat: repeat-x;
+  padding: 0.7mm 0.5mm;
 }
 
 .grouped-ruby-cell .ruby-text {
@@ -762,7 +755,7 @@ button:hover {
   align-items: center;
   justify-content: center;
   padding: 0.7mm 0.5mm;
-  background: rgba(255, 255, 255, 0.96);
+  background: #fff;
 }
 
 .grouped-ruby-cell.grouped-ruby-vertical .ruby-text {
