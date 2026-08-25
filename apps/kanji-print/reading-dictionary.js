@@ -86,6 +86,10 @@
     return new Decoder().decode(bytes);
   }
 
+  function canonicalizePayloadText(text) {
+    return String(text || "").replace(/\r\n?/gu, "\n");
+  }
+
   async function readResponsePayload(response) {
     if (typeof response?.arrayBuffer === "function") {
       const buffer = await response.arrayBuffer();
@@ -388,11 +392,16 @@
         }
         const payload = await readResponsePayload(response);
         const { bytes, text } = payload;
+        // Git may check text assets out with CRLF on Windows. Validate the
+        // generator's canonical LF representation so local and hosted copies
+        // keep the same integrity result.
+        const canonicalText = canonicalizePayloadText(text);
+        const canonicalBytes = encodeUtf8(canonicalText);
         const expectedBytes = Number(descriptor.bytes);
-        if (bytes.byteLength !== expectedBytes) {
+        if (canonicalBytes.byteLength !== expectedBytes) {
           throw new Error(`読み仮名辞書の shard ${index} の byte size が一致しません`);
         }
-        const actualSha256 = await sha256Hex(bytes, cryptoImpl);
+        const actualSha256 = await sha256Hex(canonicalBytes, cryptoImpl);
         if (actualSha256.toLowerCase() !== String(descriptor.sha256).toLowerCase()) {
           throw new Error(`読み仮名辞書の shard ${index} の SHA-256 が一致しません`);
         }
@@ -400,7 +409,7 @@
           throw failure;
         }
         bytesLoaded += bytes.byteLength;
-        const parsed = parseShard(text);
+        const parsed = parseShard(canonicalText);
         loadedShards.set(index, parsed.entries);
         for (const [surface, entries] of parsed.bySurface) {
           const existing = loadedSurfaceEntries.get(surface) || [];

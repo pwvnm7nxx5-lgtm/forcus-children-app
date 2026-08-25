@@ -21,6 +21,45 @@
     });
   }
 
+  function getSourceIndices(entry) {
+    const stored = Array.isArray(entry?.sourceIndices)
+      ? entry.sourceIndices.map(Number).filter(Number.isFinite)
+      : [];
+    if (stored.length) {
+      return stored;
+    }
+    const start = Number(entry?.sourceStart);
+    const end = Number(entry?.sourceEnd);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      return [];
+    }
+    return Array.from({ length: end - start }, (_, index) => start + index);
+  }
+
+  function getReadingFocusForSourceIndex(annotations, sourceIndex) {
+    const targetIndex = Number(sourceIndex);
+    if (!Number.isFinite(targetIndex)) {
+      return null;
+    }
+
+    const annotation = (Array.isArray(annotations) ? annotations : []).find((entry) => (
+      getSourceIndices(entry).includes(targetIndex)
+    ));
+    if (!annotation) {
+      return null;
+    }
+
+    if (annotation.mode === "split") {
+      const pieces = Array.isArray(annotation.pieces) ? annotation.pieces : [];
+      const pieceIndex = pieces.findIndex((piece) => getSourceIndices(piece).includes(targetIndex));
+      if (pieceIndex >= 0) {
+        return { annotationId: annotation.id, role: "piece", pieceIndex };
+      }
+    }
+
+    return { annotationId: annotation.id, role: "word", pieceIndex: -1 };
+  }
+
   function getAnnotationSequence(annotationId, sequence) {
     return sequence.filter((entry) => entry.annotationId === annotationId);
   }
@@ -116,6 +155,7 @@
     getAdjacentReadingFocus,
     getModeButtonIndex,
     getModeKeyAction,
+    getReadingFocusForSourceIndex,
     getReadingFocusSequence,
   };
 });

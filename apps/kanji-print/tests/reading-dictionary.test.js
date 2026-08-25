@@ -228,3 +228,31 @@ test("shard SHA-256 mismatch disables exact enrichment before parsing", async ()
   assert.match(prepared.error.message, /SHA-256/u);
   assert.deepEqual(runtime.findExactSurfaceMatches("学校"), []);
 });
+
+test("Windows CRLF checkout validates against the canonical LF shard", async () => {
+  const manifestUrl = "/kanji/manifest.json";
+  const shardText = `${JSON.stringify({
+    schemaVersion: 1,
+    entries: [["学校", "がっこう", [["学", "がっ"], ["校", "こう"]]]],
+  }, null, 2)}\n`;
+  const manifest = {
+    schemaVersion: 1,
+    hash: { bucketCount: 1 },
+    shards: [shardDescriptor("shard-00.json", shardText)],
+  };
+  const checkedOutText = shardText.replace(/\n/gu, "\r\n");
+  const runtime = dictionary.createRuntimeDictionary({
+    fetch: async (url) => url === manifestUrl
+      ? response(JSON.stringify(manifest))
+      : response(checkedOutText),
+    manifestUrl,
+  });
+
+  const prepared = await runtime.prepareForTokens([{ surface_form: "学校" }]);
+
+  assert.equal(prepared.available, true);
+  assert.deepEqual(runtime.lookupExactWordReading("学校", "がっこう"), [
+    { surface: "学", reading: "がっ" },
+    { surface: "校", reading: "こう" },
+  ]);
+});
