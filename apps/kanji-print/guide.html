@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>漢字なぞりプリント｜使い方</title>
+  <link rel="stylesheet" href="guide.css">
+</head>
+<body>
+  <header id="top" class="site-header">
+    <div class="page-width header-inner">
+      <div class="header-row">
+        <p class="eyebrow">教師向け・使い方</p>
+        <a class="back-link header-back-link" href="index.html">アプリに戻る</a>
+      </div>
+      <h1>漢字なぞりプリントの使い方</h1>
+      <p class="lead">文章を入力し、見本にする文字と空欄にする文字を決めて、授業に合わせたなぞりプリントを作ります。</p>
+    </div>
+  </header>
+
+  <nav class="toc" aria-labelledby="toc-title">
+    <div class="page-width toc-inner">
+      <h2 id="toc-title">目次</h2>
+      <ol class="toc-list">
+        <li><a href="#basic">基本：まず1枚を作る</a></li>
+        <li><a href="#guide-text">Bで濃い見本にする</a></li>
+        <li><a href="#kanji-blank">漢字を空欄にする</a></li>
+        <li><a href="#non-kanji-blank">漢字以外を空欄にする</a></li>
+        <li><a href="#spacing">空白と改行を決める</a></li>
+        <li><a href="#paper-text">用紙と文字を整える</a></li>
+        <li><a href="#extra-practice">句点後の余りマスを使う</a></li>
+        <li><a href="#templates">テンプレートを使う</a></li>
+        <li><a href="#readings">読み仮名を作る・直す</a></li>
+        <li><a href="#share">共有URLを作る</a></li>
+        <li><a href="#print-pdf">印刷・PDF保存</a></li>
+        <li><a href="#troubleshooting">よくある困りごと</a></li>
+      </ol>
+    </div>
+  </nav>
+
+  <main class="page-width guide-main">
+    <section id="basic" class="guide-section">
+      <p class="section-label">基本</p>
+      <h2>まず1枚を作る</h2>
+      <p>文章と設定を変えると、右側のプレビュー（画面の幅が狭いときは下側）にすぐ反映されます。次の順で作ると、初めてでも迷いにくいです。</p>
+      <ol class="steps">
+        <li>
+          <strong>「文章」に練習したい文を入力します。</strong>
+          <p>改行も入力できます。例えば、次のような文です。</p>
+          <p class="example"><span class="example-label">例</span><code>大陸を横断する。
+紙の中央、九州へたびに出る。
+早起きする。</code></p>
+        </li>
+        <li>
+          <strong>「文章」の設定で、空欄にする文字や空白・改行の扱いを決めます。</strong>
+          <p>見本を残したい文ならそのまま、書かせたい文字があるなら「漢字を自動で空欄にする」などを使います。</p>
+        </li>
+        <li>
+          <strong>「用紙・文字」で列、行、文字の見え方を整えます。</strong>
+          <p>縦方向の1列に入れるマス数、横に並べる列数、文字サイズ、薄さなどを調整します。</p>
+        </li>
+        <li>
+          <strong>プレビューを確認し、「印刷 / PDF保存」を押します。</strong>
+          <p>名前と日付も必要なら先に入力します。作成する枚数を増やすと、同じ内容のプリントを複数枚作れます。</p>
+        </li>
+      </ol>
+      <p class="callout">最初は初期値のまま1文だけで試し、マスの詰まり方を確認してから列・行や文字サイズを調整すると便利です。</p>
+    </section>
+
+    <section id="guide-text" class="guide-section">
+      <p class="section-label">見本の濃さ</p>
+      <h2>Bで一部だけ濃い見本にする</h2>
+      <p>文章の一部だけを、なぞる薄い文字ではなく、濃い見本文字にしたいときに使います。</p>
+      <ol class="steps">
+        <li>「文章」の入力欄で、濃くしたい文字をドラッグして選択します。</li>
+        <li>入力欄の下にある <kbd>B</kbd> ボタンを押します。</li>
+        <li>プレビューで、選択した範囲が濃い見本になったことを確認します。</li>
+      </ol>
+      <p class="example"><span class="example-label">入力欄の例</span><code>'大陸'を横断する。</code><span class="arrow">→</span><span class="example-label">プレビュー</span><code>大陸を横断する。</code></p>
+      <p class="note">Bを押すと、選択範囲が半角アポストロフィ（<code>'</code>）で囲まれます。アポストロフィ自体はプレビューのマスには表示されません。空欄化の設定も同時に使う場合は、濃くした文字が空欄にならないかプレビューで確認してください。</p>
+    </section>
+
+    <section id="kanji-blank" class="guide-section">
+      <p class="section-label">空欄の作り方</p>
+      <h2>漢字を空欄にする</h2>
+      <p>漢字を見本にせず、児童に書かせたいときの設定です。</p>
+      <ol class="steps">
+        <li>「漢字を自動で空欄にする」にチェックを入れます。</li>
+        <li>すべての漢字を空欄にするなら、「対象漢字（空欄ですべて）」は空のままにします。</li>
+        <li>一部の漢字だけなら、「対象漢字（空欄ですべて）」に対象の漢字を入力します。例えば <code>山川</code> と入力すると、山と川が対象です。</li>
+        <li>プレビューで、意図した漢字だけが空欄になっているか確認します。</li>
+      </ol>
+      <div class="example-pair">
+        <p class="example"><span class="example-label">文章</span><code>大きな山。</code></p>
+        <p class="example"><span class="example-label">すべて空欄</span><code>□きな□。</code></p>
+        <p class="example"><span class="example-label">対象に「山」</span><code>大きな□。</code></p>
+      </div>
+      <p class="note">「対象漢字」に入力できるのは「漢字を自動で空欄にする」をオンにしたときです。チェックを外すと、対象漢字の入力を残したままでも通常の見本に戻ります。</p>
+    </section>
+
+    <section id="non-kanji-blank" class="guide-section">
+      <p class="section-label">空欄の作り方</p>
+      <h2>漢字以外を空欄にする</h2>
+      <p>漢字と数字を見本として残し、かなや句読点などを空欄にしたいときに使います。</p>
+      <ol class="steps">
+        <li>「漢字以外を自動で空欄にする」にチェックを入れます。</li>
+        <li>プレビューで、漢字は見本として残り、ひらがな・カタカナ・句読点・記号などが空欄になったことを確認します。</li>
+      </ol>
+      <p class="example"><span class="example-label">例</span><code>大きな山。3</code><span class="arrow">→</span><code>大□□山□3</code></p>
+      <p class="callout">数字は空欄にならず、文字として残ります。例えば <code>3</code> や <code>2026</code> を残したまま、かなだけを練習用の空欄にできます。</p>
+      <p class="note">漢字も空欄にしたい場合は、「漢字を自動で空欄にする」もオンにします。その場合も数字は空欄になりません。</p>
+    </section>
+
+    <section id="spacing" class="guide-section">
+      <p class="section-label">文章の並び</p>
+      <h2>空白と改行を決める</h2>
+      <p>文章欄の空白や改行を、マスの並びにどう反映するかを決めます。</p>
+      <div class="instruction-block">
+        <h3>空白を1マス空ける</h3>
+        <ol class="steps compact-steps">
+          <li>「空白を1マス空ける」にチェックを入れます。</li>
+          <li>文章中の半角スペース、全角スペース、タブが、それぞれ1つの空欄マスになります。</li>
+        </ol>
+        <p class="example"><span class="example-label">例</span><code>山　川</code><span class="arrow">→</span><code>山□川</code></p>
+      </div>
+      <div class="instruction-block">
+        <h3>空白を詰める</h3>
+        <ol class="steps compact-steps">
+          <li>「空白を詰める」にチェックを入れます。</li>
+          <li>文章中の半角スペース、全角スペース、タブを取り除き、文字を続けて配置します。</li>
+        </ol>
+        <p class="example"><span class="example-label">例</span><code>山　川</code><span class="arrow">→</span><code>山川</code></p>
+      </div>
+      <div class="instruction-block">
+        <h3>改行で次の列</h3>
+        <ol class="steps compact-steps">
+          <li>オンにすると、改行した位置までを空欄で埋め、次の文を次の列から始めます。</li>
+          <li>オフにすると、改行を取り除いて文章を続けます。</li>
+        </ol>
+        <p class="example"><span class="example-label">例</span><code>春。
+夏。</code><span class="arrow">→</span><code>オンなら「春。」の列の次に「夏。」</code></p>
+      </div>
+      <p class="note">「空白を1マス空ける」と「空白を詰める」は同時には使いません。片方をオンにすると、もう片方はオフになります。「漢字以外を自動で空欄にする」がオンのときは、空白も漢字以外として空欄マスになります。</p>
+    </section>
+
+    <section id="paper-text" class="guide-section">
+      <p class="section-label">用紙・文字</p>
+      <h2>用紙と文字を整える</h2>
+      <p>「用紙・文字」では、プリントの大きさ、向き、文字の見え方を調整します。名前と日付はプリントの上部に表示されます。</p>
+      <div class="setting-grid">
+        <div class="instruction-block">
+          <h3>用紙の設定</h3>
+          <dl class="setting-list">
+            <div><dt>列</dt><dd>縦方向のマスの並びを、横に何列置くか。</dd></div>
+            <div><dt>行</dt><dd>1列に何マス置くか。</dd></div>
+            <div><dt>作成する枚数</dt><dd>同じ内容のプリントを何枚作るか。</dd></div>
+            <div><dt>穴あけガイド</dt><dd>なし、左の真ん中 ◀、上の真ん中 ▲から選ぶ。</dd></div>
+            <div><dt>流し方向</dt><dd>最初の列を左から置くか、右から置くか。</dd></div>
+          </dl>
+        </div>
+        <div class="instruction-block">
+          <h3>文字の設定</h3>
+          <dl class="setting-list">
+            <div><dt>文字サイズ</dt><dd>通常の文字の大きさ。</dd></div>
+            <div><dt>小さい文字</dt><dd>「ゃ」「ゅ」「ょ」「っ」などの大きさ。</dd></div>
+            <div><dt>句読点サイズ</dt><dd>「。」「、」などの大きさ。</dd></div>
+            <div><dt>フォント</dt><dd>教科書体、ゴシック、明朝から選ぶ。</dd></div>
+            <div><dt>文字の太さ</dt><dd>細い、普通、太いから選ぶ。</dd></div>
+            <div><dt>余白</dt><dd>マスの中の文字の間隔を微調整する。</dd></div>
+            <div><dt>文字の薄さ</dt><dd>なぞる文字を薄く、または濃くする。</dd></div>
+          </dl>
+        </div>
+      </div>
+      <p class="example"><span class="example-label">設定例</span><code>7列・12行・右から・教科書体・薄め</code><span class="arrow">→</span><span>縦書きの列を少なめにして、右側の列から練習するレイアウト</span></p>
+      <p class="callout">文字が小さく感じるときは、まず列や行を少なくしてマスを広げます。列・行を増やすと1枚に入る文字数は増えますが、マスは小さくなります。</p>
+    </section>
+
+    <section id="extra-practice" class="guide-section">
+      <p class="section-label">余りマスの活用</p>
+      <h2>句点後の余りマスを練習に使う</h2>
+      <p>短い文の下に残るマスを、その文に出てきた漢字の追加練習に使えます。</p>
+      <ol class="steps">
+        <li>「句点後の余りマスを練習に使う」にチェックを入れます。</li>
+        <li>「下に残すマス」に、最後まで空欄で残すマス数を入力します。例えば <code>2</code> なら、列の下2マスは追加練習に使いません。</li>
+        <li>プレビューで、文の後に漢字が追加され、指定した下のマスが空欄で残っていることを確認します。</li>
+      </ol>
+      <p class="example"><span class="example-label">例</span><code>山川を歩く。</code><span class="arrow">→</span><span>「山」「川」など、その列に見えている漢字を出てきた順で追加練習</span></p>
+      <p class="note">「。」「．」「.」「！」「!」「？」「?」の後で働きます。余りが「下に残すマス」以下なら、追加できる漢字はありません。空欄になった漢字やBで濃い見本にした文字は、追加練習の候補になりません。</p>
+    </section>
+
+    <section id="templates" class="guide-section">
+      <p class="section-label">繰り返し使う</p>
+      <h2>テンプレートを保存・適用・削除する</h2>
+      <p>同じマス数や文字設定を何度も使うときは、テンプレートに保存します。</p>
+      <ol class="steps">
+        <li>文章欄、空欄、用紙・文字、練習などを整え、「保存名」に名前を入力します。例：<code>7列12行・右から</code></li>
+        <li>「保存」を押します。同じ名前がすでにある場合は、その設定で更新されます。</li>
+        <li>後で使うときは「呼び出し」から名前を選び、「適用」を押します。</li>
+        <li>不要になったテンプレートは「呼び出し」から選び、「削除」を押して確認します。</li>
+      </ol>
+      <p class="note">テンプレートは保存したブラウザ内に保存されます。文章、名前、日付は保存対象ではありません。列・行、枚数、穴あけガイド、文字、空欄、空白、改行、余りマス、流し方向、読み仮名表示とその時点の読み一覧などの設定を保存します。別の文章に適用した場合は、読み仮名を作り直してください。</p>
+    </section>
+
+    <section id="readings" class="guide-section">
+      <p class="section-label">読み仮名</p>
+      <h2>読み仮名を作り、確認・修正する</h2>
+      <p>読み仮名機能は現在のアプリで使えます。自動作成後に先生が確認し、単語ごとの読み方や表示方法を直せます。</p>
+      <ol class="steps">
+        <li>
+          <strong>「読み仮名を付ける」にチェックを入れます。</strong>
+          <p>読み仮名の操作欄が開きます。</p>
+        </li>
+        <li>
+          <strong>「読み仮名を作る」を押します。</strong>
+          <p>本文から漢字を含む単語の読みを作ります。準備中は進み具合が表示され、終わると読みの一覧が表示されます。</p>
+        </li>
+        <li>
+          <strong>一覧で、単語・読み・表示方法を確認します。</strong>
+          <p>各行には単語、読み欄、<code>分ける</code>・<code>まとめる</code>ボタンが表示されます。黄色の <strong>要確認</strong> が付いた行は、読みや分け方を特に確認します。</p>
+        </li>
+        <li>
+          <strong>必要な箇所を修正します。</strong>
+          <p>読み欄をクリックして入力します。入力した読みはひらがなに整えられます。読み仮名が付いたプレビューの漢字マスをクリックして、その読み欄を開くこともできます。</p>
+        </li>
+      </ol>
+
+      <div class="instruction-block">
+        <h3>「分ける」と「まとめる」</h3>
+        <div class="example-pair">
+          <p class="example"><span class="example-label">分ける</span><code>大陸 → 大「たい」・陸「りく」</code></p>
+          <p class="example"><span class="example-label">まとめる</span><code>大陸 → 「たいりく」</code></p>
+        </div>
+        <p>「分ける」を選ぶと、字ごとの読み欄が現れます。字ごとに読みを確認・修正してください。「まとめる」を選ぶと、単語全体をひとまとまりの読みとして表示します。自動判定の結果が授業の意図と違うときは、ボタンで表示方法を選び直します。</p>
+      </div>
+
+      <div class="instruction-block">
+        <h3>「要確認」が付いたとき</h3>
+        <ol class="steps compact-steps">
+          <li>黄色の行で、単語の読み欄を確認します。</li>
+          <li>必要なら読みを修正し、「分ける」または「まとめる」を選びます。</li>
+          <li>「分ける」で字ごとの欄が空いている場合は、各欄に読みを入力します。</li>
+          <li>プレビューの読み仮名が、教材として適切になったか確認します。</li>
+        </ol>
+      </div>
+
+      <div class="instruction-block">
+        <h3>本文を変えたとき</h3>
+        <p>本文を変更すると、一覧の上に「本文を変更しました。読み仮名を作り直してください。」と表示されます。文章を確定した後、もう一度「読み仮名を作る」を押してください。古い一覧をそのまま印刷しないよう、プレビューも確認します。</p>
+      </div>
+
+      <div class="instruction-block">
+        <h3>修正を保存する・消去する</h3>
+        <ul class="plain-list">
+          <li>読みや分け方を修正すると、このブラウザに保存されます。同じ表面の単語が同じ元の読みで再び出たとき、保存した修正が自動作成に使われます。</li>
+          <li>保存された行には <code>修正済み</code> が付きます。保存はこのブラウザ内だけで行われ、外部へ送信されません。</li>
+          <li><code>学習した読みを消去</code> は、ブラウザに保存した先生の修正を消します。現在表示中の一覧はその場では変わらないため、消去後に「読み仮名を作る」を押して結果を作り直します。</li>
+        </ul>
+      </div>
+
+      <div class="instruction-block">
+        <h3>読み仮名の見え方を調整する</h3>
+        <p>読み仮名の操作欄にある「サイズ」「薄さ」「余白」で、印刷する読み仮名の大きさ、濃さ、字間を調整します。</p>
+      </div>
+
+      <div class="keyboard-note">
+        <h3>キーボードで確認する場合</h3>
+        <p>読み欄で <kbd>Alt</kbd>+<kbd>↓</kbd> または <kbd>F2</kbd> を押すと、同じ行の「分ける・まとめる」に移動します。<kbd>←</kbd> <kbd>→</kbd> で選び、<kbd>Enter</kbd> または <kbd>Space</kbd> で決定、<kbd>Escape</kbd> で読み欄に戻ります。通常の <kbd>Tab</kbd> では、読み欄と字ごとの入力欄を順に移動できます。</p>
+      </div>
+    </section>
+
+    <section id="share" class="guide-section">
+      <p class="section-label">共有</p>
+      <h2>共有URLを作る</h2>
+      <ol class="steps">
+        <li>文章、空欄、読み仮名、用紙・文字などを完成させます。</li>
+        <li>「共有URLをコピー」を押します。</li>
+        <li>コピーされたURLを、同じ内容を使う先生に渡します。URLを開くと、文章と設定が読み込まれます。</li>
+      </ol>
+      <p class="warning-note"><strong>個人情報に注意：</strong>共有URLには文章、名前、日付、読み仮名、各設定が含まれます。児童名や個人情報を入力したまま、不特定多数が見られる場所へ公開しないでください。</p>
+      <p class="note">コピーが許可されない環境では、アプリがURL欄に共有用データを入れます。その場合は、アドレス欄のURL全体を手動でコピーしてください。</p>
+    </section>
+
+    <section id="print-pdf" class="guide-section">
+      <p class="section-label">出力</p>
+      <h2>印刷・PDF保存をする</h2>
+      <ol class="steps">
+        <li>プレビューで、空欄、読み仮名、名前・日付、ページ数を確認します。</li>
+        <li>「印刷 / PDF保存」を押します。</li>
+        <li>ブラウザの印刷画面で、紙のプリンターを選ぶか、「PDFとして保存」などのPDF保存を選びます。</li>
+        <li>必要に応じて保存先やファイル名を決めて保存します。</li>
+      </ol>
+      <p class="callout">プリントはA4縦向きのレイアウトです。画面上のプレビューが縮小表示されていても、印刷時は印刷用の大きさで出力されます。</p>
+      <p class="note">読み仮名を付けた場合は、印刷画面を開く前にプレビューで読みの誤りや「要確認」の残りを確認してください。</p>
+    </section>
+
+    <section id="troubleshooting" class="guide-section">
+      <p class="section-label">確認ポイント</p>
+      <h2>よくある困りごと</h2>
+      <div class="problem-list">
+        <details>
+          <summary>漢字が全部空欄になった</summary>
+          <p>「漢字を自動で空欄にする」がオンで、「対象漢字（空欄ですべて）」が空になっていないか確認します。一部だけにしたいときは対象漢字を入力し、見本に戻したいときはチェックを外します。</p>
+        </details>
+        <details>
+          <summary>漢字以外が空欄にならない・数字がどうなるか分からない</summary>
+          <p>「漢字以外を自動で空欄にする」を確認します。この設定では、かな・句読点・記号などは空欄になりますが、数字は文字として残ります。数字も空欄にしたい場合は、文章の数字を削除するなど、入力文を調整してください。</p>
+        </details>
+        <details>
+          <summary>空白や改行の位置が思った通りにならない</summary>
+          <p>「空白を1マス空ける」と「空白を詰める」のどちらがオンか、また「改行で次の列」がオンかを確認します。空白を残したいときは前者、取り除きたいときは後者を選びます。</p>
+        </details>
+        <details>
+          <summary>Bを押しても濃くならない</summary>
+          <p>先に文章欄で文字を選択してから <kbd>B</kbd> を押します。入力欄で選択範囲が半角アポストロフィで囲まれているか、プレビューで確認してください。</p>
+        </details>
+        <details>
+          <summary>読み仮名が出ない、または古い読みのままになる</summary>
+          <p>「読み仮名を付ける」をオンにし、「読み仮名を作る」を押します。本文を変更した後は、一覧に本文変更の案内が出るので、もう一度読み仮名を作り直してください。</p>
+        </details>
+        <details>
+          <summary>黄色の「要確認」が消えない</summary>
+          <p>その行の読みを確認し、「分ける」で字ごとの読みを入力するか、「まとめる」で単語全体の読みとして表示します。入力後はプレビューの読み仮名も確認してください。</p>
+        </details>
+        <details>
+          <summary>保存した読みの修正を消したい</summary>
+          <p>「学習した読みを消去」を押します。今表示されている一覧はそのままなので、続けて「読み仮名を作る」を押して、自動作成し直してください。</p>
+        </details>
+        <details>
+          <summary>「対象漢字」に入力できない</summary>
+          <p>「漢字を自動で空欄にする」がオフだと入力欄は無効です。先にチェックを入れてください。</p>
+        </details>
+        <details>
+          <summary>テンプレートが見つからない</summary>
+          <p>テンプレートは保存したブラウザ内にだけあります。別のブラウザや別の端末で開いていないか、ブラウザの保存データを消していないかを確認します。</p>
+        </details>
+        <details>
+          <summary>共有URLをコピーできない</summary>
+          <p>コピーが使えない環境では、共有用データがアドレス欄に入ります。URL全体を選択して手動でコピーします。</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="page-width footer-inner">
+      <p>漢字なぞりプリントを使うときの教師向け説明書</p>
+      <div class="footer-links">
+        <a class="back-link" href="index.html">アプリに戻る</a>
+        <a href="#top">ページ上部へ</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
