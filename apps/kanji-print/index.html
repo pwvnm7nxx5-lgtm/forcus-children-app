@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
   <title>漢字なぞりプリント</title>
-  <link rel="stylesheet" href="styles.css?v=furigana-v8">
+  <link rel="stylesheet" href="styles.css?v=furigana-v12">
 </head>
 <body>
   <div class="app-shell">
@@ -55,8 +55,9 @@
           <label><input id="addReadings" type="checkbox"> 読み仮名を付ける</label>
         </div>
         <div id="readingPanel" class="option-panel" hidden>
-          <div class="sub-actions">
-            <button id="extractReadingsBtn" type="button">読み仮名を作る</button>
+            <div class="sub-actions">
+              <button id="extractReadingsBtn" type="button">読み仮名を作る</button>
+              <button id="clearReadingCorrectionsBtn" type="button" title="保存した先生の読みの修正を消去する">学習した読みを消去</button>
           </div>
           <div class="reading-status" aria-live="polite">
             <progress id="readingProgress" class="reading-progress" max="100" value="0" hidden></progress>
@@ -220,12 +221,15 @@
 
   <script src="vendor/kuroshiro-1.2.0.min.js?v=furigana-v1"></script>
   <script src="vendor/kuroshiro-analyzer-kuromoji-1.1.0.min.js?v=furigana-v1"></script>
-  <script src="reading-candidates.js?v=furigana-v8"></script>
-  <script src="reading-word-map.js?v=furigana-v8"></script>
-  <script src="reading-layout.js?v=furigana-v8"></script>
-  <script src="reading-keyboard.js?v=furigana-v8"></script>
-  <script src="reading-input-state.js?v=furigana-v8"></script>
-  <script src="reading-alignment.js?v=furigana-v8"></script>
-  <script src="app.js?v=furigana-v8"></script>
+  <script src="reading-candidates.js?v=furigana-v12"></script>
+  <script src="reading-word-map.js?v=furigana-v12"></script>
+  <script src="reading-dictionary.js?v=furigana-v12"></script>
+  <script src="reading-corrections.js?v=furigana-v12"></script>
+  <script src="reading-lookup.js?v=furigana-v12"></script>
+  <script src="reading-layout.js?v=furigana-v12"></script>
+  <script src="reading-keyboard.js?v=furigana-v12"></script>
+  <script src="reading-input-state.js?v=furigana-v12"></script>
+  <script src="reading-alignment.js?v=furigana-v12"></script>
+  <script src="app.js?v=furigana-v12"></script>
 </body>
 </html>

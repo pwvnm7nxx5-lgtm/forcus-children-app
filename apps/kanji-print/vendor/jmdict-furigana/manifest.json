@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "project": "JmdictFurigana",
+    "version": "2.3.1+2026-07-25",
+    "asset": "JmdictFurigana.json.tar.gz",
+    "url": "https://github.com/Doublevil/JmdictFurigana/releases/download/2.3.1%2B2026-07-25/JmdictFurigana.json.tar.gz",
+    "sha256": "fc02519134ba75389db1885127cd06b8beb3e4f1922c68c510b73f3b7175b01a",
+    "license": "Creative Commons Attribution-ShareAlike (same license as JMdict)",
+    "attribution": "JmdictFurigana by Doublevil; source dictionary JMdict by the Electronic Dictionary Research and Development Group.",
+    "excludes": [
+      "JmnedictFurigana.json",
+      "JmnedictFurigana.txt"
+    ],
+    "downloadedSha256": "fc02519134ba75389db1885127cd06b8beb3e4f1922c68c510b73f3b7175b01a"
+  },
+  "scope": {
+    "name": "Official Joyo Kanji (elementary school plus remaining common-use kanji)",
+    "characters": 2136,
+    "source": "https://www.bunka.go.jp/seisaku/kokugo_nihongo/kokugo_shisaku/joyokanjihyo_sakuin/index.html",
+    "checkedInFile": "scripts/joyo-kanji.txt",
+    "variantAliases": {
+      "剥": "剝",
+      "填": "塡",
+      "頬": "頰"
+    }
+  },
+  "hash": {
+    "algorithm": "FNV-1a over Unicode code points, modulo bucketCount",
+    "bucketCount": 32
+  },
+  "entries": 200511,
+  "sourceEntryCount": 235610,
+  "candidateKeyCount": 200530,
+  "conflictCount": 19,
+  "skipped": {
+    "no-kanji": 1619,
+    "outside-joyo-scope": 32809,
+    "conflictingSurfaceReadings": 19
+  },
+  "maxSurfaceLength": 27,
+  "totalShardBytes": 18438156,
+  "shards": [
+    {
+      "file": "shard-00.json",
+      "entries": 6352,
+      "bytes": 584500,
+      "sha256": "a903b889c8c13a7d652824dd3f88e1877a19199f615cd5f916c4f77577b1ba06"
+    },
+    {
+      "file": "shard-01.json",
+      "entries": 6219,
+      "bytes": 571642,
+      "sha256": "3aae3e9947270ef7b1a4d58df8c28563f170dfb34fd6bc40cab17c9001f486e4"
+    },
+    {
+      "file": "shard-02.json",
+      "entries": 6210,
+      "bytes": 571384,
+      "sha256": "3d114f9c4d01e5046fa0450901adf2f69399ff0cb62692a4f64ccc1a3219cd8d"
+    },
+    {
+      "file": "shard-03.json",
+      "entries": 6279,
+      "bytes": 576374,
+      "sha256": "6feb58016962f93aaff6128ba2d956e864e35e07c7b7615e1492beffb3ad110f"
+    },
+    {
+      "file": "shard-04.json",
+      "entries": 6050,
+      "bytes": 561076,
+      "sha256": "bbd4437368e90bf7fe6542656b4f0db5441a56041802162689320ced180b4a77"
+    },
+    {
+      "file": "shard-05.json",
+      "entries": 6271,
+      "bytes": 576036,
+      "sha256": "6fa1cba4a050f4ee7815e83d4fdb943c64dbaf1ecec3fa77943ad5c1db979e0d"
+    },
+    {
+      "file": "shard-06.json",
+      "entries": 6205,
+      "bytes": 573318,
+      "sha256": "e5abc9cabdf384ea8cb85d74aa99f91c7a3ae8d5a18b244a076d6ba72f880a2f"
+    },
+    {
+      "file": "shard-07.json",
+      "entries": 6310,
+      "bytes": 577722,
+      "sha256": "0073d54f0fb7f785eed9e1a50a5b7a3537c90c9cc3c0e2b75ed9cbf2b048c18e"
+    },
+    {
+      "file": "shard-08.json",
+      "entries": 6203,
+      "bytes": 570108,
+      "sha256": "b03a10d3228de6311d7ed82cccf8699d632cd3d2c92dc96237ca181479a57bf9"
+    },
+    {
+      "file": "shard-09.json",
+      "entries": 6359,
+      "bytes": 581944,
+      "sha256": "349abe0fdce42c4048802d5f9b325511e873b4557e57a6d376f77d7eee55ed9b"
+    },
+    {
+      "file": "shard-10.json",
+      "entries": 6191,
+      "bytes": 570038,
+      "sha256": "3d08b8f088342526082e0bb168232a3752024beb5084cab931696b720c86c57b"
+    },
+    {
+      "file": "shard-11.json",
+      "entries": 6303,
+      "bytes": 578834,
+      "sha256": "710f30945e0e90e6cbda32efa647a4b5533a895fbd650c96dd45db217b89a64c"
+    },
+    {
+      "file": "shard-12.json",
+      "entries": 6281,
+      "bytes": 586504,
+      "sha256": "ccf030f6c2a74b586f7d29f79c8366750e65b3efefc1016b9d92a40e9863662a"
+    },
+    {
+      "file": "shard-13.json",
+      "entries": 6209,
+      "bytes": 570826,
+      "sha256": "67283a53a53c3d56d849beb60e473c8e274b312ebe67f141fd11e22e753df5a4"
+    },
+    {
+      "file": "shard-14.json",
+      "entries": 6340,
+      "bytes": 585382,
+      "sha256": "21a6491d8b249cc81e2c36e20163c4c6c757a9cd05804d939a5bd7a33e172bd2"
+    },
+    {
+      "file": "shard-15.json",
+      "entries": 6190,
+      "bytes": 567284,
+      "sha256": "c136d7f853d6f3e51646dbc252928cad0801a987e65b34dcd7415e024eceb8f9"
+    },
+    {
+      "file": "shard-16.json",
+      "entries": 6252,
+      "bytes": 577986,
+      "sha256": "6445bfd551fa6cc429fb0b7850d92622b614fa4fa61e4a8b07a4c441f439c3c5"
+    },
+    {
+      "file": "shard-17.json",
+      "entries": 6241,
+      "bytes": 576180,
+      "sha256": "9d97a096abe94c33ad193d96d6ec857ef15efa4f47394f2b8fbe1a70e3639bc5"
+    },
+    {
+      "file": "shard-18.json",
+      "entries": 6400,
+      "bytes": 589160,
+      "sha256": "c32bf955d922e5342acad671e554df32117704259b5f3020585de6383bc843e1"
+    },
+    {
+      "file": "shard-19.json",
+      "entries": 6310,
+      "bytes": 578830,
+      "sha256": "fa075628231a72f98f8ecd811dc04da117136a4cab12678105d8118734d4867b"
+    },
+    {
+      "file": "shard-20.json",
+      "entries": 6078,
+      "bytes": 558062,
+      "sha256": "0122c54b92dd50cf79f41cf9228df71b0a1dacb49eb5b1939363b9265026171a"
+    },
+    {
+      "file": "shard-21.json",
+      "entries": 6488,
+      "bytes": 592762,
+      "sha256": "7166ceadd9b7f097eda3475b4ddab4372df02cb502382d8997cf249cbc105dee"
+    },
+    {
+      "file": "shard-22.json",
+      "entries": 6335,
+      "bytes": 584962,
+      "sha256": "a3dc584c8e1eec90966a489be76c282cdaa827db88c084d99feb9887d9ebad71"
+    },
+    {
+      "file": "shard-23.json",
+      "entries": 6167,
+      "bytes": 562568,
+      "sha256": "17ab83d6b8c3ec4b5a484ed9cf10f419ba956fd35f10e44a5a5443c3570932ee"
+    },
+    {
+      "file": "shard-24.json",
+      "entries": 6242,
+      "bytes": 573236,
+      "sha256": "decee87033cfa906176a212b4ac3bae4c4f89a0143842c0ba3fffb5a9ffbe03e"
+    },
+    {
+      "file": "shard-25.json",
+      "entries": 6470,
+      "bytes": 596002,
+      "sha256": "0e08ab9d76ffeba8409f195f56e651c61c6ca278708fcbac6ba669f012c6acb8"
+    },
+    {
+      "file": "shard-26.json",
+      "entries": 6367,
+      "bytes": 584578,
+      "sha256": "0e19ebbf728a36b73d5fb04b52bfa945b3d8a1405ec1946f3724a7596636c2a4"
+    },
+    {
+      "file": "shard-27.json",
+      "entries": 6302,
+      "bytes": 574986,
+      "sha256": "93a0edcd318d668d752b4aa80438dce29e76559d0f7c30ceb8d8c1600df59500"
+    },
+    {
+      "file": "shard-28.json",
+      "entries": 6303,
+      "bytes": 580198,
+      "sha256": "0060bdad93653452369c161013993fb5291d1d83a6edf48fd528c51c54942bd0"
+    },
+    {
+      "file": "shard-29.json",
+      "entries": 6292,
+      "bytes": 581502,
+      "sha256": "3866a29e50502f8101eff3e2bf238a05b6e7d8bdc1c0a79676923affc9e66c57"
+    },
+    {
+      "file": "shard-30.json",
+      "entries": 6179,
+      "bytes": 568806,
+      "sha256": "85011583777bd99c9aedf3724af6967662b66ca08e07f5f9d396feb1d7167ff0"
+    },
+    {
+      "file": "shard-31.json",
+      "entries": 6113,
+      "bytes": 555366,
+      "sha256": "367a2bf538f4420666bdd1d33df827071662b85035ae19775bee6e2bb4fb49cc"
+    }
+  ]
+}

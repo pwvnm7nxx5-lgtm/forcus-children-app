@@ -221,6 +221,69 @@ test("token position mismatches keep reviewed fallback groups and continue later
   assert.equal(result.cursor, units.length);
 });
 
+test("exact compound matches can replace a truncated token span without losing source indices", () => {
+  const source = "長ぐつをはく";
+  const units = Array.from(source).map((char, inputIndex) => ({ char, inputIndex }));
+  const items = alignment.alignTokenPositions(units, [
+    { surface_form: "長", reading: "チョウ", pos: "接頭詞" },
+    { surface_form: "ぐつをはく", reading: "", pos: "名詞" },
+  ]).items;
+  const exact = alignment.insertExactSurfaceMatches(items, units, [{
+    start: 0,
+    end: 3,
+    surface: "長ぐつ",
+    reading: "ながぐつ",
+  }]);
+
+  assert.deepEqual(exact.map((item) => [item.surface, item.start, item.end]), [
+    ["長ぐつ", 0, 3],
+    ["をはく", 3, 6],
+  ]);
+  assert.equal(exact[0].start, 0);
+  assert.equal(exact[0].dictionaryMatch.reading, "ながぐつ");
+  assert.deepEqual(exact[0].token.reading, "ながぐつ");
+  assert.deepEqual(exact[1].token.reading, "");
+  assert.deepEqual(exact[0].token.pos, "接頭詞");
+});
+
+test("an exact match embedded in a token keeps its original source offset", () => {
+  const source = "文章";
+  const units = Array.from(source).map((char, inputIndex) => ({ char, inputIndex }));
+  const items = alignment.alignTokenPositions(units, [
+    { surface_form: "文章", reading: "ブンショウ", pos: "名詞" },
+  ]).items;
+  const exact = alignment.insertExactSurfaceMatches(items, units, [{
+    start: 1,
+    end: 2,
+    surface: "章",
+    reading: "しょう",
+  }]);
+
+  assert.deepEqual(exact.map((item) => [item.surface, item.start, item.end]), [
+    ["文", 0, 1],
+    ["章", 1, 2],
+  ]);
+  assert.equal(exact[1].dictionaryMatch.start, 1);
+  assert.deepEqual(exact[1].sourceIndices, [1]);
+});
+
+test("legacy token merging never crosses particles or punctuation", () => {
+  const units = Array.from("将来の夢。もっと").map((char, inputIndex) => ({ char, inputIndex }));
+  const items = alignment.alignTokenPositions(units, [
+    { surface_form: "将来", reading: "ショウライ", pos: "名詞" },
+    { surface_form: "の", reading: "ノ", pos: "助詞" },
+    { surface_form: "夢", reading: "ユメ", pos: "名詞" },
+    { surface_form: "。", reading: "。", pos: "記号" },
+    { surface_form: "もっと", reading: "モット", pos: "副詞" },
+  ]).items;
+  const merged = alignment.mergeReadingTokenItems(items, (surface, reading) => (
+    surface === "将来の夢" && reading === "しょうらいのゆめ"
+      ? { kind: "exact" }
+      : null
+  ));
+  assert.deepEqual(merged.map((item) => item.surface), ["将来", "の", "夢", "。", "もっと"]);
+});
+
 test("kana-only, punctuation, and line-break input produce no annotations", () => {
   assert.deepEqual(align("ひらがなだけ", "ひらがなだけ"), []);
   assert.deepEqual(align("。", "。"), []);

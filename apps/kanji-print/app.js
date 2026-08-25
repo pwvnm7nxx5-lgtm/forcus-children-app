@@ -8,6 +8,7 @@ const els = {
   readingStatusText: document.querySelector("#readingStatusText"),
   annotationSummary: document.querySelector("#annotationSummary"),
   readingAnnotations: document.querySelector("#readingAnnotations"),
+  clearReadingCorrectionsBtn: document.querySelector("#clearReadingCorrectionsBtn"),
   rubyFontSize: document.querySelector("#rubyFontSize"),
   rubyOpacity: document.querySelector("#rubyOpacity"),
   rubySpacing: document.querySelector("#rubySpacing"),
@@ -68,9 +69,28 @@ const readingModeFocusState = {
 };
 const readingAlignment = window.KANJI_READING_ALIGNMENT;
 const readingWordMap = window.KANJI_READING_WORD_MAP;
+const readingDictionaryApi = window.KANJI_READING_DICTIONARY;
+const readingCorrectionsApi = window.KANJI_READING_CORRECTIONS;
+const readingLookupApi = window.KANJI_READING_LOOKUP;
 const readingLayoutApi = window.KANJI_READING_LAYOUT;
 const readingKeyboard = window.KANJI_READING_KEYBOARD;
 const readingInputState = window.KANJI_READING_INPUT_STATE;
+let readingDictionary = null;
+let readingDictionaryInitError = null;
+try {
+  readingDictionary = readingDictionaryApi?.createRuntimeDictionary() || null;
+} catch (error) {
+  readingDictionaryInitError = error;
+}
+const readingCorrections = readingCorrectionsApi?.createStore();
+const readingLookup = readingLookupApi?.createExactLookup({
+  corrections: readingCorrections,
+  overrides: readingWordMap,
+  generated: readingDictionary,
+  isReviewSurface: readingWordMap?.isReviewWordSurface,
+});
+window.__KANJI_READING_DICTIONARY_RUNTIME = readingDictionary;
+window.__KANJI_READING_CORRECTIONS_RUNTIME = readingCorrections;
 const fontStacks = {
   kyokasho: '"UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", "BIZ UDPGothic", "Yu Gothic", sans-serif',
   kyokashoBold: '"UD Digi Kyokasho N-B", "UD デジタル 教科書体 N-B", "BIZ UDPGothic", "Yu Gothic", sans-serif',
@@ -197,20 +217,31 @@ function getReadingCandidates(char) {
   return [...new Set(candidates.map(toHiragana).filter(Boolean))];
 }
 
+function getReadingExactMatch(surface, reading) {
+  return readingLookup?.lookup(surface, reading) || null;
+}
+
+function getReadingExactPieces(surface, reading) {
+  return getReadingExactMatch(surface, reading)?.pieces || null;
+}
+
 function splitReadingByCandidates(surface, reading) {
   return readingAlignment.splitReadingByCandidates(
     surface,
     reading,
     getReadingCandidates,
-    readingWordMap?.lookupExactWordReading,
+    getReadingExactPieces,
   );
 }
 
 function makeReadingAnnotations(surface, reading, sourceIndices, options = {}) {
+  const exactWordReading = Array.isArray(options.exactPieces)
+    ? () => options.exactPieces
+    : getReadingExactPieces;
   return readingAlignment.alignSurfaceReading(surface, reading, {
     sourceIndices,
     getCandidates: getReadingCandidates,
-    getExactWordReading: readingWordMap?.lookupExactWordReading,
+    getExactWordReading: exactWordReading,
     ...options,
   });
 }
@@ -261,17 +292,55 @@ async function generateReadingAnnotations(sourceText, onProgress = () => {}) {
   const engine = await loadReadingEngine(onProgress);
   onProgress("本文を解析しています…", 70);
   const tokens = await engine.analyzer.parse(analysisText);
+  let dictionaryWarning = "";
+  const dictionaryFallbackMessage = "単語辞書を使えないため、候補読みで続けています。";
+  if (readingDictionaryInitError) {
+    dictionaryWarning = dictionaryFallbackMessage;
+    onProgress(dictionaryFallbackMessage, 72);
+  }
+  if (readingDictionary) {
+    onProgress("単語の読み分け辞書を読み込んでいます…", 72);
+    try {
+      const dictionaryPreparation = await readingDictionary.prepareForTokens(tokens);
+      if (dictionaryPreparation?.available === false) {
+        dictionaryWarning = dictionaryFallbackMessage;
+        onProgress(dictionaryFallbackMessage, 72);
+      }
+    } catch {
+      dictionaryWarning = dictionaryFallbackMessage;
+      onProgress(dictionaryFallbackMessage, 72);
+    }
+  }
   const annotations = [];
 
   const tokenAlignment = readingAlignment.alignTokenPositions(units, tokens);
-  const readingItems = readingAlignment.mergeReadingTokenItems(
+  let dictionaryMatches = [];
+  if (readingDictionary && !dictionaryWarning) {
+    try {
+      dictionaryMatches = readingDictionary.findExactSurfaceMatches(analysisText, {
+        tokenSpans: tokenAlignment.items
+          .filter((item) => item.type === "token")
+          .map((item) => ({
+            start: item.start,
+            end: item.end,
+            pos: item.token?.pos,
+          })),
+      });
+    } catch {
+      dictionaryWarning = dictionaryFallbackMessage;
+    }
+  }
+  const alignedTokenItems = readingAlignment.insertExactSurfaceMatches(
     tokenAlignment.items,
+    units,
+    dictionaryMatches,
+  );
+  const readingItems = readingAlignment.mergeReadingTokenItems(
+    alignedTokenItems,
     (surface, reading) => {
-      if (readingWordMap?.lookupExactWordReading(surface, reading)) {
-        return { kind: "exact" };
-      }
-      if (readingWordMap?.isReviewWordSurface(surface)) {
-        return { kind: "review" };
+      const exactMatch = getReadingExactMatch(surface, reading);
+      if (exactMatch) {
+        return { kind: exactMatch.forceReview ? "review" : "exact" };
       }
       return null;
     },
@@ -287,13 +356,21 @@ async function generateReadingAnnotations(sourceText, onProgress = () => {}) {
       continue;
     }
 
-    let reading = toHiragana(token.reading || "");
+    const dictionaryMatch = item.dictionaryMatch || token.dictionaryMatch || null;
+    const sourceReading = dictionaryMatch?.reading || token.reading || "";
+    const exactMatch = getReadingExactMatch(surface, sourceReading);
+    let reading = toHiragana(
+      exactMatch?.source === "learned" ? exactMatch.reading : sourceReading,
+    );
     if (!reading || reading === surface) {
       reading = toHiragana(await engine.kuroshiro.convert(surface, {
         to: "hiragana",
         mode: "normal",
       }));
     }
+
+    const resolvedExactMatch = getReadingExactMatch(surface, reading);
+    const matchForAnnotation = exactMatch || resolvedExactMatch;
 
     const sourceIndices = units
       .slice(tokenStart, tokenEnd)
@@ -302,14 +379,25 @@ async function generateReadingAnnotations(sourceText, onProgress = () => {}) {
       surface,
       reading,
       sourceIndices,
-      (item.readingKind === "review" || readingWordMap?.isReviewWordSurface(surface))
-        ? { forceReview: true, reviewReason: "word-review" }
-        : {},
+      (item.readingKind === "review" || matchForAnnotation?.forceReview)
+        ? {
+          exactPieces: matchForAnnotation?.source === "learned" ? matchForAnnotation.pieces : null,
+          forceReview: true,
+          reviewReason: matchForAnnotation?.source === "learned" ? "learned-review" : "word-review",
+        }
+        : matchForAnnotation?.source === "learned"
+          ? { exactPieces: matchForAnnotation.pieces }
+          : {},
     ));
   }
 
+  annotations.forEach((annotation) => {
+    if (!annotation.correctionReading) {
+      annotation.correctionReading = annotation.reading;
+    }
+  });
   onProgress("読み仮名を作りました。", 100);
-  return { sourceText, annotations };
+  return { sourceText, annotations, warning: dictionaryWarning };
 }
 
 function normalizeText(text, cols, rows) {
@@ -492,18 +580,40 @@ function getAnnotationSourceIndices(annotation) {
 function makeSplitPieces(annotation) {
   const sourceIndices = getAnnotationSourceIndices(annotation);
   const pieces = splitReadingByCandidates(annotation.surface, annotation.reading);
-  return pieces
-    ? pieces.map((piece, index) => ({
-      ...piece,
-      sourceStart: sourceIndices[index],
-      sourceEnd: sourceIndices[index] + 1,
-    }))
-    : Array.from(annotation.surface).map((surface, index) => ({
+  if (!pieces) {
+    return Array.from(annotation.surface).map((surface, index) => ({
       surface,
       reading: "",
       sourceStart: sourceIndices[index],
       sourceEnd: sourceIndices[index] + 1,
     }));
+  }
+
+  const splitPieces = [];
+  let surfaceIndex = 0;
+  for (const piece of pieces) {
+    const pieceChars = Array.from(piece.surface);
+    if (pieceChars.length === 1) {
+      splitPieces.push({
+        ...piece,
+        sourceIndices: sourceIndices.slice(surfaceIndex, surfaceIndex + 1),
+        sourceStart: sourceIndices[surfaceIndex],
+        sourceEnd: sourceIndices[surfaceIndex] + 1,
+      });
+    } else {
+      pieceChars.forEach((surface, offset) => {
+        splitPieces.push({
+          surface,
+          reading: "",
+          sourceIndices: sourceIndices.slice(surfaceIndex + offset, surfaceIndex + offset + 1),
+          sourceStart: sourceIndices[surfaceIndex + offset],
+          sourceEnd: sourceIndices[surfaceIndex + offset] + 1,
+        });
+      });
+    }
+    surfaceIndex += pieceChars.length;
+  }
+  return splitPieces;
 }
 
 function normalizeReadingAnnotation(entry, index) {
@@ -523,6 +633,7 @@ function normalizeReadingAnnotation(entry, index) {
       : [],
     sourceStart: Number(entry?.sourceStart),
     sourceEnd: Number(entry?.sourceEnd),
+    correctionReading: toHiragana(String(entry?.correctionReading || entry?.reading || "")),
     needsReview: Boolean(entry?.needsReview),
     manual: Boolean(entry?.manual),
     reviewReason: String(entry?.reviewReason || ""),
@@ -532,6 +643,9 @@ function normalizeReadingAnnotation(entry, index) {
   annotation.sourceIndices = getAnnotationSourceIndices(annotation);
   if (annotation.mode === "split" && !annotation.pieces.length) {
     annotation.pieces = makeSplitPieces(annotation);
+  }
+  if (!annotation.correctionReading) {
+    annotation.correctionReading = annotation.reading;
   }
   return annotation;
 }
@@ -625,6 +739,7 @@ function commitReadingInput(input) {
       annotation.needsReview = false;
     }
   }
+  readingCorrections?.record(annotation, annotation.correctionReading || annotation.reading);
   return true;
 }
 
@@ -828,6 +943,7 @@ function updateReadingAnnotation(id, update) {
     annotation.pieces = makeSplitPieces(annotation);
     annotation.needsReview = annotation.pieces.some((piece) => !piece.reading);
   }
+  readingCorrections?.record(annotation, annotation.correctionReading || annotation.reading);
   render();
 }
 
@@ -1012,21 +1128,24 @@ function createGroupedRubyLayer(cols, rows, groups) {
   layer.className = "ruby-group-layer";
   layer.style.gridTemplateColumns = `repeat(${cols}, var(--cell-w) var(--ruby-w))`;
   layer.style.gridTemplateRows = `repeat(${rows}, var(--cell-h))`;
-  groups.forEach(({ annotation, row, col, span, orientation }) => {
-    const group = document.createElement("div");
-    group.className = `grouped-ruby-cell grouped-ruby-${orientation}`;
-    if (orientation === "vertical") {
-      group.style.gridColumn = String(col * 2 + 2);
-      group.style.gridRow = `${row + 1} / span ${span}`;
-    } else {
-      group.style.gridColumn = `${col * 2 + 2} / span ${span * 2 - 1}`;
-      group.style.gridRow = String(row + 1);
-    }
-    const text = document.createElement("span");
-    text.className = "ruby-text";
-    text.textContent = annotation.reading;
-    group.append(text);
-    layer.append(group);
+  groups.forEach(({ annotation, positions, row, col, span, orientation }) => {
+    const physicalFragments = orientation === "horizontal"
+      ? readingLayoutApi.buildReadingFragments(positions)
+      : [{ row, col, span, orientation, positions }];
+    physicalFragments.forEach((fragment) => {
+      const group = document.createElement("div");
+      group.className = "grouped-ruby-cell grouped-ruby-vertical";
+      group.dataset.sourceIndices = fragment.positions
+        ? fragment.positions.map((position) => position.sourceIndex).join(",")
+        : "";
+      group.style.gridColumn = String(fragment.col * 2 + 2);
+      group.style.gridRow = `${fragment.row + 1} / span ${fragment.span}`;
+      const text = document.createElement("span");
+      text.className = "ruby-text";
+      text.textContent = annotation.reading;
+      group.append(text);
+      layer.append(group);
+    });
   });
   return layer;
 }
@@ -1252,7 +1371,8 @@ async function extractReadingsFromText() {
     });
     readingState.sourceText = result.sourceText;
     readingState.annotations = result.annotations;
-    setReadingStatus(`${result.annotations.length}件の読みを作りました。`, "ready");
+    const statusSuffix = result.warning ? " 単語辞書は使えないため候補読みです。" : "";
+    setReadingStatus(`${result.annotations.length}件の読みを作りました。${statusSuffix}`, result.warning ? "warning" : "ready");
     render();
     setStatus("読み仮名を作成しました。");
   } catch (error) {
@@ -1653,6 +1773,10 @@ function bindEvents() {
   els.copyLinkBtn.addEventListener("click", copyShareUrl);
   els.markGuideTextBtn.addEventListener("click", markSelectedTextAsGuide);
   els.extractReadingsBtn.addEventListener("click", extractReadingsFromText);
+  els.clearReadingCorrectionsBtn?.addEventListener("click", () => {
+    readingCorrections?.clear();
+    setStatus("学習した読みを消去しました。");
+  });
   els.addReadings.addEventListener("change", () => {
     render();
   });

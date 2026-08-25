@@ -85,22 +85,9 @@
     if (!normalized.length) {
       return [];
     }
-    if (normalized.length === 1) {
-      return [makeFragment(normalized, "vertical")];
-    }
-
-    const horizontalRuns = getRuns(normalized, "horizontal");
-    const verticalRuns = getRuns(normalized, "vertical");
-    const sameRow = new Set(normalized.map((position) => position.row)).size === 1;
-    const sameColumn = new Set(normalized.map((position) => position.col)).size === 1;
-    let orientation = sameColumn ? "vertical" : sameRow ? "horizontal" : "horizontal";
-    if (!sameRow && !sameColumn) {
-      const longestHorizontal = Math.max(...horizontalRuns.map((run) => run.length));
-      const longestVertical = Math.max(...verticalRuns.map((run) => run.length));
-      orientation = longestVertical >= longestHorizontal ? "vertical" : "horizontal";
-    }
-
-    return getRuns(normalized, orientation).map((run) => makeFragment(run, orientation));
+    // The page grid alternates wide main tracks and narrow ruby tracks. Only
+    // adjacent cells in one ruby column are physically mergeable.
+    return getRuns(normalized, "vertical").map((run) => makeFragment(run, "vertical"));
   }
 
   return {
