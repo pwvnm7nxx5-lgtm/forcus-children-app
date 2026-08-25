@@ -749,14 +749,29 @@ function handleReadingInputChange(input) {
   }
 }
 
-function focusReadingInput(descriptor) {
+function focusReadingInput(descriptor, options = {}) {
   const input = findReadingInput(descriptor);
   if (!input) {
-    return;
+    return false;
   }
   input.focus({ preventScroll: true });
   input.select();
   input.scrollIntoView({ block: "nearest", inline: "nearest" });
+  if (options.highlight) {
+    const row = input.closest(".annotation-row");
+    if (row) {
+      row.classList.remove("jump-target");
+      void row.offsetWidth;
+      row.classList.add("jump-target");
+      setTimeout(() => row.classList.remove("jump-target"), 1200);
+    }
+  }
+  return true;
+}
+
+function openReadingCorrection(descriptor) {
+  clearReadingModeFocusState();
+  focusReadingInput(descriptor, { highlight: true });
 }
 
 function getModeButtons(row) {
@@ -1239,13 +1254,16 @@ function render() {
         reading: els.addReadings.checked && !sourceCell.practice && isKanji(sourceChar)
           ? readingLayout.cellReadings.get(sourceCell.sourceIndex) || ""
           : "",
+        readingFocus: els.addReadings.checked && !sourceCell.practice && isKanji(sourceChar)
+          ? readingKeyboard.getReadingFocusForSourceIndex(activeAnnotations, sourceCell.sourceIndex)
+          : null,
       };
     });
 
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
         const cell = cells[row * cols + col];
-        grid.append(createTextCell(cell.char, cell.guide));
+        grid.append(createTextCell(cell.char, cell.guide, cell.readingFocus));
         grid.append(createRubyCell(cell.reading));
       }
     }
@@ -1289,10 +1307,25 @@ function roundMm(value) {
   return Math.round(value * 1000) / 1000;
 }
 
-function createTextCell(char, guide = false) {
+function createTextCell(char, guide = false, readingFocus = null) {
   const cell = document.createElement("div");
   cell.className = "cell text-cell";
   cell.classList.toggle("guide-cell", guide);
+  if (char && readingFocus) {
+    cell.classList.add("reading-edit-link");
+    cell.tabIndex = 0;
+    cell.setAttribute("role", "button");
+    cell.setAttribute("aria-label", `${char}の読みを修正`);
+    const openCorrection = () => openReadingCorrection(readingFocus);
+    cell.addEventListener("click", openCorrection);
+    cell.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " " && event.key !== "Spacebar") {
+        return;
+      }
+      event.preventDefault();
+      openCorrection();
+    });
+  }
   if (punctuation.has(char)) {
     cell.classList.add("punctuation-mark");
   } else if (verticalLineMarks.has(char)) {

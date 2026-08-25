@@ -7,11 +7,18 @@ const annotations = [
   {
     id: "word-1",
     mode: "split",
-    pieces: [{}, {}, {}],
+    sourceIndices: [4, 5, 6],
+    pieces: [
+      { sourceStart: 4, sourceEnd: 5 },
+      { sourceIndices: [5] },
+      { sourceStart: 6, sourceEnd: 7 },
+    ],
   },
   {
     id: "word-2",
     mode: "group",
+    sourceStart: 10,
+    sourceEnd: 12,
     pieces: [],
   },
 ];
@@ -36,6 +43,21 @@ test("reading fields keep the fast split-piece and next-word sequence", () => {
     keyboard.getAdjacentReadingFocus(annotations, sequence[3], -1),
     sequence[2],
   );
+});
+
+test("preview kanji targets the matching split piece or grouped word", () => {
+  assert.deepEqual(keyboard.getReadingFocusForSourceIndex(annotations, 5), {
+    annotationId: "word-1",
+    role: "piece",
+    pieceIndex: 1,
+  });
+  assert.deepEqual(keyboard.getReadingFocusForSourceIndex(annotations, 11), {
+    annotationId: "word-2",
+    role: "word",
+    pieceIndex: -1,
+  });
+  assert.equal(keyboard.getReadingFocusForSourceIndex(annotations, 99), null);
+  assert.equal(keyboard.getReadingFocusForSourceIndex(annotations, "not-a-number"), null);
 });
 
 test("mode controls have an explicit keyboard entry, movement, activation, and return path", () => {
