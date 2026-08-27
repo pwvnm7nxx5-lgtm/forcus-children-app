@@ -43,7 +43,10 @@
 
         <label class="field-block">
           本文
-          <textarea id="bodyInput" rows="10" spellcheck="false"></textarea>
+          <textarea id="bodyInput" rows="10" spellcheck="false" aria-describedby="bodyOverflowWarning"></textarea>
+          <p id="bodyOverflowWarning" class="overflow-warning" role="status" aria-live="polite" hidden>
+            文章が用紙に入りきっていません。本文を短くするか、文字の大きさを調整してください。
+          </p>
         </label>
 
         <section class="control-group" aria-label="よく使う言葉">
@@ -115,6 +118,11 @@
           <label>
             間隔
             <input id="letterSpacingInput" type="range" min="0" max="14" value="4" />
+          </label>
+          <label class="body-font-size-field">
+            <span>本文の大きさ</span>
+            <input id="bodyFontSizeInput" type="range" min="24" max="44" step="2" value="24" aria-describedby="bodyFontSizeValue" />
+            <output id="bodyFontSizeValue" for="bodyFontSizeInput" aria-live="polite">24px（標準）</output>
           </label>
         </section>
 
