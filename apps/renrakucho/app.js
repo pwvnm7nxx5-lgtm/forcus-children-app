@@ -1,5 +1,11 @@
 const STORAGE_KEY = "renrakucho-maker-v1";
 const TEMPLATE_EXPORT_VERSION = 1;
+const BODY_FONT_SIZE_MIN = 24;
+const BODY_FONT_SIZE_MAX = 44;
+const BODY_FONT_SIZE_STEP = 2;
+const DEFAULT_BODY_FONT_SIZE = 24;
+const DEFAULT_BODY_COLUMNS = 14;
+const MIN_BODY_COLUMNS = 8;
 
 const defaultState = {
   month: "",
@@ -9,6 +15,7 @@ const defaultState = {
   opacity: 34,
   fontWeight: 400,
   letterSpacing: 4,
+  bodyFontSize: DEFAULT_BODY_FONT_SIZE,
   bodyOffsetX: 0,
   bodyOffsetY: 0,
   circleTemplates: [
@@ -38,6 +45,8 @@ const elements = {
   opacity: document.querySelector("#opacityInput"),
   fontWeight: document.querySelector("#fontWeightInput"),
   letterSpacing: document.querySelector("#letterSpacingInput"),
+  bodyFontSize: document.querySelector("#bodyFontSizeInput"),
+  bodyFontSizeValue: document.querySelector("#bodyFontSizeValue"),
   bodyOffsetX: document.querySelector("#bodyOffsetXInput"),
   bodyOffsetY: document.querySelector("#bodyOffsetYInput"),
   resetBodyPosition: document.querySelector("#resetBodyPositionButton"),
@@ -45,6 +54,7 @@ const elements = {
   previewDay: document.querySelector("#previewDay"),
   previewWeekday: document.querySelector("#previewWeekday"),
   previewText: document.querySelector("#previewText"),
+  bodyOverflowWarning: document.querySelector("#bodyOverflowWarning"),
   printPage: document.querySelector("#printPage"),
   printButton: document.querySelector("#printButton"),
   circleChar: document.querySelector("#circleCharInput"),
@@ -70,9 +80,35 @@ const elements = {
 };
 
 let state = loadState();
+let overflowCheckFrame = 0;
 
 function cloneDefaultState() {
   return JSON.parse(JSON.stringify(defaultState));
+}
+
+function normalizeBodyFontSize(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return DEFAULT_BODY_FONT_SIZE;
+  }
+
+  const steppedValue = Math.round((numericValue - BODY_FONT_SIZE_MIN) / BODY_FONT_SIZE_STEP) * BODY_FONT_SIZE_STEP
+    + BODY_FONT_SIZE_MIN;
+  return Math.min(BODY_FONT_SIZE_MAX, Math.max(BODY_FONT_SIZE_MIN, steppedValue));
+}
+
+function getBodyColumnCount(fontSize) {
+  const normalizedSize = normalizeBodyFontSize(fontSize);
+  const sizeProgress = (normalizedSize - BODY_FONT_SIZE_MIN) / (BODY_FONT_SIZE_MAX - BODY_FONT_SIZE_MIN);
+  return Math.max(
+    MIN_BODY_COLUMNS,
+    Math.floor(DEFAULT_BODY_COLUMNS - sizeProgress * (DEFAULT_BODY_COLUMNS - MIN_BODY_COLUMNS)),
+  );
+}
+
+function formatBodyFontSize(fontSize) {
+  const normalizedSize = normalizeBodyFontSize(fontSize);
+  return `${normalizedSize}px${normalizedSize === DEFAULT_BODY_FONT_SIZE ? "（標準）" : ""}`;
 }
 
 function makeId(prefix) {
@@ -90,7 +126,7 @@ function loadState() {
 
   try {
     const parsed = JSON.parse(saved);
-    return {
+    const mergedState = {
       ...cloneDefaultState(),
       ...parsed,
       circleTemplates: parsed.circleTemplates?.length
@@ -100,6 +136,10 @@ function loadState() {
         ? parsed.phraseTemplates
         : cloneDefaultState().phraseTemplates,
       textTemplates: parsed.textTemplates || [],
+    };
+    return {
+      ...mergedState,
+      bodyFontSize: normalizeBodyFontSize(mergedState.bodyFontSize),
     };
   } catch {
     return cloneDefaultState();
@@ -118,11 +158,13 @@ function syncInputs() {
   elements.opacity.value = state.opacity;
   elements.fontWeight.value = state.fontWeight;
   elements.letterSpacing.value = state.letterSpacing;
+  elements.bodyFontSize.value = state.bodyFontSize;
   elements.bodyOffsetX.value = state.bodyOffsetX;
   elements.bodyOffsetY.value = state.bodyOffsetY;
 }
 
 function render() {
+  state.bodyFontSize = normalizeBodyFontSize(state.bodyFontSize);
   elements.previewMonth.textContent = state.month;
   elements.previewDay.textContent = state.day;
   elements.previewWeekday.textContent = state.weekday;
@@ -132,11 +174,70 @@ function render() {
   elements.previewText.style.setProperty("--preview-spacing", `${state.letterSpacing}px`);
   elements.previewText.style.setProperty("--body-offset-x", `${state.bodyOffsetX}mm`);
   elements.previewText.style.setProperty("--body-offset-y", `${state.bodyOffsetY}mm`);
+  elements.previewText.style.setProperty("--body-font-size", `${state.bodyFontSize}px`);
+  elements.printPage.style.setProperty("--body-font-size", `${state.bodyFontSize}px`);
+  elements.printPage.style.setProperty("--body-columns", String(getBodyColumnCount(state.bodyFontSize)));
+  elements.bodyFontSize.value = state.bodyFontSize;
+  elements.bodyFontSizeValue.textContent = formatBodyFontSize(state.bodyFontSize);
   renderCircleTemplates();
   renderNumberButtons();
   renderPhraseButtons();
   renderTextTemplates();
+  scheduleOverflowCheck();
   saveState();
+}
+
+function scheduleOverflowCheck() {
+  if (overflowCheckFrame) {
+    cancelAnimationFrame(overflowCheckFrame);
+  }
+
+  overflowCheckFrame = requestAnimationFrame(() => {
+    overflowCheckFrame = 0;
+    updateOverflowWarning();
+  });
+}
+
+function updateOverflowWarning() {
+  if (!elements.previewText.textContent.trim()) {
+    elements.bodyOverflowWarning.hidden = true;
+    return;
+  }
+
+  const measurePage = elements.printPage.cloneNode(true);
+  measurePage.classList.add("print-measure-page");
+  measurePage.removeAttribute("id");
+  document.body.append(measurePage);
+
+  try {
+    const measureText = measurePage.querySelector(".preview-text");
+    elements.bodyOverflowWarning.hidden = !measureText || !hasTextOverflow(measureText);
+  } finally {
+    measurePage.remove();
+  }
+}
+
+function hasTextOverflow(element) {
+  if (!element.textContent.trim()) {
+    return false;
+  }
+
+  const epsilon = 1;
+  if (element.scrollWidth > element.clientWidth + epsilon || element.scrollHeight > element.clientHeight + epsilon) {
+    return true;
+  }
+
+  const elementRect = element.getBoundingClientRect();
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  return [...range.getClientRects()]
+    .filter((rect) => rect.width > 0 && rect.height > 0)
+    .some((rect) => (
+      rect.left < elementRect.left - epsilon
+      || rect.right > elementRect.right + epsilon
+      || rect.top < elementRect.top - epsilon
+      || rect.bottom > elementRect.bottom + epsilon
+    ));
 }
 
 function parseBody(text) {
@@ -490,6 +591,7 @@ function bindInputs() {
     ["opacity", "opacity"],
     ["fontWeight", "fontWeight"],
     ["letterSpacing", "letterSpacing"],
+    ["bodyFontSize", "bodyFontSize"],
     ["bodyOffsetX", "bodyOffsetX"],
     ["bodyOffsetY", "bodyOffsetY"],
   ].forEach(([key, elementKey]) => {
@@ -526,6 +628,14 @@ function bindInputs() {
   elements.exportTemplates.addEventListener("click", exportTemplates);
   elements.importTemplates.addEventListener("change", importTemplates);
   elements.printButton.addEventListener("click", () => window.print());
+}
+
+window.addEventListener("resize", scheduleOverflowCheck);
+window.addEventListener("beforeprint", scheduleOverflowCheck);
+window.addEventListener("afterprint", scheduleOverflowCheck);
+if (globalThis.ResizeObserver) {
+  const layoutObserver = new ResizeObserver(scheduleOverflowCheck);
+  layoutObserver.observe(elements.printPage);
 }
 
 syncInputs();
