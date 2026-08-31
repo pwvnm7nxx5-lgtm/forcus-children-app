@@ -331,6 +331,7 @@ button:hover {
 .print-page {
   width: 210mm;
   min-height: 297mm;
+  overflow: hidden !important;
   padding: 14mm 13mm;
   background:
     linear-gradient(90deg, rgb(156 207 191 / 20%) 0 1px, transparent 1px 18mm),
@@ -460,6 +461,23 @@ button:hover {
   justify-content: space-between;
   gap: 8px;
   white-space: nowrap;
+}
+
+.division-answer {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2em;
+  white-space: nowrap;
+}
+
+.division-answer-part {
+  min-width: max(var(--blank-w), calc(var(--division-answer-digits, 1) * 7mm));
+}
+
+.division-answer-label {
+  color: #425466;
+  font-size: 0.78em;
+  font-weight: 700;
 }
 
 .horizontal-manual-formula {
@@ -781,6 +799,7 @@ button:hover {
 }
 
 .long-division-board {
+  --division-cell-size: calc(var(--problem-font, 21px) * var(--division-cell-font-ratio, 1.7953));
   position: relative;
   display: grid;
   grid-template-columns: repeat(var(--division-board-columns), var(--division-cell-size));
@@ -851,6 +870,20 @@ button:hover {
   height: 0;
   border-bottom: 1.8px solid #425466;
   pointer-events: none;
+}
+
+.division-board-wrap {
+  display: grid;
+  gap: 0.8mm;
+  width: max-content;
+  max-width: 100%;
+}
+
+.division-remainder-label {
+  justify-self: end;
+  font-size: 0.78em;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .answer-page .division-board-digit.answer-digit,
