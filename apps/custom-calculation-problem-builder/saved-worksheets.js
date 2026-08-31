@@ -94,6 +94,24 @@
     return (title || "計算問題作成").slice(0, 80);
   }
 
+  function normalizeSavedProblem(problem) {
+    if (!problem || typeof problem !== "object") return null;
+    const normalized = { ...problem };
+    if (normalized.divisionType === "remainder" && normalized.op === "÷") {
+      const quotient = Number(normalized.quotient ?? normalized.longDivision?.quotient);
+      const remainder = Number(normalized.remainder ?? normalized.longDivision?.remainder);
+      if (Number.isFinite(quotient) && Number.isFinite(remainder)) {
+        normalized.answer = quotient;
+        normalized.quotient = quotient;
+        normalized.remainder = remainder;
+        if (normalized.longDivision && typeof normalized.longDivision === "object") {
+          normalized.longDivision = { ...normalized.longDivision, quotient, remainder };
+        }
+      }
+    }
+    return normalized;
+  }
+
   function makeRecord(kind) {
     if (!api?.getLibraryState) throw new Error("builder-api-unavailable");
     const current = api.getLibraryState();
@@ -124,7 +142,11 @@
     if (!state || typeof state.settings !== "object") return null;
     state.settings.name = "";
     state.settings.date = "";
-    if (!Array.isArray(state.problems)) state.problems = null;
+    if (Array.isArray(state.problems)) {
+      state.problems = state.problems.map(normalizeSavedProblem).filter(Boolean);
+    } else {
+      state.problems = null;
+    }
     return {
       id: makeId(),
       name: String(raw.name || state.settings.title || "計算問題作成").trim().slice(0, 80) || "計算問題作成",

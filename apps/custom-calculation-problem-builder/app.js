@@ -60,6 +60,7 @@ let sheetProblemSets = [];
 let sheetSetSignature = "";
 let lastGeneratedSettings = null;
 let manualFocusTarget = null;
+let generationMessage = "";
 
 const manualCreationModes = ["auto", "manual", "hybrid"];
 
@@ -81,6 +82,7 @@ const operationOptions = {
     ["mix", "たし算・ひき算ミックス"],
     ["multiply", "かけ算"],
     ["divide", "わり算（あまりなし）"],
+    ["divideRemainder", "わり算（あまりあり）"],
   ],
   4: [
     ["add", "たし算"],
@@ -88,6 +90,7 @@ const operationOptions = {
     ["mix", "たし算・ひき算ミックス"],
     ["multiply", "かけ算"],
     ["divide", "わり算（あまりなし）"],
+    ["divideRemainder", "わり算（あまりあり）"],
   ],
   5: [
     ["decimalAdd", "小数のたし算"],
@@ -108,6 +111,7 @@ const customOperationOptions = [
   ["sub", "ひき算"],
   ["multiply", "かけ算"],
   ["divide", "わり算（あまりなし）"],
+  ["divideRemainder", "わり算（あまりあり）"],
   ["decimalAdd", "小数のたし算"],
   ["decimalSub", "小数のひき算"],
   ["decimalMultiply", "小数のかけ算"],
@@ -137,6 +141,14 @@ function allowedOperations() {
 function getOperation() {
   const options = allowedOperations();
   return clampChoice(els.operation.value, options, options[0]);
+}
+
+function isRemainderDivisionOperation(operation = getOperation()) {
+  return operation === "divideRemainder";
+}
+
+function isRemainderDivisionProblem(problem, settings = null) {
+  return problem?.op === "÷" && (problem?.divisionType === "remainder" || settings?.operation === "divideRemainder");
 }
 
 function digitOptions(grade = getGrade(), operation = getOperation()) {
@@ -182,7 +194,7 @@ function getDecimalPlaces(position) {
 
 function supportsResultRange() {
   return !isDecimalOperation()
-    && ["add", "sub", "multiply", "divide"].includes(getOperation())
+    && ["add", "sub", "multiply", "divide", "divideRemainder"].includes(getOperation())
     && getOperandDigits("a") === 1
     && getOperandDigits("b") === 1;
 }
@@ -225,7 +237,7 @@ function supportsLongDivisionLayout() {
 }
 
 function supportsLongDivisionLayoutForOperation(operation) {
-  return ["divide", "decimalDivideInteger", "integerDivideDecimal", "decimalDivideDecimal"].includes(operation);
+  return ["divide", "divideRemainder", "decimalDivideInteger", "integerDivideDecimal", "decimalDivideDecimal"].includes(operation);
 }
 
 function supportsManualInteger(settings = null) {
@@ -236,6 +248,7 @@ function supportsManualInteger(settings = null) {
     "sub",
     "multiply",
     "divide",
+    "divideRemainder",
     "decimalAdd",
     "decimalSub",
     "decimalMultiply",
@@ -370,7 +383,7 @@ function syncSettingsControls() {
   // Decimal division exposes independent operand controls, so do not silently
   // force the second operand to match the first operand's digit count.
   const orderedOperands = ["sub", "divide"].includes(operation);
-  const division = operation === "divide";
+  const division = ["divide", "divideRemainder"].includes(operation);
   const decimalOperation = isDecimalOperation(operation);
   const decimalAVisible = ["decimalAdd", "decimalSub", "decimalMultiply", "decimalDivideInteger", "decimalDivideDecimal"].includes(operation);
   const decimalBVisible = ["decimalAdd", "decimalSub", "decimalMultiply", "integerDivideDecimal", "decimalDivideDecimal"].includes(operation);
@@ -683,6 +696,10 @@ function manualProblemStatus(problem) {
       if (!getManualDecimalDivisionResult(problem)) {
         return { state: "invalid", complete: false, message: "小数のわり算は、有限小数になる組み合わせにしてください。" };
       }
+    } else if (isRemainderDivisionProblem(problem)) {
+      if (numberA < numberB || numberA % numberB === 0) {
+        return { state: "invalid", complete: false, message: "わり算は、商が1以上で、余りが0より大きくわる数未満になるようにしてください。" };
+      }
     } else if (numberA < numberB || numberA % numberB !== 0) {
       return { state: "invalid", complete: false, message: "わり算は、0で割らず、余りなしで割り切れる数にしてください。" };
     }
@@ -694,7 +711,9 @@ function manualProblemStatus(problem) {
         ? numberA - numberB
         : problem.op === "×"
           ? numberA * numberB
-          : numberA / numberB;
+          : isRemainderDivisionProblem(problem)
+            ? Math.floor(numberA / numberB)
+            : numberA / numberB;
     if (answer > 10) {
       return { state: "invalid", complete: false, message: "答えが10以下になるようにしてください。" };
     }
@@ -720,6 +739,10 @@ function updateManualProblemAnswer(problem) {
   const status = manualProblemStatus(problem);
   if (!status.complete) {
     problem.answer = "";
+    if (problem.op === "÷" && !problem.manualDecimal) {
+      delete problem.quotient;
+      delete problem.remainder;
+    }
   } else if (problem.manualDecimal && (problem.op === "+" || problem.op === "-")) {
     const a = manualDecimalScaledValue(problem, "a");
     const b = manualDecimalScaledValue(problem, "b");
@@ -740,7 +763,11 @@ function updateManualProblemAnswer(problem) {
   } else if (problem.op === "×") {
     problem.answer = manualOperandNumber(problem, "a") * manualOperandNumber(problem, "b");
   } else if (problem.op === "÷") {
-    problem.answer = manualOperandNumber(problem, "a") / manualOperandNumber(problem, "b");
+    const numberA = manualOperandNumber(problem, "a");
+    const numberB = manualOperandNumber(problem, "b");
+    problem.quotient = Math.floor(numberA / numberB);
+    problem.remainder = numberA % numberB;
+    problem.answer = problem.quotient;
   }
   problem.manualErrorVisible = manualProblemNeedsAttention(problem);
   if (problem.op === "÷") problem.longDivision = makeManualLongDivisionDetails(problem);
@@ -760,6 +787,7 @@ function createManualProblem(settings, source = "blank") {
       sub: "-",
       multiply: "×",
       divide: "÷",
+      divideRemainder: "÷",
       decimalAdd: "+",
       decimalSub: "-",
       decimalMultiply: "×",
@@ -779,6 +807,7 @@ function createManualProblem(settings, source = "blank") {
     manualFractionDigitsA: settings.decimalPlacesA,
     manualFractionDigitsB: settings.decimalPlacesB,
   };
+  if (isRemainderDivisionOperation(settings.operation)) problem.divisionType = "remainder";
   if (supportsLongDivisionLayoutForOperation(settings.operation)) {
     problem.longDivision = makeManualLongDivisionDetails(problem);
   }
@@ -799,10 +828,12 @@ function makeManualLongDivisionDetails(problem) {
   const divisor = Number(displayDivisor) > 0 ? Number(displayDivisor) : 1;
   const dividend = Number(displayDividend) > 0 ? Number(displayDividend) : 1;
   const quotient = Math.floor(dividend / divisor);
+  const remainder = dividend % divisor;
   return {
     divisor,
     dividend,
     quotient,
+    remainder,
     dividendRaw: String(dividend),
     quotientRaw: String(quotient),
     divisorDigits: problem?.manualDecimal ? manualDisplayDigitCount(problem, "b") : manualExpectedDigits(problem, "b"),
@@ -835,6 +866,7 @@ function makeEditableProblem(problem, settings, source = "auto") {
     editable.b = manualRawFromValue(problem.b, editable, "b");
   }
   if (editable.op === "÷") editable.longDivision = makeManualLongDivisionDetails(editable);
+  if (isRemainderDivisionOperation(settings.operation)) editable.divisionType = "remainder";
   return editable;
 }
 
@@ -961,13 +993,67 @@ function makeDivideCandidates(settings) {
     const quotient = randomInt(minQuotient, maxQuotient);
     const dividend = divisor * quotient;
     if (dividend < dividendBounds.min || dividend > dividendBounds.max) return null;
-    const problem = { a: dividend, b: divisor, op: "÷", answer: quotient };
+    const problem = { a: dividend, b: divisor, op: "÷", answer: quotient, quotient, remainder: 0, divisionType: "exact" };
     if (!matchesResultRange(problem, settings)) return null;
     if (usesVerticalProblemData(settings)) {
       problem.longDivision = {
         divisor,
         dividend,
         quotient,
+        divisorDigits: String(divisor).length,
+        dividendDecimalAfterIndex: -1,
+        quotientDecimalAfterIndex: -1,
+      };
+    }
+    return problem;
+  });
+}
+
+function canMakeRemainderDivision(settings) {
+  const dividendBounds = numberBounds(settings, "a");
+  const divisorBounds = numberBounds(settings, "b");
+  const divisorMin = Math.max(2, divisorBounds.min, dividendBounds.min > 0 ? 2 : 2);
+  const divisorMax = Math.min(divisorBounds.max, dividendBounds.max);
+  if (divisorMin > divisorMax) return false;
+  const dividendMin = Math.max(dividendBounds.min, divisorMin);
+  for (let divisor = divisorMin; divisor <= divisorMax; divisor += 1) {
+    let candidate = Math.max(dividendMin, divisor);
+    if (candidate % divisor === 0) candidate += 1;
+    if (candidate <= dividendBounds.max) return true;
+  }
+  return false;
+}
+
+function makeDivideRemainderCandidates(settings) {
+  const dividendBounds = numberBounds(settings, "a");
+  const divisorBounds = numberBounds(settings, "b");
+  const divisorMin = Math.max(2, divisorBounds.min);
+  const divisorMax = divisorBounds.max;
+  return buildRandomPool(settings, () => {
+    if (divisorMin > divisorMax) return null;
+    const divisor = randomInt(divisorMin, divisorMax);
+    const dividendMin = Math.max(dividendBounds.min, divisor);
+    if (dividendMin > dividendBounds.max) return null;
+    const dividend = randomInt(dividendMin, dividendBounds.max);
+    const quotient = Math.floor(dividend / divisor);
+    const remainder = dividend % divisor;
+    if (quotient < 1 || remainder <= 0 || remainder >= divisor) return null;
+    const problem = {
+      a: dividend,
+      b: divisor,
+      op: "÷",
+      answer: quotient,
+      quotient,
+      remainder,
+      divisionType: "remainder",
+    };
+    if (!matchesResultRange(problem, settings)) return null;
+    if (usesVerticalProblemData(settings)) {
+      problem.longDivision = {
+        divisor,
+        dividend,
+        quotient,
+        remainder,
         divisorDigits: String(divisor).length,
         dividendDecimalAfterIndex: -1,
         quotientDecimalAfterIndex: -1,
@@ -1234,6 +1320,7 @@ function makeCandidatePool(settings) {
   if (isDecimalOperation(settings.operation)) return makeDecimalCandidates(settings);
   if (settings.operation.startsWith("fraction")) return makeFractionCandidates(settings);
   if (settings.operation === "multiply") return makeMultiplyCandidates(settings);
+  if (settings.operation === "divideRemainder") return makeDivideRemainderCandidates(settings);
   if (settings.operation === "divide") return makeDivideCandidates(settings);
   if (settings.operation === "add") return makeAddCandidates(settings);
   if (settings.operation === "sub") return makeSubCandidates(settings);
@@ -1317,11 +1404,13 @@ function multiplicationCarrySignature(problem) {
 
 function divisionBalanceMeta(problem) {
   if (problem.op !== "÷") return null;
-  const quotient = String(problem.longDivision?.quotientRaw ?? problem.answer);
+  const quotient = String(problem.longDivision?.quotientRaw ?? problem.quotient ?? problem.answer);
   const digits = problemRawDigits(quotient);
+  const remainder = problem.remainder ?? problem.longDivision?.remainder;
   return {
     length: String(digits.length),
     zero: digits.includes("0") ? "with-zero" : "without-zero",
+    remainderLength: remainder === undefined ? "none" : String(problemRawDigits(remainder).length),
   };
 }
 
@@ -1348,6 +1437,7 @@ function problemBalanceMeta(problem) {
     carryProfile,
     divisionLength: division?.length || "none",
     divisionZero: division?.zero || "none",
+    divisionRemainderLength: division?.remainderLength || "none",
     zeroCount,
     family,
   };
@@ -1435,6 +1525,9 @@ function selectProblems(settings, usedKeys = new Set()) {
   const divisionZeroTargets = isDivision
     ? makeBucketTargets(selectionPool, requestedCount, (problem) => getMeta(problem).divisionZero)
     : new Map();
+  const divisionRemainderLengthTargets = isDivision
+    ? makeBucketTargets(selectionPool, requestedCount, (problem) => getMeta(problem).divisionRemainderLength)
+    : new Map();
   const zeroCap = Math.floor(requestedCount * 0.2);
   const selected = [];
   const selectedKeys = new Set();
@@ -1443,6 +1536,7 @@ function selectProblems(settings, usedKeys = new Set()) {
     carryProfile: new Map(),
     divisionLength: new Map(),
     divisionZero: new Map(),
+    divisionRemainderLength: new Map(),
   };
   let zeroCount = 0;
   let previousMeta = null;
@@ -1458,6 +1552,7 @@ function selectProblems(settings, usedKeys = new Set()) {
       score += bucketBalanceScore(meta.carryProfile, carryProfileTargets, bucketCounts.carryProfile, 7);
       score += bucketBalanceScore(meta.divisionLength, divisionLengthTargets, bucketCounts.divisionLength, 16);
       score += bucketBalanceScore(meta.divisionZero, divisionZeroTargets, bucketCounts.divisionZero, 7);
+      score += bucketBalanceScore(meta.divisionRemainderLength, divisionRemainderLengthTargets, bucketCounts.divisionRemainderLength, 6);
       if (meta.zeroCount > 0 && zeroCount >= zeroCap && hasZeroFreeAlternative) score -= 100;
       if (meta.zeroCount === 0 && zeroCount < zeroCap) score += 3;
       if (previousMeta?.family === meta.family) score -= 18;
@@ -1478,6 +1573,7 @@ function selectProblems(settings, usedKeys = new Set()) {
       ["carryProfile", chosen.meta.carryProfile],
       ["divisionLength", chosen.meta.divisionLength],
       ["divisionZero", chosen.meta.divisionZero],
+      ["divisionRemainderLength", chosen.meta.divisionRemainderLength],
     ].forEach(([name, bucket]) => {
       bucketCounts[name].set(bucket, (bucketCounts[name].get(bucket) || 0) + 1);
     });
@@ -1488,6 +1584,58 @@ function selectProblems(settings, usedKeys = new Set()) {
     selected.push(fallbackPool[selected.length % fallbackPool.length]);
   }
   return selected;
+}
+
+function normalizeDivisionProblem(problem, settings) {
+  if (!problem || typeof problem !== "object") return problem;
+  if (settings?.operation !== "divideRemainder") return problem;
+  const normalized = { ...problem, op: "÷", divisionType: "remainder" };
+  const numericDividend = typeof normalized.a === "number"
+    ? normalized.a
+    : /^\d+$/.test(String(normalized.a ?? "")) ? Number(normalized.a) : null;
+  const numericDivisor = typeof normalized.b === "number"
+    ? normalized.b
+    : /^\d+$/.test(String(normalized.b ?? "")) ? Number(normalized.b) : null;
+  const hasIntegerOperands = Number.isSafeInteger(numericDividend)
+    && Number.isSafeInteger(numericDivisor)
+    && numericDivisor > 0;
+  const quotientValue = hasIntegerOperands
+    ? Math.floor(numericDividend / numericDivisor)
+    : normalized.quotient ?? normalized.longDivision?.quotient ?? normalized.answer;
+  const remainderValue = hasIntegerOperands
+    ? numericDividend % numericDivisor
+    : normalized.remainder ?? normalized.longDivision?.remainder;
+  const answerText = typeof normalized.answer === "string" ? normalized.answer.match(/^(\d+)\s*あまり\s*(\d+)$/) : null;
+  const quotient = Number(answerText?.[1] ?? quotientValue);
+  const remainder = Number(answerText?.[2] ?? remainderValue);
+  if (!Number.isFinite(quotient) || !Number.isFinite(remainder)) return normalized;
+  normalized.answer = quotient;
+  normalized.quotient = quotient;
+  normalized.remainder = remainder;
+  if (normalized.longDivision && typeof normalized.longDivision === "object") {
+    normalized.longDivision = {
+      ...normalized.longDivision,
+      quotient,
+      remainder,
+    };
+  }
+  return normalized;
+}
+
+function normalizeProblems(values, settings) {
+  return Array.isArray(values)
+    ? values.map((problem) => normalizeDivisionProblem(problem, settings)).filter(Boolean)
+    : [];
+}
+
+function noSolutionMessage(settings) {
+  if (settings.operation === "divideRemainder") {
+    return "この桁数では、商1以上・余りありのわり算を作れません。わられる数の桁数を大きくするか、わる数の桁数を小さくしてください。";
+  }
+  if (settings.operation === "divide") {
+    return "この桁数では、商1以上のわり算を作れません。わられる数の桁数を大きくするか、わる数の桁数を小さくしてください。";
+  }
+  return "この条件で作れる問題がありません。設定を組み合わせ直してください。";
 }
 
 function makeManualProblemsForSettings(settings) {
@@ -1520,12 +1668,14 @@ function generateEditableProblems(settings, count, usedKeys = new Set()) {
 function generateProblems() {
   syncSettingsControls();
   const settings = getSettings();
+  generationMessage = "";
   problems = makeManualProblemsForSettings(settings);
+  if (!problems.length) generationMessage = noSolutionMessage(settings);
   sheetProblemSets = [];
   sheetSetSignature = "";
   lastGeneratedSettings = { ...settings };
   render();
-  setStatus("問題を作り直しました。");
+  setStatus(generationMessage || "問題を作り直しました。");
 }
 
 function fillRemainingProblems() {
@@ -1547,7 +1697,9 @@ function fillRemainingProblems() {
   sheetSetSignature = "";
   render();
   const incomplete = problems.filter((problem) => !isCompleteManualProblem(problem)).length;
-  setStatus(incomplete ? `${incomplete}問は入力途中です。` : "空の問題を自動生成しました。");
+  setStatus(!generated.length
+    ? noSolutionMessage(settings)
+    : incomplete ? `${incomplete}問は入力途中です。` : "空の問題を自動生成しました。");
 }
 
 function regenerateProblemsByMode() {
@@ -1578,6 +1730,20 @@ function regenerateProblemsByMode() {
 function formulaValueText(value, showDecimal) {
   const text = String(value);
   return showDecimal ? text : text.replace(".", "");
+}
+
+function divisionAnswerParts(problem) {
+  const quotientValue = problem?.quotient ?? problem?.longDivision?.quotient ?? problem?.answer;
+  const remainderValue = problem?.remainder ?? problem?.longDivision?.remainder ?? 0;
+  return {
+    quotient: Number(quotientValue),
+    remainder: Number(remainderValue),
+  };
+}
+
+function divisionAnswerDigitWidth(problem, part) {
+  const { quotient, remainder } = divisionAnswerParts(problem);
+  return String(part === "quotient" ? quotient : remainder).length;
 }
 
 function makeHorizontalManualOperand(problem, operand, problemIndex, editable) {
@@ -1666,8 +1832,25 @@ function makeHorizontalFormula(problem, showAnswer, settings = null, problemInde
     formula.append(expression);
   }
   const answer = document.createElement("span");
-  answer.className = answerVisible ? "answer-value" : "blank";
-  answer.textContent = answerVisible ? formulaValueText(problem.answer, true) : "\u25a1";
+  if (isRemainderDivisionProblem(problem, activeSettings)) {
+    answer.className = "division-answer";
+    ["quotient", "remainder"].forEach((part, index) => {
+      if (index > 0) {
+        const label = document.createElement("span");
+        label.className = "division-answer-label";
+        label.textContent = " あまり ";
+        answer.append(label);
+      }
+      const value = document.createElement("span");
+      value.className = answerVisible ? "answer-value division-answer-part" : "blank division-answer-part";
+      value.style.setProperty("--division-answer-digits", String(divisionAnswerDigitWidth(problem, part)));
+      value.textContent = answerVisible ? String(divisionAnswerParts(problem)[part]) : "\u25a1";
+      answer.append(value);
+    });
+  } else {
+    answer.className = answerVisible ? "answer-value" : "blank";
+    answer.textContent = answerVisible ? formulaValueText(problem.answer, true) : "\u25a1";
+  }
   formula.append(answer);
   return formula;
 }
@@ -2302,6 +2485,13 @@ function addDivisionFrame(board, divisorDigits, boardColumns) {
   board.append(frame);
 }
 
+function makeDivisionRemainderLabel(problem) {
+  const label = document.createElement("span");
+  label.className = "division-remainder-label answer-value";
+  label.textContent = `あまり ${divisionAnswerParts(problem).remainder}`;
+  return label;
+}
+
 function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, showGiven = true, settings = null, problemIndex = null) {
   const details = problem.longDivision;
   const trace = buildLongDivisionTrace(details);
@@ -2396,6 +2586,12 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
       details.divisorDigits + trace.quotientOffset + details.quotientDecimalAfterIndex + 1,
     );
   }
+  if (answerVisible && isRemainderDivisionProblem(problem, settings)) {
+    const wrapper = document.createElement("span");
+    wrapper.className = "division-board-wrap";
+    wrapper.append(board, makeDivisionRemainderLabel(problem));
+    return wrapper;
+  }
   return board;
 }
 
@@ -2462,6 +2658,13 @@ function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivi
     : makeHorizontalFormula(problem, showAnswer, settings, problemIndex);
 }
 
+function setDivisionCellSizing(list, cellSize, fontSize) {
+  list.style.setProperty(
+    "--division-cell-font-ratio",
+    String((cellSize * 96 / 25.4 / Math.max(1, fontSize)).toFixed(4)),
+  );
+}
+
 function applyGridDensity(list, settings, longDivisionBoardSize = null, multiplicationBoardSize = null, workspaceSize = null, verticalDigitCount = 0) {
   const rows = Math.ceil(settings.count / settings.columns);
   const vertical = settings.layout === "vertical";
@@ -2479,7 +2682,7 @@ function applyGridDensity(list, settings, longDivisionBoardSize = null, multipli
     const cellSize = Math.max(5.5, Math.min(10, heightCellSize, widthCellSize));
     problemMin = cellSize * workspaceSize.rows + 2;
     fontSize = Math.max(15, Math.round(cellSize * 3));
-    list.style.setProperty("--division-cell-size", `${cellSize.toFixed(2)}mm`);
+    setDivisionCellSizing(list, cellSize, fontSize);
   } else if (workspaceSize && supportsMultiplicationVerticalLayout()) {
     const denseMultiplication = settings.count > 12;
     rowGap = denseMultiplication ? 2 : 4;
@@ -2511,7 +2714,7 @@ function applyGridDensity(list, settings, longDivisionBoardSize = null, multipli
     const cellSize = Math.max(5.5, Math.min(10, heightCellSize, widthCellSize));
     problemMin = cellSize * longDivisionBoardSize.rows + 2;
     fontSize = Math.max(15, Math.round(cellSize * 3));
-    list.style.setProperty("--division-cell-size", `${cellSize.toFixed(2)}mm`);
+    setDivisionCellSizing(list, cellSize, fontSize);
   } else if (multiplicationBoardSize) {
     const denseMultiplication = settings.count > 12;
     rowGap = denseMultiplication ? 2 : 4;
@@ -2624,7 +2827,7 @@ function renderSheetPages(sheetCount, includeAnswers) {
 function render() {
   syncSettingsControls();
   const settings = getSettings();
-  if (!problems.length) problems = makeManualProblemsForSettings(settings);
+  if (!problems.length && !generationMessage) problems = makeManualProblemsForSettings(settings);
   if (problems.length < settings.count) {
     if (isManualInputActive(settings)) {
       while (problems.length < settings.count) problems.push(createManualProblem(settings));
@@ -2675,13 +2878,13 @@ function loadInitialState() {
   const sharedState = encoded ? decodeState(encoded) : null;
   if (sharedState?.settings && Array.isArray(sharedState.problems)) {
     applySettings(sharedState.settings);
-    problems = sharedState.problems;
+    problems = normalizeProblems(sharedState.problems, getSettings());
     return;
   }
   try {
     const saved = JSON.parse(localStorage.getItem(stateStorageKey) || "null");
     if (saved?.settings) applySettings(saved.settings);
-    if (Array.isArray(saved?.problems)) problems = saved.problems;
+    if (Array.isArray(saved?.problems)) problems = normalizeProblems(saved.problems, getSettings());
   } catch {
     // Ignore unavailable or malformed local storage.
   }
@@ -2931,9 +3134,10 @@ function applyLibraryState(state) {
   applySettings(settings);
   sheetProblemSets = [];
   sheetSetSignature = "";
+  generationMessage = "";
 
   if (Array.isArray(state.problems)) {
-    problems = cloneStateValue(state.problems) || [];
+    problems = normalizeProblems(cloneStateValue(state.problems) || [], getSettings());
     render();
   } else {
     problems = [];

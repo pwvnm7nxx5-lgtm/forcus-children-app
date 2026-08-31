@@ -10,6 +10,9 @@ const els = {
   worksheetTitle: document.querySelector("#worksheetTitle"),
   grade: document.querySelector("#grade"),
   operation: document.querySelector("#operation"),
+  difficultyField: document.querySelector("#difficultyField"),
+  difficulty: document.querySelector("#difficulty"),
+  digitsField: document.querySelector("#digitsField"),
   digits: document.querySelector("#digits"),
   resultRangeField: document.querySelector("#resultRangeField"),
   resultRange: document.querySelector("#resultRange"),
@@ -44,6 +47,7 @@ let statusTimer;
 let problems = [];
 let sheetProblemSets = [];
 let sheetSetSignature = "";
+let generationMessage = "";
 
 const operationOptions = {
   1: [
@@ -63,6 +67,7 @@ const operationOptions = {
     ["mix", "たし算・ひき算ミックス"],
     ["multiply", "かけ算"],
     ["divide", "わり算（あまりなし）"],
+    ["divideRemainder", "わり算（あまりあり）"],
     ["decimalAdd", "小数のたし算"],
     ["decimalSub", "小数のひき算"],
     ["decimalMix", "小数のたし算・ひき算ミックス"],
@@ -73,6 +78,7 @@ const operationOptions = {
     ["mix", "たし算・ひき算ミックス"],
     ["multiply", "かけ算"],
     ["divide", "わり算（あまりなし）"],
+    ["divideRemainder", "わり算（あまりあり）"],
     ["decimalAdd", "小数のたし算"],
     ["decimalSub", "小数のひき算"],
     ["decimalAddSubMix", "小数のたし算・ひき算ミックス"],
@@ -114,6 +120,24 @@ function getOperation() {
   return clampChoice(els.operation.value, options, options[0]);
 }
 
+function supportsTableDivisionDifficulty() {
+  return ["3", "4"].includes(getGrade()) && getOperation() === "divide";
+}
+
+function getDifficulty() {
+  return supportsTableDivisionDifficulty()
+    ? clampChoice(els.difficulty.value, ["standard", "multiplication-table"], "standard")
+    : "standard";
+}
+
+function isRemainderDivisionOperation(operation = getOperation()) {
+  return operation === "divideRemainder";
+}
+
+function isRemainderDivisionProblem(problem, settings = null) {
+  return problem?.op === "÷" && (problem?.divisionType === "remainder" || settings?.operation === "divideRemainder");
+}
+
 function digitOptions(grade = getGrade(), operation = getOperation()) {
   if (operation.startsWith("decimal") || operation === "integerDivideDecimal") {
     return [["decimal", grade === "3" ? "小数第1位まで" : "小数第1位・第2位まで"]];
@@ -124,7 +148,10 @@ function digitOptions(grade = getGrade(), operation = getOperation()) {
     if (grade === "3") return [["one-one", "1桁 × 1桁"], ["two-one", "2桁 × 1桁"]];
     return [["three-two", "3桁 × 2桁"], ["four-two", "4桁 × 2桁"], ["three-three", "3桁 × 3桁"]];
   }
-  if (operation === "divide") {
+  if (["divide", "divideRemainder"].includes(operation)) {
+    if (operation === "divide" && getDifficulty() === "multiplication-table") {
+      return [["multiplication-table", "九九の範囲（1〜9 × 1〜9）"]];
+    }
     if (grade === "3") return [["two-one", "2桁 ÷ 1桁"], ["three-one", "3桁 ÷ 1桁"]];
     return [["three-one", "3桁 ÷ 1桁"]];
   }
@@ -173,7 +200,7 @@ function supportsMultiplicationVerticalLayout() {
 }
 
 function supportsLongDivisionLayout() {
-  return (Number(getGrade()) >= 3 && Number(getGrade()) <= 4 && getOperation() === "divide")
+  return (Number(getGrade()) >= 3 && Number(getGrade()) <= 4 && ["divide", "divideRemainder"].includes(getOperation()))
     || (getGrade() === "4" && ["decimalDivideInteger", "integerDivideDecimal"].includes(getOperation()))
     || (getGrade() === "5" && getOperation() === "decimalDivide");
 }
@@ -238,11 +265,11 @@ function getSettings() {
     title: els.worksheetTitle.value || "計算問題集",
     grade: getGrade(),
     operation: getOperation(),
+    difficulty: getDifficulty(),
     digits: getDigits(),
     resultRange: getResultRange(),
     carryMode: clampChoice(els.carryMode.value, ["any", "with", "without"], "any"),
     layout: getActiveLayout(),
-    difficulty: "standard",
     count: getProblemCount(),
     columns: getColumns(),
     showCarryBoxes: els.showCarryBoxes.checked,
@@ -266,8 +293,13 @@ function syncSettingsControls() {
   const currentOperation = els.operation.value;
   replaceOptions(els.operation, operationOptions[getGrade()], currentOperation);
 
+  const difficultySupported = supportsTableDivisionDifficulty();
+  els.difficultyField.hidden = !difficultySupported;
+  if (!difficultySupported) els.difficulty.value = "standard";
+  const difficulty = getDifficulty();
   const currentDigits = els.digits.value;
   replaceOptions(els.digits, digitOptions(), currentDigits);
+  els.digitsField.hidden = difficulty === "multiplication-table";
 
   const simpleVertical = supportsSimpleVerticalLayout();
   const multiplicationVertical = supportsMultiplicationVerticalLayout();
@@ -314,6 +346,8 @@ function applySettings(settings) {
   els.grade.value = clampChoice(settings.grade, ["1", "2", "3", "4", "5"], "2");
   syncSettingsControls();
   els.operation.value = clampChoice(settings.operation, allowedOperations(), allowedOperations()[0]);
+  syncSettingsControls();
+  els.difficulty.value = clampChoice(settings.difficulty, ["standard", "multiplication-table"], "standard");
   syncSettingsControls();
   els.digits.value = clampChoice(settings.digits, digitOptions().map(([value]) => value), digitOptions()[0][0]);
   els.resultRange.value = clampChoice(settings.resultRange, ["any", "ten"], "any");
@@ -459,13 +493,81 @@ function makeDivideCandidates(settings) {
     const quotient = randomInt(2, maxQuotient);
     const dividend = divisor * quotient;
     if (dividend < dividendBounds.min) return null;
-    const problem = { a: dividend, b: divisor, op: "÷", answer: quotient };
+    const problem = { a: dividend, b: divisor, op: "÷", answer: quotient, quotient };
     if (!matchesResultRange(problem, settings)) return null;
     if (["vertical", "horizontal-workspace"].includes(settings.layout)) {
       problem.longDivision = {
         divisor,
         dividend,
         quotient,
+        divisorDigits: String(divisor).length,
+        dividendDecimalAfterIndex: -1,
+        quotientDecimalAfterIndex: -1,
+      };
+    }
+    return problem;
+  });
+}
+
+function makeMultiplicationTableDivideCandidates(settings) {
+  const candidates = [];
+  for (let divisor = 1; divisor <= 9; divisor += 1) {
+    for (let quotient = 1; quotient <= 9; quotient += 1) {
+      const dividend = divisor * quotient;
+      const problem = {
+        a: dividend,
+        b: divisor,
+        op: "÷",
+        answer: quotient,
+        quotient,
+        divisionType: "exact",
+      };
+      if (["vertical", "horizontal-workspace"].includes(settings.layout)) {
+        problem.longDivision = {
+          divisor,
+          dividend,
+          quotient,
+          divisorDigits: String(divisor).length,
+          dividendDecimalAfterIndex: -1,
+          quotientDecimalAfterIndex: -1,
+        };
+      }
+      candidates.push(problem);
+    }
+  }
+  return shuffle(candidates);
+}
+
+function makeDivideRemainderCandidates(settings) {
+  const dividendBounds = numberBounds(settings, "a");
+  const divisorBounds = numberBounds(settings, "b");
+  const divisorMin = Math.max(2, divisorBounds.min);
+  const divisorMax = divisorBounds.max;
+  return buildRandomPool(settings, () => {
+    if (divisorMin > divisorMax) return null;
+    const divisor = randomInt(divisorMin, divisorMax);
+    const dividendMin = Math.max(dividendBounds.min, divisor);
+    if (dividendMin > dividendBounds.max) return null;
+    const dividend = randomInt(dividendMin, dividendBounds.max);
+    const quotient = Math.floor(dividend / divisor);
+    const remainder = dividend % divisor;
+    if (quotient < 1 || remainder <= 0 || remainder >= divisor) return null;
+    const problem = {
+      a: dividend,
+      b: divisor,
+      op: "÷",
+      answer: quotient,
+      quotient,
+      remainder,
+      divisionType: "remainder",
+    };
+    if (!matchesResultRange(problem, settings)) return null;
+    if (["vertical", "horizontal-workspace"].includes(settings.layout)) {
+      problem.longDivision = {
+        divisor,
+        dividend,
+        quotient,
+        remainder,
         divisorDigits: String(divisor).length,
         dividendDecimalAfterIndex: -1,
         quotientDecimalAfterIndex: -1,
@@ -677,7 +779,12 @@ function makeCandidatePool(settings) {
   if (settings.operation.startsWith("decimal") || settings.operation === "integerDivideDecimal") return makeDecimalCandidates(settings);
   if (settings.operation.startsWith("fraction")) return makeFractionCandidates(settings);
   if (settings.operation === "multiply") return makeMultiplyCandidates(settings);
-  if (settings.operation === "divide") return makeDivideCandidates(settings);
+  if (settings.operation === "divideRemainder") return makeDivideRemainderCandidates(settings);
+  if (settings.operation === "divide") {
+    return settings.difficulty === "multiplication-table"
+      ? makeMultiplicationTableDivideCandidates(settings)
+      : makeDivideCandidates(settings);
+  }
   if (settings.operation === "add") return makeAddCandidates(settings);
   if (settings.operation === "sub") return makeSubCandidates(settings);
   return [...makeAddCandidates(settings), ...makeSubCandidates(settings)];
@@ -737,19 +844,80 @@ function selectProblems(settings, usedKeys = new Set()) {
   return selected;
 }
 
+function normalizeDivisionProblem(problem, settings) {
+  if (!problem || typeof problem !== "object") return problem;
+  if (settings?.operation !== "divideRemainder" || problem.op !== "÷") return problem;
+  const normalized = { ...problem };
+  const quotientValue = normalized.quotient ?? normalized.longDivision?.quotient ?? normalized.answer;
+  const remainderValue = normalized.remainder ?? normalized.longDivision?.remainder;
+  const answerText = typeof normalized.answer === "string" ? normalized.answer.match(/^(\d+)\s*あまり\s*(\d+)$/) : null;
+  const quotient = Number(answerText?.[1] ?? quotientValue);
+  const remainder = Number(answerText?.[2] ?? remainderValue);
+  if (!Number.isFinite(quotient) || !Number.isFinite(remainder)) return normalized;
+  normalized.answer = quotient;
+  normalized.quotient = quotient;
+  normalized.remainder = remainder;
+  normalized.divisionType = "remainder";
+  if (normalized.longDivision && typeof normalized.longDivision === "object") {
+    normalized.longDivision = {
+      ...normalized.longDivision,
+      quotient,
+      remainder,
+    };
+  }
+  return normalized;
+}
+
+function normalizeProblems(values, settings) {
+  return Array.isArray(values)
+    ? values.map((problem) => normalizeDivisionProblem(problem, settings)).filter(Boolean)
+    : [];
+}
+
+function noSolutionMessage(settings) {
+  if (settings.operation === "divideRemainder") {
+    return "この桁数では、商1以上・余りありのわり算を作れません。桁数を組み合わせ直してください。";
+  }
+  if (settings.operation === "divide" && settings.difficulty === "multiplication-table") {
+    return "九九の範囲で作れる問題がありません。設定を確認してください。";
+  }
+  return "この条件で作れる問題がありません。桁数や設定を組み合わせ直してください。";
+}
+
 function generateProblems() {
   syncSettingsControls();
   const settings = getSettings();
+  generationMessage = "";
   problems = selectProblems(settings);
+  if (!problems.length) generationMessage = noSolutionMessage(settings);
   sheetProblemSets = [];
   sheetSetSignature = "";
   render();
-  setStatus("問題を作り直しました。");
+  setStatus(generationMessage || "問題を作り直しました。");
 }
 
 function formulaValueText(value, showDecimal) {
   const text = String(value);
   return showDecimal ? text : text.replace(".", "");
+}
+
+function divisionAnswerParts(problem) {
+  const quotientValue = problem?.quotient ?? problem?.longDivision?.quotient ?? problem?.answer;
+  const remainderValue = problem?.remainder ?? problem?.longDivision?.remainder ?? 0;
+  return {
+    quotient: Number(quotientValue),
+    remainder: Number(remainderValue),
+  };
+}
+
+function divisionAnswerText(problem) {
+  const { quotient, remainder } = divisionAnswerParts(problem);
+  return `${quotient} あまり ${remainder}`;
+}
+
+function divisionAnswerDigitWidth(problem, part) {
+  const { quotient, remainder } = divisionAnswerParts(problem);
+  return String(part === "quotient" ? quotient : remainder).length;
 }
 
 function makeHorizontalFormula(problem, showAnswer, settings = null) {
@@ -759,8 +927,27 @@ function makeHorizontalFormula(problem, showAnswer, settings = null) {
   expression.className = "formula-expression";
   expression.textContent = `${formulaValueText(problem.a, true)} ${problem.op} ${formulaValueText(problem.b, true)} =`;
   const answer = document.createElement("span");
-  answer.className = showAnswer ? "answer-value" : "blank";
-  answer.textContent = showAnswer ? formulaValueText(problem.answer, true) : "□";
+  if (isRemainderDivisionProblem(problem, settings)) {
+    answer.className = "division-answer";
+    ["quotient", "remainder"].forEach((part, index) => {
+      if (index > 0) {
+        const label = document.createElement("span");
+        label.className = "division-answer-label";
+        label.textContent = " あまり ";
+        answer.append(label);
+      }
+      const value = document.createElement("span");
+      value.className = showAnswer ? "answer-value division-answer-part" : "blank division-answer-part";
+      value.style.setProperty("--division-answer-digits", String(divisionAnswerDigitWidth(problem, part)));
+      value.textContent = showAnswer
+        ? String(divisionAnswerParts(problem)[part])
+        : "□";
+      answer.append(value);
+    });
+  } else {
+    answer.className = showAnswer ? "answer-value" : "blank";
+    answer.textContent = showAnswer ? formulaValueText(problem.answer, true) : "□";
+  }
   formula.append(expression, answer);
   return formula;
 }
@@ -1146,6 +1333,13 @@ function addDivisionFrame(board, divisorDigits, boardColumns) {
   board.append(frame);
 }
 
+function makeDivisionRemainderLabel(problem) {
+  const label = document.createElement("span");
+  label.className = "division-remainder-label answer-value";
+  label.textContent = `あまり ${divisionAnswerParts(problem).remainder}`;
+  return label;
+}
+
 function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, showGiven = true, settings = null) {
   const details = problem.longDivision;
   const trace = buildLongDivisionTrace(details);
@@ -1219,6 +1413,12 @@ function makeLongDivisionBoard(problem, showAnswer, boardRows, boardColumns, sho
       details.divisorDigits + trace.quotientOffset + details.quotientDecimalAfterIndex + 1,
     );
   }
+  if (showAnswer && isRemainderDivisionProblem(problem, settings)) {
+    const wrapper = document.createElement("span");
+    wrapper.className = "division-board-wrap";
+    wrapper.append(board, makeDivisionRemainderLabel(problem));
+    return wrapper;
+  }
   return board;
 }
 
@@ -1278,6 +1478,13 @@ function makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivi
     : makeHorizontalFormula(problem, showAnswer, settings);
 }
 
+function setDivisionCellSizing(list, cellSize, fontSize) {
+  list.style.setProperty(
+    "--division-cell-font-ratio",
+    String((cellSize * 96 / 25.4 / Math.max(1, fontSize)).toFixed(4)),
+  );
+}
+
 function applyGridDensity(list, settings, longDivisionBoardSize = null, multiplicationBoardSize = null, workspaceSize = null, verticalDigitCount = 0) {
   const rows = Math.ceil(settings.count / settings.columns);
   const vertical = settings.layout === "vertical";
@@ -1295,7 +1502,7 @@ function applyGridDensity(list, settings, longDivisionBoardSize = null, multipli
     const cellSize = Math.max(5.5, Math.min(10, heightCellSize, widthCellSize));
     problemMin = cellSize * workspaceSize.rows + 2;
     fontSize = Math.max(15, Math.round(cellSize * 3));
-    list.style.setProperty("--division-cell-size", `${cellSize.toFixed(2)}mm`);
+    setDivisionCellSizing(list, cellSize, fontSize);
   } else if (workspaceSize && supportsMultiplicationVerticalLayout()) {
     rowGap = 4;
     const availableHeight = 235 - Math.max(0, rows - 1) * rowGap;
@@ -1325,7 +1532,7 @@ function applyGridDensity(list, settings, longDivisionBoardSize = null, multipli
     const cellSize = Math.max(5.5, Math.min(10, heightCellSize, widthCellSize));
     problemMin = cellSize * longDivisionBoardSize.rows + 2;
     fontSize = Math.max(15, Math.round(cellSize * 3));
-    list.style.setProperty("--division-cell-size", `${cellSize.toFixed(2)}mm`);
+    setDivisionCellSizing(list, cellSize, fontSize);
   } else if (multiplicationBoardSize) {
     rowGap = 4;
     const availableHeight = 235 - Math.max(0, rows - 1) * rowGap;
@@ -1433,7 +1640,8 @@ function renderSheetPages(sheetCount, includeAnswers) {
 function render() {
   syncSettingsControls();
   const settings = getSettings();
-  if (!problems.length || problems.length < settings.count) problems = selectProblems(settings);
+  if (!problems.length && !generationMessage) problems = selectProblems(settings);
+  if (problems.length < settings.count && problems.length > 0) problems = selectProblems(settings);
   if (problems.length > settings.count) problems = problems.slice(0, settings.count);
   els.pages.replaceChildren(renderPage("もんだい", false), renderPage("こたえ", true));
   els.pageCount.textContent = "2枚";
@@ -1475,13 +1683,13 @@ function loadInitialState() {
   const sharedState = encoded ? decodeState(encoded) : null;
   if (sharedState?.settings && Array.isArray(sharedState.problems)) {
     applySettings(sharedState.settings);
-    problems = sharedState.problems;
+    problems = normalizeProblems(sharedState.problems, getSettings());
     return;
   }
   try {
     const saved = JSON.parse(localStorage.getItem(stateStorageKey) || "null");
     if (saved?.settings) applySettings(saved.settings);
-    if (Array.isArray(saved?.problems)) problems = saved.problems;
+    if (Array.isArray(saved?.problems)) problems = normalizeProblems(saved.problems, getSettings());
   } catch {
     // Ignore unavailable or malformed local storage.
   }
@@ -1512,7 +1720,7 @@ function bindEvents() {
   els.layoutMode.addEventListener("change", () => {
     if (isLongDivisionLayout() && Number(els.columns.value) === 2) els.columns.value = "3";
   });
-  [els.grade, els.operation, els.digits, els.resultRange, els.carryMode, els.layoutMode].forEach((control) => {
+  [els.grade, els.operation, els.difficulty, els.digits, els.resultRange, els.carryMode, els.layoutMode].forEach((control) => {
     control.addEventListener("change", generateProblems);
   });
   els.showCarryBoxes.addEventListener("change", render);
