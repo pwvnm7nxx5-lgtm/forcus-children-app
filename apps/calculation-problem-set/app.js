@@ -304,7 +304,12 @@ function syncSettingsControls() {
   const difficulty = getDifficulty();
   const currentDigits = els.digits.value;
   const digitsContext = `${getGrade()}:${getOperation()}`;
-  if (currentDigits && currentDigits !== "multiplication-table") {
+  if (difficulty !== "multiplication-table" && currentDigits && currentDigits !== "multiplication-table") {
+    standardDigitsByContext.set(digitsContext, currentDigits);
+  } else if (difficulty === "multiplication-table"
+    && !standardDigitsByContext.has(digitsContext)
+    && currentDigits
+    && currentDigits !== "multiplication-table") {
     standardDigitsByContext.set(digitsContext, currentDigits);
   }
   const preferredDigits = difficulty === "multiplication-table"
