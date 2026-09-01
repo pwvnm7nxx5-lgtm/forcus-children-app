@@ -48,6 +48,7 @@ let problems = [];
 let sheetProblemSets = [];
 let sheetSetSignature = "";
 let generationMessage = "";
+const standardDigitsByContext = new Map();
 
 const operationOptions = {
   1: [
@@ -121,7 +122,7 @@ function getOperation() {
 }
 
 function supportsTableDivisionDifficulty() {
-  return ["3", "4"].includes(getGrade()) && getOperation() === "divide";
+  return ["3", "4"].includes(getGrade()) && ["divide", "divideRemainder"].includes(getOperation());
 }
 
 function getDifficulty() {
@@ -149,7 +150,7 @@ function digitOptions(grade = getGrade(), operation = getOperation()) {
     return [["three-two", "3桁 × 2桁"], ["four-two", "4桁 × 2桁"], ["three-three", "3桁 × 3桁"]];
   }
   if (["divide", "divideRemainder"].includes(operation)) {
-    if (operation === "divide" && getDifficulty() === "multiplication-table") {
+    if (getDifficulty() === "multiplication-table") {
       return [["multiplication-table", "九九の範囲（1〜9 × 1〜9）"]];
     }
     if (grade === "3") return [["two-one", "2桁 ÷ 1桁"], ["three-one", "3桁 ÷ 1桁"]];
@@ -259,14 +260,18 @@ function getColumns() {
 }
 
 function getSettings() {
+  const difficulty = getDifficulty();
+  const digits = getDigits();
+  const standardDigits = standardDigitsByContext.get(`${getGrade()}:${getOperation()}`);
   return {
     name: els.studentName.value,
     date: els.worksheetDate.value,
     title: els.worksheetTitle.value || "計算問題集",
     grade: getGrade(),
     operation: getOperation(),
-    difficulty: getDifficulty(),
-    digits: getDigits(),
+    difficulty,
+    digits,
+    ...(difficulty === "multiplication-table" && standardDigits ? { standardDigits } : {}),
     resultRange: getResultRange(),
     carryMode: clampChoice(els.carryMode.value, ["any", "with", "without"], "any"),
     layout: getActiveLayout(),
@@ -298,7 +303,17 @@ function syncSettingsControls() {
   if (!difficultySupported) els.difficulty.value = "standard";
   const difficulty = getDifficulty();
   const currentDigits = els.digits.value;
-  replaceOptions(els.digits, digitOptions(), currentDigits);
+  const digitsContext = `${getGrade()}:${getOperation()}`;
+  if (currentDigits && currentDigits !== "multiplication-table") {
+    standardDigitsByContext.set(digitsContext, currentDigits);
+  }
+  const preferredDigits = difficulty === "multiplication-table"
+    ? "multiplication-table"
+    : (standardDigitsByContext.get(digitsContext) || currentDigits);
+  replaceOptions(els.digits, digitOptions(), preferredDigits);
+  if (difficulty !== "multiplication-table" && els.digits.value !== "multiplication-table") {
+    standardDigitsByContext.set(digitsContext, els.digits.value);
+  }
   els.digitsField.hidden = difficulty === "multiplication-table";
 
   const simpleVertical = supportsSimpleVerticalLayout();
@@ -347,9 +362,20 @@ function applySettings(settings) {
   syncSettingsControls();
   els.operation.value = clampChoice(settings.operation, allowedOperations(), allowedOperations()[0]);
   syncSettingsControls();
+  const digitsContext = `${getGrade()}:${getOperation()}`;
+  standardDigitsByContext.delete(digitsContext);
+  const savedStandardDigits = settings.standardDigits
+    ?? (String(settings.digits) === "multiplication-table" ? "" : settings.digits);
+  if (savedStandardDigits && String(savedStandardDigits) !== "multiplication-table") {
+    standardDigitsByContext.set(digitsContext, String(savedStandardDigits));
+  }
   els.difficulty.value = clampChoice(settings.difficulty, ["standard", "multiplication-table"], "standard");
   syncSettingsControls();
-  els.digits.value = clampChoice(settings.digits, digitOptions().map(([value]) => value), digitOptions()[0][0]);
+  if (getDifficulty() === "multiplication-table") {
+    els.digits.value = "multiplication-table";
+  } else {
+    els.digits.value = clampChoice(settings.digits, digitOptions().map(([value]) => value), digitOptions()[0][0]);
+  }
   els.resultRange.value = clampChoice(settings.resultRange, ["any", "ten"], "any");
   els.carryMode.value = clampChoice(settings.carryMode, ["any", "with", "without"], "any");
   els.layoutMode.value = clampChoice(settings.layout, ["horizontal", "horizontal-workspace", "vertical"], "horizontal");
@@ -533,6 +559,39 @@ function makeMultiplicationTableDivideCandidates(settings) {
         };
       }
       candidates.push(problem);
+    }
+  }
+  return shuffle(candidates);
+}
+
+function makeMultiplicationTableDivideRemainderCandidates(settings) {
+  const candidates = [];
+  for (let divisor = 2; divisor <= 9; divisor += 1) {
+    for (let quotient = 1; quotient <= 9; quotient += 1) {
+      for (let remainder = 1; remainder < divisor; remainder += 1) {
+        const dividend = divisor * quotient + remainder;
+        const problem = {
+          a: dividend,
+          b: divisor,
+          op: "÷",
+          answer: quotient,
+          quotient,
+          remainder,
+          divisionType: "remainder",
+        };
+        if (["vertical", "horizontal-workspace"].includes(settings.layout)) {
+          problem.longDivision = {
+            divisor,
+            dividend,
+            quotient,
+            remainder,
+            divisorDigits: String(divisor).length,
+            dividendDecimalAfterIndex: -1,
+            quotientDecimalAfterIndex: -1,
+          };
+        }
+        candidates.push(problem);
+      }
     }
   }
   return shuffle(candidates);
@@ -779,7 +838,11 @@ function makeCandidatePool(settings) {
   if (settings.operation.startsWith("decimal") || settings.operation === "integerDivideDecimal") return makeDecimalCandidates(settings);
   if (settings.operation.startsWith("fraction")) return makeFractionCandidates(settings);
   if (settings.operation === "multiply") return makeMultiplyCandidates(settings);
-  if (settings.operation === "divideRemainder") return makeDivideRemainderCandidates(settings);
+  if (settings.operation === "divideRemainder") {
+    return settings.difficulty === "multiplication-table"
+      ? makeMultiplicationTableDivideRemainderCandidates(settings)
+      : makeDivideRemainderCandidates(settings);
+  }
   if (settings.operation === "divide") {
     return settings.difficulty === "multiplication-table"
       ? makeMultiplicationTableDivideCandidates(settings)
@@ -869,9 +932,30 @@ function normalizeDivisionProblem(problem, settings) {
 }
 
 function normalizeProblems(values, settings) {
-  return Array.isArray(values)
+  const normalized = Array.isArray(values)
     ? values.map((problem) => normalizeDivisionProblem(problem, settings)).filter(Boolean)
     : [];
+  if (settings?.difficulty === "multiplication-table" && ["divide", "divideRemainder"].includes(settings.operation)) {
+    const valid = normalized.every((problem) => {
+      const dividend = Number(problem?.a);
+      const divisor = Number(problem?.b);
+      const quotient = Number(problem?.quotient ?? problem?.longDivision?.quotient ?? problem?.answer);
+      if (![dividend, divisor, quotient].every(Number.isInteger)) return false;
+      if (settings.operation === "divideRemainder") {
+        const remainder = Number(problem?.remainder ?? problem?.longDivision?.remainder);
+        return Number.isInteger(remainder)
+          && divisor >= 2 && divisor <= 9
+          && quotient >= 1 && quotient <= 9
+          && remainder >= 1 && remainder < divisor
+          && dividend === divisor * quotient + remainder;
+      }
+      return divisor >= 1 && divisor <= 9
+        && quotient >= 1 && quotient <= 9
+        && dividend === divisor * quotient;
+    });
+    if (!valid) return [];
+  }
+  return normalized;
 }
 
 function noSolutionMessage(settings) {
