@@ -271,7 +271,7 @@
     tags: ["算数", "5年生", "小数", "かけ算", "わり算", "印刷"],
     href: "apps/decimal-print-grade5/index.html",
     actionLabel: "小数計算を練習する",
-    status: "ready",
+    status: "準備中",
     accent: "#2563eb",
     hidden: true,
   },
@@ -284,7 +284,7 @@
     tags: ["算数", "5年生", "約数", "倍数", "公約数", "公倍数", "印刷"],
     href: "apps/number-properties-print-grade5/index.html",
     actionLabel: "約数・倍数を練習する",
-    status: "ready",
+    status: "準備中",
     accent: "#7c3aed",
   },
   {
@@ -296,7 +296,7 @@
     tags: ["算数", "5年生", "割合", "平均", "速さ", "百分率", "印刷"],
     href: "apps/rates-print-grade5/index.html",
     actionLabel: "割合・平均・速さを練習する",
-    status: "ready",
+    status: "準備中",
     accent: "#0284c7",
   },
   {
@@ -308,7 +308,7 @@
     tags: ["算数", "6年生", "比", "比の値", "計算", "印刷"],
     href: "apps/ratio-print-grade6/index.html",
     actionLabel: "比を練習する",
-    status: "ready",
+    status: "準備中",
     accent: "#7c3aed",
   },
   {
@@ -320,7 +320,7 @@
     tags: ["算数", "6年生", "円", "面積", "角柱", "円柱", "体積", "印刷"],
     href: "apps/area-volume-print-grade6/index.html",
     actionLabel: "面積・体積を練習する",
-    status: "ready",
+    status: "準備中",
     accent: "#c2410c",
   },
 ];
