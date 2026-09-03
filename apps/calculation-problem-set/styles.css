@@ -364,6 +364,7 @@ button:hover {
   align-items: baseline;
   gap: 0.2em;
   white-space: nowrap;
+  transform: translateX(-2mm);
 }
 
 .division-answer-part {
@@ -624,6 +625,7 @@ button:hover {
   font-size: 0.78em;
   line-height: 1;
   white-space: nowrap;
+  transform: translateX(-3mm);
 }
 
 .answer-page .division-board-digit.answer-digit,
