@@ -3,11 +3,19 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
+const { createServer: createNetServer } = require("node:net");
 
 const rootDir = path.resolve(__dirname, "..");
-const appPort = Number(process.env.APP_PORT || 4273);
-const chromePort = Number(process.env.CHROME_PORT || 9333);
-const baseUrl = `http://127.0.0.1:${appPort}`;
+const requestedAppPort = Number(process.env.APP_PORT || 0);
+const requestedChromePort = Number(process.env.CHROME_PORT || 0);
+let appPort = requestedAppPort;
+let chromePort = requestedChromePort;
+let baseUrl = `http://127.0.0.1:${appPort}`;
+
+const commandTimeoutMs = 5000;
+const navigationTimeoutMs = 10000;
+const pdfTimeoutMs = 15000;
+const shutdownTimeoutMs = 3000;
 
 const cases = [
   {
@@ -41,7 +49,7 @@ const cases = [
   {
     name: "grade3-add",
     path: "/apps/math-print-grade3/index.html",
-    stateKey: "math-print-grade3-state-v1",
+    stateKey: "math-print-grade3-state-v3",
     scalePct: 150,
     settings: {
       title: "3 grade math",
@@ -55,7 +63,7 @@ const cases = [
   {
     name: "grade3-sub",
     path: "/apps/math-print-grade3/index.html",
-    stateKey: "math-print-grade3-state-v1",
+    stateKey: "math-print-grade3-state-v3",
     scalePct: 150,
     settings: {
       title: "3 grade math",
@@ -69,7 +77,7 @@ const cases = [
   {
     name: "grade3-mul-one",
     path: "/apps/multiplication-print-grade3/index.html",
-    stateKey: "multiplication-print-grade3-state-v3",
+    stateKey: "multiplication-print-grade3-state-v4",
     scalePct: 150,
     settings: {
       title: "3 grade multiplication",
@@ -78,11 +86,13 @@ const cases = [
       columns: 2,
       showCarryBoxes: true,
     },
+    operatorAnchor: "multiplicand",
+    negativeControlAnchor: "row",
   },
   {
     name: "grade3-mul-two",
     path: "/apps/multiplication-print-grade3/index.html",
-    stateKey: "multiplication-print-grade3-state-v3",
+    stateKey: "multiplication-print-grade3-state-v4",
     scalePct: 150,
     settings: {
       title: "3 grade multiplication",
@@ -91,6 +101,7 @@ const cases = [
       columns: 2,
       showCarryBoxes: true,
     },
+    operatorAnchor: "multiplicand",
   },
 ];
 
@@ -133,8 +144,51 @@ function startStaticServer() {
 
   return new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(appPort, "127.0.0.1", () => resolve(server));
+    server.listen(requestedAppPort, "127.0.0.1", () => {
+      const address = server.address();
+      appPort = typeof address === "object" && address ? address.port : requestedAppPort;
+      baseUrl = `http://127.0.0.1:${appPort}`;
+      resolve(server);
+    });
   });
+}
+
+function withTimeout(promise, timeoutMs, label) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    Promise.resolve(promise).then((value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    }, (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(error);
+    });
+  });
+}
+
+async function reservePort(requestedPort) {
+  const probe = createNetServer();
+  await withTimeout(new Promise((resolve, reject) => {
+    probe.once("error", reject);
+    probe.listen(requestedPort, "127.0.0.1", resolve);
+  }), commandTimeoutMs, "Port reservation");
+
+  const address = probe.address();
+  const port = typeof address === "object" && address ? address.port : requestedPort;
+  await withTimeout(new Promise((resolve, reject) => {
+    probe.close((error) => error ? reject(error) : resolve());
+  }), commandTimeoutMs, "Port release");
+  return port;
 }
 
 function chromeCandidates() {
@@ -155,19 +209,25 @@ function findChrome() {
   return found;
 }
 
-function startChrome() {
+async function startChrome() {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "vertical-layout-check-"));
-  const chrome = spawn(findChrome(), [
-    "--headless=new",
-    `--remote-debugging-port=${chromePort}`,
-    `--user-data-dir=${profile}`,
-    "--disable-gpu",
-    "--no-first-run",
-    "--no-default-browser-check",
-    "about:blank",
-  ], { stdio: "ignore" });
+  try {
+    chromePort = await reservePort(requestedChromePort);
+    const chrome = spawn(findChrome(), [
+      "--headless=new",
+      `--remote-debugging-port=${chromePort}`,
+      `--user-data-dir=${profile}`,
+      "--disable-gpu",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "about:blank",
+    ], { stdio: "ignore" });
 
-  return { chrome, profile };
+    return { chrome, profile };
+  } catch (error) {
+    fs.rmSync(profile, { recursive: true, force: true });
+    throw error;
+  }
 }
 
 function sleep(ms) {
@@ -176,15 +236,20 @@ function sleep(ms) {
 
 async function getJson(url, tries = 60, init) {
   let lastError = "";
+  const deadline = Date.now() + navigationTimeoutMs;
   for (let i = 0; i < tries; i += 1) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
     try {
-      const response = await fetch(url, init);
-      if (response.ok) return response.json();
+      const response = await withTimeout(fetch(url, init), Math.min(commandTimeoutMs, remaining), `Fetch ${url}`);
+      if (response.ok) {
+        return withTimeout(response.json(), Math.min(commandTimeoutMs, remaining), `Parse ${url}`);
+      }
       lastError = `${response.status} ${response.statusText}`;
     } catch (error) {
       lastError = error.message;
     }
-    await sleep(100);
+    await sleep(Math.min(100, Math.max(0, deadline - Date.now())));
   }
   throw new Error(`Failed to fetch ${url}: ${lastError}`);
 }
@@ -193,21 +258,78 @@ function createCdpClient(webSocketDebuggerUrl) {
   const ws = new WebSocket(webSocketDebuggerUrl);
   let id = 0;
   const pending = new Map();
+  const eventWaiters = new Map();
+
+  function rejectWaiters(error) {
+    pending.forEach(({ reject }) => reject(error));
+    pending.clear();
+    eventWaiters.forEach((waiters) => {
+      waiters.forEach(({ reject, timer }) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+    });
+    eventWaiters.clear();
+  }
+
+  function waitForEvent(method, predicate = () => true, timeoutMs = navigationTimeoutMs) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        const waiters = eventWaiters.get(method) || [];
+        const index = waiters.findIndex((waiter) => waiter.resolve === resolve);
+        if (index >= 0) waiters.splice(index, 1);
+        if (!waiters.length) eventWaiters.delete(method);
+        reject(new Error(`Timed out waiting for CDP event: ${method}`));
+      }, timeoutMs);
+      const waiters = eventWaiters.get(method) || [];
+      waiters.push({ predicate, resolve, reject, timer });
+      eventWaiters.set(method, waiters);
+    });
+  }
 
   ws.onmessage = (event) => {
     const message = JSON.parse(event.data);
-    if (!message.id || !pending.has(message.id)) return;
-    const callbacks = pending.get(message.id);
-    pending.delete(message.id);
-    if (message.error) {
-      callbacks.reject(new Error(JSON.stringify(message.error)));
-    } else {
-      callbacks.resolve(message.result);
+    if (message.id && pending.has(message.id)) {
+      const callbacks = pending.get(message.id);
+      pending.delete(message.id);
+      if (message.error) {
+        callbacks.reject(new Error(JSON.stringify(message.error)));
+      } else {
+        callbacks.resolve(message.result);
+      }
+      return;
+    }
+
+    if (message.method && eventWaiters.has(message.method)) {
+      const waiters = eventWaiters.get(message.method);
+      for (let index = waiters.length - 1; index >= 0; index -= 1) {
+        const waiter = waiters[index];
+        let matches = false;
+        try {
+          matches = waiter.predicate(message.params || {});
+        } catch (error) {
+          waiters.splice(index, 1);
+          clearTimeout(waiter.timer);
+          waiter.reject(error);
+          continue;
+        }
+        if (matches) {
+          waiters.splice(index, 1);
+          clearTimeout(waiter.timer);
+          waiter.resolve(message.params || {});
+        }
+      }
+      if (!waiters.length) eventWaiters.delete(message.method);
     }
   };
 
   return new Promise((resolve, reject) => {
+    const connectionTimer = setTimeout(() => {
+      ws.close();
+      reject(new Error(`Chrome DevTools connection timed out after ${commandTimeoutMs}ms`));
+    }, commandTimeoutMs);
     ws.onopen = () => {
+      clearTimeout(connectionTimer);
       resolve({
         send(method, params = {}) {
           const messageId = ++id;
@@ -216,32 +338,88 @@ function createCdpClient(webSocketDebuggerUrl) {
             pending.set(messageId, { resolve, reject });
           });
         },
+        waitForEvent,
         close() {
+          rejectWaiters(new Error("Chrome DevTools WebSocket closed."));
           ws.close();
         },
       });
     };
-    ws.onerror = () => reject(new Error("Chrome DevTools WebSocket failed."));
+    ws.onerror = () => {
+      clearTimeout(connectionTimer);
+      const error = new Error("Chrome DevTools WebSocket failed.");
+      rejectWaiters(error);
+      reject(error);
+    };
+    ws.onclose = () => {
+      clearTimeout(connectionTimer);
+      rejectWaiters(new Error("Chrome DevTools WebSocket closed."));
+    };
   });
 }
 
-async function waitFor(client, expression, tries = 40) {
-  for (let i = 0; i < tries; i += 1) {
-    const result = await client.send("Runtime.evaluate", {
-      expression,
-      returnByValue: true,
-    });
-    if (result.result.value) return;
-    await sleep(100);
+async function waitFor(client, expression, timeoutMs = navigationTimeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let lastError = "";
+  while (Date.now() < deadline) {
+    try {
+      const result = await withTimeout(client.send("Runtime.evaluate", {
+        expression,
+        returnByValue: true,
+      }), commandTimeoutMs, "Runtime.evaluate");
+      if (result.exceptionDetails) {
+        throw new Error(result.exceptionDetails.text || "Runtime expression failed.");
+      }
+      if (result.result?.value) return result.result.value;
+    } catch (error) {
+      lastError = error.message;
+    }
+    await sleep(Math.min(100, Math.max(10, deadline - Date.now())));
   }
-  throw new Error(`Timed out waiting for: ${expression}`);
+  const suffix = lastError ? ` (${lastError})` : "";
+  let diagnostics = "";
+  try {
+    const result = await withTimeout(client.send("Runtime.evaluate", {
+      expression: `(() => ({
+        url: location.href,
+        readyState: document.readyState,
+        problemType: document.querySelector('#problemType')?.value || null,
+        layout: document.querySelector('#layoutMode')?.value || null,
+        formulas: document.querySelectorAll('.vertical-formula').length,
+        pages: document.querySelectorAll('.print-page').length,
+        scale: document.querySelector('#printProblemScaleNumber')?.value || null,
+        storageKeys: Object.keys(localStorage),
+      }))()`,
+      returnByValue: true,
+    }), commandTimeoutMs, "Runtime diagnostics");
+    diagnostics = ` diagnostics=${JSON.stringify(result.result?.value || null)}`;
+  } catch (error) {
+    diagnostics = ` diagnosticsError=${error.message}`;
+  }
+  throw new Error(`Timed out waiting for: ${expression}${suffix}${diagnostics}`);
+}
+
+async function navigateAndWait(client, url) {
+  const loaded = client.waitForEvent("Page.loadEventFired");
+  try {
+    const navigation = await withTimeout(client.send("Page.navigate", { url }), commandTimeoutMs, `Navigate to ${url}`);
+    if (navigation.errorText) {
+      throw new Error(`Navigation failed for ${url}: ${navigation.errorText}`);
+    }
+    await loaded;
+    await waitFor(client, "document.readyState === 'complete'");
+  } catch (error) {
+    loaded.catch(() => {});
+    throw error;
+  }
 }
 
 function countPdfPages(buffer) {
   return (buffer.toString("latin1").match(/\/Type\s*\/Page(?!s)/g) || []).length;
 }
 
-function metricsExpression() {
+function metricsExpression(operatorAnchor = "row") {
+  const intendedOperatorGap = operatorAnchor === "multiplicand" ? "item.anchorGap" : "item.rowGap";
   return String.raw`(() => {
     const visiblePages = [...document.querySelectorAll(".print-page")]
       .filter((page) => getComputedStyle(page).display !== "none" && !page.hidden);
@@ -301,9 +479,15 @@ function metricsExpression() {
         const cells = [...row.querySelectorAll(".digit-cell")];
         const firstDigitCell = cells.find((cell) => cell.querySelector(".digit-value")) || cells[0];
         const digitRect = firstDigitCell.getBoundingClientRect();
+        const formula = row.closest(".vertical-formula");
+        const multiplicandRow = formula?.querySelector(".digit-row");
+        const multiplicandCells = [...(multiplicandRow?.querySelectorAll(".digit-cell") || [])];
+        const firstMultiplicandCell = multiplicandCells.find((cell) => cell.querySelector(".digit-value")) || multiplicandCells[0];
+        const multiplicandRect = firstMultiplicandCell.getBoundingClientRect();
         const style = getComputedStyle(operator);
         return {
-          gap: digitRect.left - operatorRect.right,
+          rowGap: digitRect.left - operatorRect.right,
+          anchorGap: multiplicandRect.left - operatorRect.right,
           visible: operatorRect.width > 0 && operatorRect.height > 0,
           sameLine: Math.abs((operatorRect.top + operatorRect.height / 2) - (digitRect.top + digitRect.height / 2)) < digitRect.height,
           zIndex: style.zIndex,
@@ -330,6 +514,7 @@ function metricsExpression() {
       maxCellOverlap: Math.max(0, ...formulaMetrics.map((item) => item.overlaps)),
       maxFormulaOutsideX: Math.max(0, ...formulaMetrics.map((item) => item.outsideX)),
       maxFormulaOutsideY: Math.max(0, ...formulaMetrics.map((item) => item.outsideY)),
+      badOperatorRowGaps: operatorMetrics.filter((item) => item.rowGap < 1 || item.rowGap > 6).length,
       badHelpers: helperMetrics.filter((item) => (
         item.topGap > 1.5 ||
         item.rightGap > 1.5 ||
@@ -338,8 +523,8 @@ function metricsExpression() {
         item.borderRight !== "0px"
       )).length,
       badOperators: operatorMetrics.filter((item) => (
-        item.gap < 1 ||
-        item.gap > 6 ||
+        ${intendedOperatorGap} < 1 ||
+        ${intendedOperatorGap} > 6 ||
         !item.visible ||
         !item.sameLine ||
         item.zIndex !== "2"
@@ -352,46 +537,52 @@ function metricsExpression() {
 
 async function openCase(testCase) {
   const url = `${baseUrl}${testCase.path}`;
-  const created = await getJson(`http://127.0.0.1:${chromePort}/json/new?${encodeURIComponent(url)}`, 1, {
+  const created = await getJson(`http://127.0.0.1:${chromePort}/json/new?${encodeURIComponent("about:blank")}`, 30, {
     method: "PUT",
   });
-  const client = await createCdpClient(created.webSocketDebuggerUrl);
-  await client.send("Page.enable");
-  await client.send("Runtime.enable");
-  await client.send("Emulation.setDeviceMetricsOverride", {
-    width: 1400,
-    height: 1000,
-    deviceScaleFactor: 1,
-    mobile: false,
-  });
-  await sleep(250);
+  const client = await withTimeout(createCdpClient(created.webSocketDebuggerUrl), commandTimeoutMs, "Connect to Chrome DevTools");
+  try {
+    await withTimeout(client.send("Page.enable"), commandTimeoutMs, "Page.enable");
+    await withTimeout(client.send("Runtime.enable"), commandTimeoutMs, "Runtime.enable");
+    await withTimeout(client.send("Emulation.setDeviceMetricsOverride", {
+      width: 1400,
+      height: 1000,
+      deviceScaleFactor: 1,
+      mobile: false,
+    }), commandTimeoutMs, "Emulation.setDeviceMetricsOverride");
 
-  const printSettings = {
-    scalePct: testCase.scalePct,
-    sheetCount: 1,
-    includeAnswers: true,
-    autoFitEnabled: false,
-    orientation: "portrait",
-    punchGuide: "none",
-  };
+    await navigateAndWait(client, url);
 
-  await client.send("Runtime.evaluate", {
-    expression: `
-      localStorage.setItem(${JSON.stringify(testCase.stateKey)}, JSON.stringify({
-        settings: ${JSON.stringify(testCase.settings)},
-        problems: []
-      }));
-      localStorage.setItem(${JSON.stringify(`print-adjustments:${testCase.path}`)}, JSON.stringify(${JSON.stringify(printSettings)}));
-      location.reload();
-    `,
-  });
+    const printSettings = {
+      scalePct: testCase.scalePct,
+      sheetCount: 1,
+      includeAnswers: true,
+      autoFitEnabled: false,
+      orientation: "portrait",
+      punchGuide: "none",
+    };
+    const appState = JSON.stringify({ settings: testCase.settings, problems: [] });
+    const adjustments = JSON.stringify(printSettings);
+    await withTimeout(client.send("Runtime.evaluate", {
+      expression: `
+        localStorage.setItem(${JSON.stringify(testCase.stateKey)}, ${JSON.stringify(appState)});
+        localStorage.setItem(${JSON.stringify(`print-adjustments:${testCase.path}`)}, ${JSON.stringify(adjustments)});
+      `,
+      returnByValue: true,
+    }), commandTimeoutMs, "Initialize browser storage");
 
-  await waitFor(client, "document.querySelectorAll('.vertical-formula').length > 0");
-  await waitFor(client, "document.querySelector('#printProblemScaleNumber')?.value === String(" + testCase.scalePct + ")");
-  return client;
+    await navigateAndWait(client, url);
+    await waitFor(client, "document.querySelectorAll('.vertical-formula').length > 0");
+    await waitFor(client, "document.querySelector('#printProblemScaleNumber')?.value === String(" + testCase.scalePct + ")");
+    return client;
+  } catch (error) {
+    await closeCase(client);
+    throw error;
+  }
 }
 
-function assertMetrics(name, phase, metrics) {
+function assertMetrics(testCase, phase, metrics) {
+  const { name } = testCase;
   const failures = [];
   if (metrics.visiblePageCount <= 0) failures.push("no visible pages");
   if (metrics.formulaCount <= 0) failures.push("no vertical formulas");
@@ -402,6 +593,9 @@ function assertMetrics(name, phase, metrics) {
   if (metrics.badOperators > 0) failures.push(`bad operators=${metrics.badOperators}`);
   if (metrics.maxPageOverflowX > 2) failures.push(`page overflow x=${metrics.maxPageOverflowX.toFixed(1)}`);
   if (metrics.maxPageOverflowY > 2) failures.push(`page overflow y=${metrics.maxPageOverflowY.toFixed(1)}`);
+  if (phase === "screen" && testCase.negativeControlAnchor === "row" && metrics.badOperatorRowGaps <= 0) {
+    failures.push("negative control: row-anchor gap unexpectedly passed");
+  }
   if (failures.length) {
     throw new Error(`${name} ${phase}: ${failures.join(", ")}`);
   }
@@ -410,26 +604,26 @@ function assertMetrics(name, phase, metrics) {
 async function runCase(testCase) {
   const client = await openCase(testCase);
   try {
-    const screen = await client.send("Runtime.evaluate", {
-      expression: metricsExpression(),
+    const screen = await withTimeout(client.send("Runtime.evaluate", {
+      expression: metricsExpression(testCase.operatorAnchor),
       returnByValue: true,
-    });
+    }), commandTimeoutMs, `${testCase.name} screen metrics`);
     const screenMetrics = screen.result.value;
-    assertMetrics(testCase.name, "screen", screenMetrics);
+    assertMetrics(testCase, "screen", screenMetrics);
 
-    await client.send("Emulation.setEmulatedMedia", { media: "print" });
+    await withTimeout(client.send("Emulation.setEmulatedMedia", { media: "print" }), commandTimeoutMs, `${testCase.name} print media`);
     await sleep(100);
-    const print = await client.send("Runtime.evaluate", {
-      expression: metricsExpression(),
+    const print = await withTimeout(client.send("Runtime.evaluate", {
+      expression: metricsExpression(testCase.operatorAnchor),
       returnByValue: true,
-    });
+    }), commandTimeoutMs, `${testCase.name} print metrics`);
     const printMetrics = print.result.value;
-    assertMetrics(testCase.name, "print", printMetrics);
+    assertMetrics(testCase, "print", printMetrics);
 
-    const pdf = await client.send("Page.printToPDF", {
+    const pdf = await withTimeout(client.send("Page.printToPDF", {
       printBackground: true,
       preferCSSPageSize: true,
-    });
+    }), pdfTimeoutMs, `${testCase.name} PDF generation`);
     const pdfPages = countPdfPages(Buffer.from(pdf.data, "base64"));
     if (pdfPages !== printMetrics.visiblePageCount) {
       throw new Error(`${testCase.name} print: pdfPages=${pdfPages}, visiblePages=${printMetrics.visiblePageCount}`);
@@ -441,28 +635,75 @@ async function runCase(testCase) {
       pages: printMetrics.visiblePageCount,
       pdfPages,
       scalePct: testCase.scalePct,
+      operatorAnchor: testCase.operatorAnchor || "row",
+      rowGapViolations: screenMetrics.badOperatorRowGaps,
     };
   } finally {
-    await client.send("Page.close").catch(() => {});
+    await closeCase(client);
+  }
+}
+
+async function closeCase(client) {
+  if (!client) return;
+  try {
+    await withTimeout(client.send("Page.close"), shutdownTimeoutMs, "Close browser tab").catch(() => {});
+  } finally {
     client.close();
   }
 }
 
+async function stopChrome(handle) {
+  if (!handle) return;
+  const { chrome, profile } = handle;
+  try {
+    if (chrome.exitCode === null && chrome.signalCode === null) {
+      const exited = new Promise((resolve) => chrome.once("exit", resolve));
+      chrome.kill();
+      await withTimeout(exited, shutdownTimeoutMs, "Chrome shutdown").catch(() => {
+        if (chrome.exitCode === null && chrome.signalCode === null) chrome.kill("SIGKILL");
+      });
+    }
+  } finally {
+    fs.rmSync(profile, { recursive: true, force: true });
+  }
+}
+
+async function stopStaticServer(server) {
+  if (!server) return;
+  await withTimeout(new Promise((resolve, reject) => {
+    server.close((error) => error ? reject(error) : resolve());
+  }), shutdownTimeoutMs, "Static server shutdown").catch(() => {
+    server.closeAllConnections?.();
+  });
+}
+
 async function main() {
-  const server = await startStaticServer();
-  const { chrome } = startChrome();
+  let server;
+  let chromeHandle;
 
   try {
+    server = await startStaticServer();
+    chromeHandle = await startChrome();
     await getJson(`http://127.0.0.1:${chromePort}/json/version`);
     const rows = [];
+    const failures = [];
     for (const testCase of cases) {
-      rows.push(await runCase(testCase));
+      try {
+        rows.push({ ...(await runCase(testCase)), status: "passed" });
+      } catch (error) {
+        failures.push({ name: testCase.name, error: error.message });
+        rows.push({ name: testCase.name, status: "failed", error: error.message });
+        console.error(`${testCase.name} failed: ${error.message}`);
+      }
     }
     console.table(rows);
-    console.log(`Vertical layout checks passed for ${rows.length} cases.`);
+    if (failures.length) {
+      throw new Error(`Vertical layout checks failed for ${failures.length} of ${cases.length} cases.`);
+    }
+    console.log(`Vertical layout checks passed for ${cases.length} cases.`);
   } finally {
-    chrome.kill();
-    server.close();
+    await stopChrome(chromeHandle);
+    await stopStaticServer(server);
   }
 }
 

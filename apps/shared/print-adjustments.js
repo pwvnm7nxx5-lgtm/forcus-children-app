@@ -446,9 +446,29 @@
     return `${settings.sheetCount}:${settings.includeAnswers ? "answers" : "questions"}`;
   }
 
+  // Optional app pagination contract. The app may report its physical page
+  // count and repaginate after paper/scale/block measurements. Apps without
+  // these hooks keep the legacy logical-page behavior unchanged.
+  function expectedPhysicalPageCount(settings) {
+    const logicalPageCount = settings.sheetCount * (settings.includeAnswers ? 2 : 1);
+    const hook = window.__printAdjustmentsExpectedPageCount;
+    if (typeof hook !== "function") return logicalPageCount;
+    try {
+      const result = Number(hook({
+        sheetCount: settings.sheetCount,
+        includeAnswers: settings.includeAnswers,
+        logicalPageCount,
+        currentPageCount: visiblePrintPages().length,
+      }));
+      return Number.isFinite(result) && result >= 0 ? result : logicalPageCount;
+    } catch {
+      return logicalPageCount;
+    }
+  }
+
   function shouldGenerateSheets(settings) {
     if (typeof window.__printAdjustmentsGenerateSheets !== "function") return false;
-    const expectedPages = settings.sheetCount * (settings.includeAnswers ? 2 : 1);
+    const expectedPages = expectedPhysicalPageCount(settings);
     return lastSheetSignature !== sheetSignature(settings) || visiblePrintPages().length !== expectedPages;
   }
 
@@ -468,6 +488,20 @@
       guide.className = `punch-guide punch-guide-${settings.punchGuide}`;
       guide.textContent = settings.punchGuide === "left" ? "◀" : "▲";
     });
+  }
+
+  function syncAnswerVisibility(settings) {
+    answerPages().forEach((page) => {
+      const hideAnswer = !settings.includeAnswers;
+      page.hidden = hideAnswer;
+      page.classList.toggle("print-adjust-answer-hidden", hideAnswer);
+    });
+  }
+
+  function updateVisiblePageCount() {
+    const pageCount = document.querySelector("#pageCount");
+    const visiblePages = visiblePrintPages().length;
+    if (pageCount && visiblePages) pageCount.textContent = `${visiblePages}枚`;
   }
 
   function cssLengthToMm(value, fallback) {
@@ -669,17 +703,28 @@
       }
     }
 
-    answerPages().forEach((page) => {
-      const hideAnswer = !settings.includeAnswers;
-      page.hidden = hideAnswer;
-      page.classList.toggle("print-adjust-answer-hidden", hideAnswer);
-    });
+    syncAnswerVisibility(settings);
     syncPunchGuides(settings);
+    updateVisiblePageCount();
+  }
 
-    const pageCount = document.querySelector("#pageCount");
-    if (pageCount) {
-      const visiblePages = visiblePrintPages().length;
-      if (visiblePages) pageCount.textContent = `${visiblePages}枚`;
+  // The hook runs after paper size, block synchronization, and auto-fit. It
+  // may replace only the app's page content; reapplyScale keeps shared scale
+  // ownership after that replacement without causing sheet regeneration.
+  function applyPostLayoutHook(settings) {
+    const hook = window.__printAdjustmentsAfterLayout;
+    if (typeof hook !== "function") return null;
+    try {
+      return hook({
+        settings: { ...settings },
+        reapplyScale: () => {
+          setProblemScale(settings.scalePct);
+          syncProblemBlocks();
+        },
+      }) || null;
+    } catch (error) {
+      console.error("print pagination hook failed", error);
+      return null;
     }
   }
 
@@ -690,6 +735,13 @@
       syncPrintPages(settings);
       syncProblemBlocks();
       if (options.autoFit !== false) applyAutoFit(settings);
+      const paginationResult = applyPostLayoutHook(settings);
+      if (paginationResult?.changed) {
+        syncAnswerVisibility(settings);
+        syncPunchGuides(settings);
+        syncProblemBlocks();
+      }
+      updateVisiblePageCount();
       if (options.previewZoom !== false) applyPreviewZoom();
     } finally {
       applying = false;
@@ -705,6 +757,13 @@
     try {
       syncPrintPages(settings);
       syncProblemBlocks();
+      const paginationResult = applyPostLayoutHook(settings);
+      if (paginationResult?.changed) {
+        syncAnswerVisibility(settings);
+        syncPunchGuides(settings);
+        syncProblemBlocks();
+      }
+      updateVisiblePageCount();
     } finally {
       applying = false;
     }

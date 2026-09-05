@@ -12,3 +12,20 @@
 .answer-page .answer-line {
   border-bottom: 0;
 }
+
+.page-hint {
+  margin: -3mm 0 6mm;
+  padding: 2.5mm 4mm;
+  border: 1px solid #cfd8e3;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pagination-overflow .page-hint {
+  border-color: #d97706;
+  background: #fff7ed;
+  color: #9a3412;
+}
