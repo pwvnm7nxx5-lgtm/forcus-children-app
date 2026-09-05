@@ -2,6 +2,7 @@ window.__printAdjustmentsOptions = {
   ...(window.__printAdjustmentsOptions || {}),
   forceAutoFit: true,
   showAutoFitControl: false,
+  paperAreaAutoFit: true,
 };
 
 const els = {

@@ -13,6 +13,12 @@
   const autoFitControlVisible = autoFitAvailable && featureOptions.showAutoFitControl !== false;
   const forceAutoFit = featureOptions.forceAutoFit === true;
   const lightweightPrint = featureOptions.lightweightPrint !== false;
+  const paperAreaAutoFitRequested = featureOptions.paperAreaAutoFit === true;
+  const paperAreaTransformSupported = Boolean(window.CSS?.supports?.(
+    "transform",
+    "scale(min(calc(100vw / 210mm), calc(100vh / 297mm)))",
+  ));
+  const paperAreaAutoFit = paperAreaAutoFitRequested && paperAreaTransformSupported;
   const legacyScale = { compact: 88, normal: 100, large: 118 };
   let applying = false;
   let observerFrame = 0;
@@ -53,6 +59,71 @@
     if (document.querySelector("#printAdjustmentsStyle")) return;
     const style = document.createElement("style");
     style.id = "printAdjustmentsStyle";
+    const paperAreaStyles = paperAreaAutoFit ? `
+      @media print {
+        body.print-paper-area,
+        body.print-paper-area .app-shell,
+        body.print-paper-area .preview-wrap,
+        body.print-paper-area .pages {
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: visible !important;
+        }
+        body.print-paper-area .app-shell,
+        body.print-paper-area .preview-wrap,
+        body.print-paper-area .pages {
+          display: block !important;
+        }
+        body.print-paper-area .print-page {
+          width: 100vw !important;
+          height: 100vh !important;
+          min-height: 100vh !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          position: relative !important;
+          overflow: hidden !important;
+          background: transparent !important;
+          box-shadow: none !important;
+          /* Keep the transformed logical child from fragmenting before print. */
+          contain: size !important;
+          break-after: page !important;
+          transform: none !important;
+        }
+        body.print-paper-area .print-page > .print-page-content {
+          width: var(--print-logical-page-width, 210mm) !important;
+          height: var(--print-logical-page-height, 297mm) !important;
+          min-height: var(--print-logical-page-height, 297mm) !important;
+          margin: 0 !important;
+          padding: var(--page-margin-y, 14mm) var(--page-margin-x, 13mm) !important;
+          position: absolute !important;
+          inset: 0 auto auto 0 !important;
+          overflow: hidden !important;
+          transform-origin: 0 0 !important;
+          transform: scale(
+            min(
+              calc(100vw / var(--print-logical-page-width, 210mm)),
+              calc(100vh / var(--print-logical-page-height, 297mm))
+            )
+          ) !important;
+          background:
+            linear-gradient(90deg, rgb(156 207 191 / 20%) 0 1px, transparent 1px 18mm),
+            linear-gradient(rgb(156 207 191 / 18%) 0 1px, transparent 1px 18mm),
+            var(--page);
+          color: #1f2933;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        body.print-lightweight .print-page > .print-page-content {
+          background: #fff !important;
+          box-shadow: none !important;
+          -webkit-print-color-adjust: economy;
+          print-color-adjust: economy;
+        }
+        body.print-paper-area .print-page:last-child {
+          break-after: auto !important;
+        }
+      }
+    ` : "";
     style.textContent = `
       .print-adjust-field {
         grid-column: span 2;
@@ -168,6 +239,7 @@
           min-height: var(--print-page-height, 297mm) !important;
         }
       }
+      ${paperAreaStyles}
     `;
     document.head.append(style);
   }
@@ -188,11 +260,16 @@
     const height = landscape ? "210mm" : "297mm";
     document.documentElement.style.setProperty("--print-page-width", width);
     document.documentElement.style.setProperty("--print-page-height", height);
+    document.documentElement.style.setProperty("--print-logical-page-width", width);
+    document.documentElement.style.setProperty("--print-logical-page-height", height);
     document.documentElement.style.setProperty("--print-preview-mobile-overlap", landscape ? "-72mm" : "-112mm");
     document.body.classList.toggle("print-landscape", landscape);
     document.body.classList.toggle("print-portrait", !landscape);
     document.body.classList.toggle("print-lightweight", lightweightPrint);
-    ensurePageRuleStyle().textContent = `@page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 0; }`;
+    document.body.classList.toggle("print-paper-area", paperAreaAutoFit);
+    ensurePageRuleStyle().textContent = paperAreaAutoFit
+      ? `@page { size: ${landscape ? "landscape" : "portrait"}; margin: 0; }`
+      : `@page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 0; }`;
   }
 
   function applyPreviewZoom() {
@@ -618,13 +695,74 @@
   }
 
   function pageFits(page) {
-    const style = window.getComputedStyle(page);
-    const targetWidth = Number.parseFloat(style.width);
-    const targetHeight = Number.parseFloat(style.minHeight) || Number.parseFloat(style.height);
-    const rect = page.getBoundingClientRect();
+    const content = paperAreaAutoFit ? page.querySelector(":scope > .print-page-content") : null;
+    const measurement = content || page;
+    const style = window.getComputedStyle(measurement);
     const tolerance = 0.5;
-    const actualWidth = Math.max(page.scrollWidth, rect.width);
-    const actualHeight = Math.max(page.scrollHeight, rect.height);
+    if (!content) {
+      const targetWidth = Number.parseFloat(style.width);
+      const targetHeight = Number.parseFloat(style.minHeight) || Number.parseFloat(style.height);
+      const actualWidth = Math.max(measurement.scrollWidth, measurement.getBoundingClientRect().width);
+      const actualHeight = Math.max(measurement.scrollHeight, measurement.getBoundingClientRect().height);
+      return (!targetWidth || actualWidth <= targetWidth + tolerance)
+        && (!targetHeight || actualHeight <= targetHeight + tolerance);
+    }
+
+    // The screen preview keeps the worksheet content natural inside the
+    // outer .print-page padding. Print mode moves that padding to the fixed
+    // logical child instead. Measure the same canonical content rectangle in
+    // either mode, rather than comparing a padded border box with an
+    // unpadded target or using transformed screen pixels directly.
+    const pageStyle = window.getComputedStyle(page);
+    const length = (value, fallback) => cssLengthToPx(value, fallback);
+    const contentPadding = {
+      left: length(style.paddingLeft, 0),
+      right: length(style.paddingRight, 0),
+      top: length(style.paddingTop, 0),
+      bottom: length(style.paddingBottom, 0),
+    };
+    const pagePadding = {
+      left: length(pageStyle.paddingLeft, 0),
+      right: length(pageStyle.paddingRight, 0),
+      top: length(pageStyle.paddingTop, 0),
+      bottom: length(pageStyle.paddingBottom, 0),
+    };
+    const padding = Object.values(contentPadding).some((value) => value > tolerance)
+      ? contentPadding
+      : pagePadding;
+    const logicalWidth = length(
+      cssVarValue(document.documentElement, "--print-logical-page-width"),
+      210 * 96 / 25.4,
+    );
+    const logicalHeight = length(
+      cssVarValue(document.documentElement, "--print-logical-page-height"),
+      297 * 96 / 25.4,
+    );
+    const targetWidth = Math.max(0, logicalWidth - padding.left - padding.right);
+    const targetHeight = Math.max(0, logicalHeight - padding.top - padding.bottom);
+    const rect = content.getBoundingClientRect();
+    const untransformedWidth = content.offsetWidth || content.clientWidth || rect.width;
+    const untransformedHeight = content.offsetHeight || content.clientHeight || rect.height;
+    const scaleX = rect.width > 0 && untransformedWidth > 0 ? rect.width / untransformedWidth : 1;
+    const scaleY = rect.height > 0 && untransformedHeight > 0 ? rect.height / untransformedHeight : 1;
+    const contentWidth = Math.max(
+      0,
+      Math.max(content.scrollWidth, content.clientWidth) - contentPadding.left - contentPadding.right,
+    );
+    const contentHeight = Math.max(
+      0,
+      Math.max(content.scrollHeight, content.clientHeight) - contentPadding.top - contentPadding.bottom,
+    );
+    let actualWidth = contentWidth;
+    let actualHeight = contentHeight;
+    const descendants = content.querySelectorAll("*");
+    descendants.forEach((element) => {
+      const box = element.getBoundingClientRect();
+      const right = (box.right - rect.left) / scaleX - contentPadding.left;
+      const bottom = (box.bottom - rect.top) / scaleY - contentPadding.top;
+      actualWidth = Math.max(actualWidth, right);
+      actualHeight = Math.max(actualHeight, bottom);
+    });
     const fitsWidth = !targetWidth || actualWidth <= targetWidth + tolerance;
     const fitsHeight = !targetHeight || actualHeight <= targetHeight + tolerance;
     return fitsWidth && fitsHeight;
@@ -757,6 +895,13 @@
     try {
       syncPrintPages(settings);
       syncProblemBlocks();
+      // The target apps may rebuild their worksheet immediately before
+      // window.print() (the custom builder does this to validate current
+      // inputs). Re-run the opt-in paper-area fit after that rebuild so the
+      // native print path uses the same logical-page scale as direct PDF
+      // generation. Legacy consumers, including clock pagination hooks, keep
+      // their existing beforeprint sequence.
+      if (paperAreaAutoFit) applyAutoFit(settings);
       const paginationResult = applyPostLayoutHook(settings);
       if (paginationResult?.changed) {
         syncAnswerVisibility(settings);
