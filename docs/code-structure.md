@@ -60,6 +60,18 @@
 - `apps/shared/grade2-worksheet.css`
   - 2年生の一部プリントで共通利用する印刷レイアウトCSS。
   - 現在は `capacity-print-grade2`、`length-print-grade2`、`table-graph-print-grade2` が読み込む。
+- `apps/shared/print-adjustments.js`
+  - 26アプリの用紙の向き、問題サイズ、問題セット数、答えページ、プレビューと印刷を補助する。
+  - 問題データはアプリが所有し、`__printAdjustmentsGenerateSheets` でページを描画する。印刷開始時に新しい問題を生成しない。
+  - 通常は1セットにつき問題1ページと任意の答え1ページ。複数の物理ページに分けるアプリは、任意の `__printAdjustmentsExpectedPageCount` と `__printAdjustmentsAfterLayout` を実装する。
+  - `AfterLayout` はサイズ反映後に呼ばれ、設定のコピーと `reapplyScale` を受け取る。データの生成と再配置を分け、同じ設定ではDOMを作り直し続けない。
+  - 現在、自動改ページを利用するのは `clock-print-grade1`。分割規則と問題・答えの対応は時計側、サイズと印刷ボタンの管理は共有側が担当する。
+- `apps/shared/practice-worksheet.js` / `.css`
+  - 単元別の問題生成設定から、共通形式の練習プリントを描画する。
+- `apps/shared/decimal-worksheet.js` / `.css`
+  - 小数プリントの共通描画。主力の計算2アプリにも個別の小数描画があるため、変更時は利用元を確認する。
+- `apps/shared/columns-number-control.js`
+  - 列数の入力を既存UIへ接続する補助。
 
 ## 追加時の方針
 
@@ -74,4 +86,5 @@
 - `app.js` のブックマーク画面操作をさらに分離する。
 - `app.js` のブックマーク処理を分離する。
 - プリント生成アプリ共通の保存、共有URL、印刷処理を `apps/shared/` に寄せる。
-- 3年生プリント本体は一時削除中。再開時は出題仕様を決め直してから追加する。
+- 旧計算アプリの非表示と5・6年生の準備中状態は `apps.config.js` を基準にする。実装の有無とは別の状態なので、共通化に伴って不用意に再公開しない。
+- 機能別の実装状況と優先順位は [2026年9月の全体調査](repository-audit-2026-09-05.md) を参照する。
