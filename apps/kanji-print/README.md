@@ -47,6 +47,12 @@ node scripts/build-kanji-furigana.js --update-joyo-list
 
 `今日`、`大人`、`一日` のような熟字訓・文脈依存語は、exact source が存在しても分割を決め打ちせず、アプリ override により grouped/要確認を保ちます。学校語彙の全てが完全ではなく、Jmdict の収録範囲、Kuromoji の tokenization、文脈で読みが変わる語には残余 OOV/要確認があります。
 
+## 印刷の回帰確認
+
+A4の印刷倍率を上げても、内容が収まる場合に固定高さの余白だけで白紙を追加しないよう、印刷時の外枠を `min(297mm, 100vh)` にしています。画面のA4プレビューと文字・マスのサイズは変更しません。内容そのものが用紙を超えるほどの拡大は対象外です。
+
+ローカルサーバーの本アプリを専用の `playwright-cli` Chromeセッションで開き、`output/playwright` を作成後、リポジトリ直下で `playwright-cli --session <名前> run-code --filename scripts/verify-kanji-print-pages.js` を実行します。1・2枚、80・100・110%倍率、長文、行列数の境界でPDFの枚数を確認します。確認後は専用セッションを閉じてください。
+
 ## 共有
 
 読みのキーボード操作には、同梱の reading-keyboard.js も使用します。
