@@ -19,10 +19,19 @@ test("grouped ruby overlays replace only the ruby-cell perimeter", () => {
 });
 
 test("all reading assets share the current cache key", () => {
-  const versions = [...index.matchAll(/(?:href|src)="([^"]*)\?v=(furigana-v\d+)"/gu)]
+  const versions = [...index.matchAll(/(?:href|src)="([^"]*)\?v=(furigana-v\d+)(?:&[^"]*)?"/gu)]
     .filter((match) => !match[1].includes("vendor/"))
     .map((match) => match[2]);
   assert.ok(versions.length > 1);
   assert.equal(new Set(versions).size, 1);
   assert.equal(versions[0], "furigana-v12");
+});
+
+test("print sheet height respects the scaled print area without hiding content", () => {
+  const printStyles = styles.slice(styles.indexOf("@media print"));
+  const page = printStyles.match(/\.print-page\s*\{([\s\S]*?)\n\s*\}/u)?.[1] || "";
+  assert.match(page, /height:\s*min\(297mm,\s*100vh\)/u);
+  assert.match(page, /break-after:\s*page/u);
+  assert.doesNotMatch(page, /overflow:\s*(?:hidden|clip)/u);
+  assert.match(printStyles, /\.print-page:last-child\s*\{\s*break-after:\s*auto/u);
 });

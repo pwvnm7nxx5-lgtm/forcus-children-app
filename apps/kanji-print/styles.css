@@ -907,7 +907,9 @@ button:hover {
 
   .print-page {
     width: 210mm;
-    height: 297mm;
+    /* Print scaling can make the page area shorter than 297mm. Do not
+       fragment an otherwise empty sheet tail onto a blank extra page. */
+    height: min(297mm, 100vh);
     margin: 0;
     transform: none;
     transform-origin: initial;
