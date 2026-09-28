@@ -1874,10 +1874,19 @@ function fitHorizontalFormulas(list) {
   });
 }
 
+let horizontalFormulaFitPending = false;
+
 function scheduleHorizontalFormulaFit() {
+  if (horizontalFormulaFitPending) return;
+  horizontalFormulaFitPending = true;
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
-      els.pages.querySelectorAll(".problem-grid").forEach(fitHorizontalFormulas);
+      horizontalFormulaFitPending = false;
+      const grids = Array.from(els.pages.querySelectorAll(".problem-grid"))
+        .filter((grid) => grid.querySelector(".horizontal-manual-formula, .calculation-workspace > .formula"));
+      grids.forEach(fitHorizontalFormulas);
+      // Also resynchronize page count/answer visibility after a deferred
+      // rebuild, even when this layout has no horizontal formulas to fit.
       window.__printAdjustmentsRefresh?.({ autoFit: false, notify: false });
     });
   });

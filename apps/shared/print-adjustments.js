@@ -608,30 +608,38 @@
   function syncProblemBlocks() {
     const pages = document.querySelector("#pages");
     const previousZoom = pages?.style.zoom || "";
-    if (pages) pages.style.zoom = "";
+    const grids = visiblePrintPages().flatMap((page) => (
+      Array.from(page.querySelectorAll(".problem-grid"), (grid) => ({
+        grid,
+        problems: Array.from(grid.querySelectorAll(":scope > .problem")),
+      })).filter(({ problems }) => problems.length)
+    ));
 
-    visiblePrintPages().forEach((page) => {
-      page.querySelectorAll(".problem-grid").forEach((grid) => {
-        const problems = Array.from(grid.querySelectorAll(":scope > .problem"));
-        if (!problems.length) return;
-
+    try {
+      if (pages) pages.style.zoom = "";
+      // Reset every grid before measuring any of them. Interleaving writes
+      // and reads forced a full layout for each question/answer page.
+      grids.forEach(({ grid }) => {
         grid.classList.remove("problem-block-grid");
         grid.style.removeProperty("--problem-block-height");
+      });
 
-        // offsetHeight/scrollHeight stay in the page's logical coordinate space.
-        // getBoundingClientRect() includes the mobile preview transform and made
-        // the synchronized row height too short when the A4 page was scaled.
-        const tallest = Math.max(...problems.map((problem) => (
+      // Keep logical dimensions, unaffected by the mobile preview transform.
+      const heights = grids.map(({ problems }) => (
+        Math.max(...problems.map((problem) => (
           Math.max(problem.offsetHeight, problem.scrollHeight)
-        )));
-        if (!Number.isFinite(tallest) || tallest <= 0) return;
+        )))
+      ));
 
+      grids.forEach(({ grid }, index) => {
+        const tallest = heights[index];
+        if (!Number.isFinite(tallest) || tallest <= 0) return;
         grid.style.setProperty("--problem-block-height", `${Math.ceil(tallest)}px`);
         grid.classList.add("problem-block-grid");
       });
-    });
-
-    if (pages) pages.style.zoom = previousZoom;
+    } finally {
+      if (pages) pages.style.zoom = previousZoom;
+    }
   }
 
   function baseCssMm(element, dataKey, cssVar, fallback) {
@@ -790,6 +798,19 @@
   }
 
   function applyAutoFit(settings) {
+    // Measure logical pages at one zoom throughout the search, rather than
+    // rescaling the whole multi-page preview twice for every trial size.
+    const pages = paperAreaAutoFit ? document.querySelector("#pages") : null;
+    const previousZoom = pages?.style.zoom || "";
+    if (pages) pages.style.zoom = "";
+    try {
+      fitProblemScale(settings);
+    } finally {
+      if (pages) pages.style.zoom = previousZoom;
+    }
+  }
+
+  function fitProblemScale(settings) {
     if (!settings.autoFitEnabled) {
       setProblemScale(settings.scalePct);
       return;
