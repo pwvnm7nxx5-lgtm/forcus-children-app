@@ -1,11 +1,13 @@
 (function () {
   "use strict";
   const G = window.DotCopyGenerator;
+  const M = window.DotCopyManual;
+  const manualEditor = window.DotCopyManualEditor(document.getElementById("manualEditor"));
   const storageKey = "dot-copy-print-state-v1";
   const generationKeys = ["rows", "columns", "lineCount", "level", "oneStroke", "connectAll", "problemCount"];
-  const hintKeys = ["hintUsed", "hintTrace", "hintStart"];
+  const hintKeys = ["hintUsed", "hintTrace", "hintStart", "hintGoal"];
   const els = Object.fromEntries([...generationKeys, ...hintKeys, "perPage", "printPunchGuide", "worksheetTitle", "studentName",
-    "generationFields", "pageCount", "pages", "printBtn", "regenerateBtn", "pendingNotice",
+    "generationFields", "pageCount", "pages", "printBtn", "regenerateBtn", "restoreConditionsBtn", "pendingNotice",
     "sizeWarning", "levelDescription", "status"].map(id => [id, document.getElementById(id)]));
   let problems = [];
   let applied = null;
@@ -24,6 +26,7 @@
     return Object.fromEntries(generationKeys.map(key => [key, els[key].type === "checkbox" ? els[key].checked : Number(els[key].value)]));
   }
   function isPending() { return applied && JSON.stringify(readGeneration()) !== JSON.stringify(applied); }
+  function hasManual() { return problems.some(problem => problem.manual === true); }
   function inputErrors(settings) {
     const errors = G.configurationErrors(settings);
     const [min, max] = G.LIMITS.problems;
@@ -35,9 +38,13 @@
   function updateControls() {
     const pending = Boolean(isPending());
     els.pendingNotice.hidden = !pending;
+    els.pendingNotice.textContent = hasManual() ? "手動のお手本を保護しています。条件変更を反映するには「全問を作り直す」を押してください。現在の形を残す場合は「条件を元に戻す」を選んでください。" :
+      "条件に合わせて自動で作り直します。作成できるまで、プレビューは変更前の問題を表示します。";
+    els.restoreConditionsBtn.hidden = !pending || !hasManual();
+    els.restoreConditionsBtn.disabled = busy;
     els.regenerateBtn.disabled = busy;
     els.printBtn.disabled = busy || pending || !problems.length;
-    els.pages.querySelectorAll(".reroll-btn").forEach(button => { button.disabled = busy || pending; });
+    els.pages.querySelectorAll(".reroll-btn, .manual-edit-btn").forEach(button => { button.disabled = busy || pending; });
     const descriptions = {
       1: "たて・よこに1区間ずつ結びます。長い直線は複数本として数えます。",
       2: "たて・よこと45度のななめ。45度の線を必ず1本以上含めます。",
@@ -49,6 +56,7 @@
     autoTimer = 0;
     if (busy) { autoQueued = true; return; }
     if (applied && !isPending()) return;
+    if (hasManual()) { setStatus("手動のお手本を保護しています。「全問を作り直す」で条件変更を反映できます。"); return; }
     regenerate();
   }
   function scheduleRegeneration(delay) {
@@ -80,7 +88,7 @@
       const saved = JSON.parse(text);
       if (!saved.applied || inputErrors(saved.applied).length || !Array.isArray(saved.problems) ||
           saved.problems.length !== saved.applied.problemCount ||
-          saved.problems.some(problem => G.problemErrors(problem, saved.applied).length)) return false;
+          saved.problems.some(problem => M.worksheetProblemErrors(problem, saved.applied).length)) return false;
       const legacy = saved.applied.connectAll === undefined;
       // Keep old shapes when already connected. Otherwise retain the old preview
       // and display settings until automatic regeneration succeeds with default ON.
@@ -137,12 +145,16 @@
     }
     const used = new Set(problem.edges.flat());
     const starts = new Set(problem.strokes.map(stroke => stroke[0]));
+    const goals = new Set(problem.strokes.map(stroke => stroke[stroke.length - 1]));
     for (let id = 0; id < problem.rows * problem.columns; id += 1) {
       const { x, y } = coords(id);
       const isStart = els.hintStart.checked && starts.has(id);
-      const r = isStart ? 1.05 : !model && els.hintUsed.checked && used.has(id) ? 1 : 0.65;
+      const isGoal = els.hintGoal.checked && goals.has(id);
+      const r = isStart || isGoal ? 1.05 : !model && els.hintUsed.checked && used.has(id) ? 1 : 0.65;
       svg.append(svgElement("circle", { cx: x, cy: y, r, class: "dot-point", "data-point": id }));
       if (isStart) svg.append(svgElement("circle", { cx: x, cy: y, r: 1.65, class: "dot-start-ring", "data-start": id }));
+      if (isGoal) svg.append(svgElement("rect", { x: x - 1.8, y: y - 1.8, width: 3.6, height: 3.6,
+        class: "dot-goal-mark", "data-goal": id }));
     }
     return svg;
   }
@@ -154,7 +166,21 @@
     const reroll = element("button", "reroll-btn", "この問題を作り直す");
     reroll.type = "button";
     reroll.setAttribute("aria-label", `問題${index + 1}だけ作り直す`);
-    reroll.addEventListener("click", () => regenerate(index));
+    reroll.addEventListener("click", () => {
+      if (problem.manual && !window.confirm(`問題${index + 1}の手動のお手本を、自動作成の問題に置き換えますか？`)) return;
+      regenerate(index);
+    });
+    const edit = element("button", "manual-edit-btn", problem.manual ? "手動で編集" : "手動で作る・編集");
+    edit.type = "button";
+    edit.setAttribute("aria-label", `問題${index + 1}のお手本を手動で編集`);
+    edit.addEventListener("click", () => {
+      if (busy || isPending()) return;
+      manualEditor.open(problem, applied, index, next => {
+        if (M.worksheetProblemErrors(next, applied).length) throw new Error("問題の条件を確認してください。");
+        problems[index] = next; render(); save(); setStatus(`問題${index + 1}の手動のお手本を保存しました（線${next.lineCount}本）。`);
+        window.requestAnimationFrame(() => els.pages.querySelector(`.dot-problem[data-index="${index}"] .manual-edit-btn`)?.focus());
+      });
+    });
     const pair = element("div", "dot-pair");
     for (const model of [true, false]) {
       const panel = element("div", "dot-panel");
@@ -163,7 +189,7 @@
       canvas.append(makeDiagram(problem, model));
       panel.append(label, canvas); pair.append(panel);
     }
-    card.append(reroll, pair);
+    card.append(reroll, edit, pair);
     return card;
   }
   function render() {
@@ -190,12 +216,19 @@
       name.append(nameValue);
       heading.append(title, name);
       header.append(heading, element("p", "dot-instruction", "おてほんと おなじように せんを ひこう"));
-      if (els.hintStart.checked) header.append(element("p", "dot-start-note", "○は かきはじめの めじるし"));
+      const markerNotes = [];
+      if (els.hintStart.checked) markerNotes.push("○は かきはじめ");
+      if (els.hintGoal.checked) markerNotes.push("□は おわり");
+      if (markerNotes.length) header.append(element("p", "dot-start-note", `${markerNotes.join("　")}の めじるし`));
       const list = element("div", "dot-problems");
       list.style.setProperty("--per-page", String(perPage));
-      problems.slice(offset, offset + perPage).forEach((problem, i) => list.append(makeProblem(problem, offset + i)));
+      const pageProblems = problems.slice(offset, offset + perPage);
+      pageProblems.forEach((problem, i) => list.append(makeProblem(problem, offset + i)));
+      const counts = pageProblems.map(problem => problem.lineCount);
+      const minLines = Math.min(...counts), maxLines = Math.max(...counts);
+      const lineLabel = minLines === maxLines ? String(minLines) : `${minLines}〜${maxLines}`;
       const footer = element("footer", "dot-sheet-footer");
-      footer.append(element("span", "", `たて${applied.rows}点 × よこ${applied.columns}点 / 線${applied.lineCount}本 / レベル${applied.level}`),
+      footer.append(element("span", "", `たて${applied.rows}点 × よこ${applied.columns}点 / 線${lineLabel}本 / レベル${applied.level}`),
         element("span", "", `${offset / perPage + 1} / ${totalPages}`));
       content.append(header, list, footer); fragment.append(page);
     }
@@ -233,7 +266,7 @@
       })();
     }
     return new Promise((resolve, reject) => {
-      const worker = new Worker("worker.js?v=20261015-4");
+      const worker = new Worker("worker.js?v=20261015-7");
       activeWorker = worker;
       let finished = false;
       const onAbort = () => finish(new DOMException("作成を中止しました。", "AbortError"));
@@ -304,7 +337,18 @@
   }
   for (const key of [...hintKeys, "perPage", "printPunchGuide"]) els[key].addEventListener("change", () => { render(); save(); });
   for (const key of ["studentName", "worksheetTitle"]) els[key].addEventListener("input", () => { render(); save(); });
-  els.regenerateBtn.addEventListener("click", () => regenerate());
+  els.regenerateBtn.addEventListener("click", () => {
+    if (hasManual() && !window.confirm("手動で作ったお手本も含めて、全問を自動で作り直しますか？")) return;
+    regenerate();
+  });
+  els.restoreConditionsBtn.addEventListener("click", () => {
+    if (!applied || busy) return;
+    for (const key of generationKeys) {
+      if (els[key].type === "checkbox") els[key].checked = applied[key];
+      else els[key].value = String(applied[key]);
+    }
+    scheduleRegeneration(0);
+  });
   els.printBtn.addEventListener("click", () => { if (!els.printBtn.disabled) window.print(); });
   window.addEventListener("resize", fitPreview);
   window.addEventListener("pagehide", () => {

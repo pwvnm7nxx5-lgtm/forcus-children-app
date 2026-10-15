@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>点つなぎ作成</title>
-  <link rel="stylesheet" href="styles.css?v=20261015-3">
+  <link rel="stylesheet" href="styles.css?v=20261015-7">
 </head>
 <body>
   <div class="app-shell">
@@ -15,7 +15,7 @@
       <label class="field"><span>名前</span><input id="studentName" type="text" maxlength="24" autocomplete="off"></label>
       <fieldset id="generationFields">
         <legend>問題の条件</legend>
-        <p class="help">条件を変えると、自動で問題を作り直します。</p>
+        <p class="help">条件を変えると、自動で問題を作り直します。手動のお手本がある場合は保護し、「全問を作り直す」で反映します。</p>
         <div class="settings-grid">
           <label class="field"><span>縦の点の数</span><input id="rows" type="number" step="1" inputmode="numeric"></label>
           <label class="field"><span>横の点の数</span><input id="columns" type="number" step="1" inputmode="numeric"></label>
@@ -35,23 +35,47 @@
           <label><input id="hintUsed" type="checkbox"> 使う点を大きくする</label>
           <label><input id="hintTrace" type="checkbox"> 点線でなぞる</label>
           <label><input id="hintStart" type="checkbox"> スタートを大きくする</label>
+          <label><input id="hintGoal" type="checkbox"> ゴールを大きくする</label>
         </div>
-        <p class="help">ヒントを変えても問題の形は変わりません。スタートの輪は描き始める場所の一例です。筆順は自由です。</p>
+        <p class="help">ヒントを変えても問題の形は変わりません。○はスタート、□はゴールです。一筆書きOFFでは各まとまりの始点・終点の一例を示します。閉じた形では同じ点に○と□が付きます。筆順は自由です。</p>
       </fieldset>
       <label class="field"><span>1ページの問題数</span><select id="perPage"></select></label>
       <label class="field"><span>穴あけガイド</span><select id="printPunchGuide"><option value="none">なし</option><option value="left">左の真ん中 ◀</option><option value="top">上の真ん中 ▲</option></select></label>
       <p id="sizeWarning" class="notice" role="status" hidden></p>
       <p id="pendingNotice" class="notice" role="status" hidden>条件に合わせて自動で作り直します。作成できるまで、プレビューは変更前の問題を表示します。</p>
+      <button id="restoreConditionsBtn" type="button" hidden>条件を元に戻す</button>
       <div class="actions">
         <button id="printBtn" type="button" disabled>印刷 / PDF保存</button>
         <button id="regenerateBtn" type="button">全問を作り直す</button>
       </div>
       <p class="help">A4たて用です。印刷設定は倍率100％・余白なしがおすすめです。</p>
+      <p class="help">各問題の「手動で作る・編集」でお手本を自由に編集できます。線の本数は描いた数になります。</p>
       <p id="status" class="status" role="status" aria-live="polite"></p>
     </aside>
     <main class="preview-wrap" aria-label="印刷プレビュー"><div id="pages" class="pages"></div></main>
   </div>
-  <script src="generator.js?v=20261015-4"></script>
-  <script src="app.js?v=20261015-4"></script>
+  <dialog id="manualEditor" class="manual-editor" aria-labelledby="manualTitle" aria-describedby="manualInstructions">
+    <h2 id="manualTitle"></h2>
+    <p id="manualSummary" class="help"></p>
+    <p id="manualInstructions" class="help">点を2つ選ぶと線が引けます。続けて次の点を選ぶと繋がります。同じ線をもう一度選ぶと消せます。最初から作るときは「全消去」。矢印キーとEnterでも操作できます。</p>
+    <div class="manual-toolbar">
+      <button id="manualUndo" type="button">ひとつ戻す</button>
+      <button id="manualClear" type="button">全消去</button>
+      <button id="manualSeparate" type="button">点の選択を解除</button>
+      <span id="manualCount"></span>
+    </div>
+    <div class="manual-grid-wrap"><svg id="manualGrid" role="group" aria-label="お手本を作る点の並び"></svg></div>
+    <p id="manualError" class="status error" role="alert"></p>
+    <p id="manualStatus" class="status" role="status" aria-live="polite"></p>
+    <p class="help">保存時は設定中のレベル・一筆書き・ひとまとまりの条件を確認します。分岐や閉じた形を作る場合は、設定欄の「一筆書き」をOFFにしてください。編集中の印刷は保存前のお手本になります。</p>
+    <div class="manual-footer">
+      <button id="manualCancel" type="button">キャンセル</button>
+      <button id="manualSave" type="button">このお手本を保存</button>
+    </div>
+  </dialog>
+  <script src="generator.js?v=20261015-7"></script>
+  <script src="manual-model.js?v=20261015-5"></script>
+  <script src="manual-editor.js?v=20261015-5"></script>
+  <script src="app.js?v=20261015-7"></script>
 </body>
 </html>
