@@ -54,3 +54,27 @@ for file in sorted(root.glob("dot-tail-*-*-*.pdf")):
                     and all(component <= .1 for component in curve["non_stroking_color"])]
             assert len(dots) == 72, (file.name, index, "missing grid dots", len(dots))
     print(f"PASS {file.name}: all {count} questions, dots and footers preserved")
+
+for file in sorted(root.glob("dot-connected-*.pdf")):
+    match = re.fullmatch(r"dot-connected-(chrome|edge)-(4|8)\.pdf", file.name)
+    if not match:
+        continue
+    count = int(match.group(2))
+    with pdfplumber.open(file) as pdf:
+        assert len(pdf.pages) == count // 4, (file.name, len(pdf.pages))
+        for index, page in enumerate(pdf.pages):
+            assert abs(page.width * 25.4 / 72 - 210) < .3, (file.name, page.width)
+            assert abs(page.height * 25.4 / 72 - 297) < .3, (file.name, page.height)
+            text = page.extract_text() or ""
+            labels = [int(n) for n in re.findall(r"(\d+)\s+おてほん", text)]
+            assert labels == list(range(index * 4 + 1, index * 4 + 5)), (file.name, index, labels)
+            assert "たて5点" in text and "線5本" in text, (file.name, index, "missing footer")
+            assert "全ての点を繋げる" not in text, (file.name, index, "printable control")
+            dots = [curve for curve in page.curves if curve.get("fill") and not curve.get("stroke")
+                    and isinstance(curve.get("non_stroking_color"), tuple)
+                    and all(component <= .1 for component in curve["non_stroking_color"])]
+            assert len(dots) == 200, (file.name, index, "missing grid dots", len(dots))
+            for item in page.chars + page.lines + page.curves:
+                assert -.1 <= item["x0"] <= item["x1"] <= page.width + .1, (file.name, index, "horizontal clipping")
+                assert -.1 <= item["top"] <= item["bottom"] <= page.height + .1, (file.name, index, "vertical clipping")
+    print(f"PASS {file.name}: all {count} connected-mode problems, dots and footers preserved")
