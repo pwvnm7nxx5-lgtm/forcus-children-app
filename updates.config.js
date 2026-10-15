@@ -1,5 +1,10 @@
 window.UPDATE_HISTORY = [
   {
+    date: "10月15日",
+    title: "お手本を写す「点つなぎ作成」を追加",
+    isNew: true,
+  },
+  {
     date: "7月29日",
     title: "桁数を自由に選べる計算問題作成を追加",
     isNew: true,

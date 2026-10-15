@@ -1,5 +1,17 @@
 ﻿window.INTEGRATED_APPS = [
   {
+    id: "dot-copy-print",
+    title: "点つなぎ作成",
+    description: "左のお手本を見て、右の同じ点の並びに線を写すプリントを作成できます。",
+    category: "教材",
+    grades: ["all"],
+    tags: ["点つなぎ", "模写", "見る力", "運筆", "印刷"],
+    href: "apps/dot-copy-print/index.html",
+    actionLabel: "点つなぎを作る",
+    status: "ready",
+    accent: "#0f766e",
+  },
+  {
     id: "renrakucho",
     title: "連絡帳作成",
     description: "小学校の連絡帳用紙に合わせて、薄い見本文字を作成して印刷できます。",
