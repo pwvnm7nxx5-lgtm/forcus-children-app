@@ -91,7 +91,7 @@
         config = { ...settings }; edges = problem.edges.map(edge => [...edge]);
         history = []; selected = null; focused = 0; onSave = commit;
         title.textContent = `問題${index + 1}のお手本を手動で作る`;
-        summary.textContent = `縦${config.rows}×横${config.columns}点 ／ レベル${config.level} ／ 一筆書き${config.oneStroke ? "ON" : "OFF"} ／ ひとまとまり${config.connectAll ? "ON" : "OFF"}`;
+        summary.textContent = `縦${config.rows}×横${config.columns}点 ／ レベル${config.level} ／ 一筆書き${config.oneStroke ? config.easyOneStroke ? "ON（やさしい）" : "ON（通常）" : "OFF"} ／ ひとまとまり${config.connectAll ? "ON" : "OFF"}`;
         setError(); draw(); dialog.showModal(); find("manualCancel").focus();
       },
     };

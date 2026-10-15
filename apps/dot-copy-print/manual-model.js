@@ -35,7 +35,10 @@
       throw new Error("点番号が不正です。");
     }
     const copied = edges.map(edge => [...edge]);
-    const problem = { ...config, lineCount: copied.length, manual: true, edges: copied, strokes: G.drawingStrokes(copied) };
+    const trail = config.oneStroke ? G.eulerTrail(copied) : null;
+    if (config.oneStroke && !trail) throw new Error("この形は一筆書きできません。同じ線を重ねず全ての線が描けるように繋ぎ方を変えるか、「一筆書き」をOFFにしてください。");
+    const problem = { ...config, lineCount: copied.length, manual: true, edges: copied,
+      strokes: config.oneStroke ? [trail] : G.drawingStrokes(copied) };
     const errors = G.problemErrors(problem);
     if (errors.length) throw new Error([...new Set(errors)].join("\n"));
     return problem;

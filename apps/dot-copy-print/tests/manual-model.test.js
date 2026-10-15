@@ -56,7 +56,11 @@ test("save validates one-stroke, connectedness and mandatory highest-level direc
   const branch = [[0, 1], [1, 2], [1, 6]];
   const cycle = [[0, 1], [1, 6], [6, 5], [5, 0]];
   const separate = [[0, 1], [10, 11]];
-  for (const edges of [branch, cycle, separate]) assert.throws(() => M.makeProblem(settings(), edges), /一筆書き/);
+  for (const edges of [branch, separate]) assert.throws(() => M.makeProblem(settings(), edges), /一筆書き/);
+  const closed = M.makeProblem(settings(), cycle);
+  assert.equal(closed.strokes.length,1);
+  assert.equal(closed.strokes[0][0],closed.strokes[0].at(-1));
+  for (const edges of [branch,cycle,separate]) assert.throws(()=>M.makeProblem(settings({easyOneStroke:true}),edges),/一筆書き/);
   for (const edges of [branch, cycle]) {
     const problem = M.makeProblem(settings({ oneStroke: false }), edges);
     assert.equal(G.linesConnected(problem.edges), true);

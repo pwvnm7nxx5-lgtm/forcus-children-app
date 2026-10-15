@@ -24,7 +24,9 @@
         </div>
         <p id="levelDescription" class="help"></p>
         <div class="check-row"><label><input id="oneStroke" type="checkbox"> 一筆書き</label></div>
-        <p class="help">ON：同じ点を通らない一本道。OFF：分岐・閉じた形も作れます。</p>
+        <p class="help">ON：同じ線を重ねず、鉛筆を離さず描ける形。同じ点の再通過や閉じた形も作れます。OFF：一筆書きの制限を外します。</p>
+        <div class="check-row"><label><input id="easyOneStroke" type="checkbox"> やさしい一筆書き</label></div>
+        <p class="help">一筆書きONのときに使えます。同じ点を2度通らない、閉じていない一本道にします。</p>
         <div class="check-row"><label><input id="connectAll" type="checkbox"> 全ての点を繋げる</label></div>
         <p class="help">使う点と線をひとまとまりにします。使わない点は残り、線の本数は変わりません。OFFにすると離れた形も作れます。</p>
         <label class="field"><span>作成する問題数</span><input id="problemCount" type="number" step="1" inputmode="numeric"></label>
@@ -67,15 +69,15 @@
     <div class="manual-grid-wrap"><svg id="manualGrid" role="group" aria-label="お手本を作る点の並び"></svg></div>
     <p id="manualError" class="status error" role="alert"></p>
     <p id="manualStatus" class="status" role="status" aria-live="polite"></p>
-    <p class="help">保存時は設定中のレベル・一筆書き・ひとまとまりの条件を確認します。分岐や閉じた形を作る場合は、設定欄の「一筆書き」をOFFにしてください。編集中の印刷は保存前のお手本になります。</p>
+    <p class="help">保存時はレベル・一筆書き・ひとまとまりの条件を確認します。通常の一筆書きは同じ点の再通過・閉じた形もOK。「やさしい一筆書き」は点を再通過しない一本道です。線の途中の交差・重複は禁止です。編集中の印刷は保存前のお手本になります。</p>
     <div class="manual-footer">
       <button id="manualCancel" type="button">キャンセル</button>
       <button id="manualSave" type="button">このお手本を保存</button>
     </div>
   </dialog>
-  <script src="generator.js?v=20261015-7"></script>
-  <script src="manual-model.js?v=20261015-5"></script>
-  <script src="manual-editor.js?v=20261015-5"></script>
-  <script src="app.js?v=20261015-7"></script>
+  <script src="generator.js?v=20261015-8"></script>
+  <script src="manual-model.js?v=20261015-8"></script>
+  <script src="manual-editor.js?v=20261015-8"></script>
+  <script src="app.js?v=20261015-8"></script>
 </body>
 </html>

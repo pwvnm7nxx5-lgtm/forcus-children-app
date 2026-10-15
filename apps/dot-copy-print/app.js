@@ -4,7 +4,7 @@
   const M = window.DotCopyManual;
   const manualEditor = window.DotCopyManualEditor(document.getElementById("manualEditor"));
   const storageKey = "dot-copy-print-state-v1";
-  const generationKeys = ["rows", "columns", "lineCount", "level", "oneStroke", "connectAll", "problemCount"];
+  const generationKeys = ["rows", "columns", "lineCount", "level", "oneStroke", "easyOneStroke", "connectAll", "problemCount"];
   const hintKeys = ["hintUsed", "hintTrace", "hintStart", "hintGoal"];
   const els = Object.fromEntries([...generationKeys, ...hintKeys, "perPage", "printPunchGuide", "worksheetTitle", "studentName",
     "generationFields", "pageCount", "pages", "printBtn", "regenerateBtn", "restoreConditionsBtn", "pendingNotice",
@@ -43,6 +43,7 @@
     els.restoreConditionsBtn.hidden = !pending || !hasManual();
     els.restoreConditionsBtn.disabled = busy;
     els.regenerateBtn.disabled = busy;
+    els.easyOneStroke.disabled = !els.oneStroke.checked;
     els.printBtn.disabled = busy || pending || !problems.length;
     els.pages.querySelectorAll(".reroll-btn, .manual-edit-btn").forEach(button => { button.disabled = busy || pending; });
     const descriptions = {
@@ -93,8 +94,9 @@
       // Keep old shapes when already connected. Otherwise retain the old preview
       // and display settings until automatic regeneration succeeds with default ON.
       const connectAll = legacy ? saved.problems.every(problem => G.linesConnected(problem.edges)) : saved.applied.connectAll;
-      applied = Object.fromEntries(generationKeys.map(key => [key, key === "connectAll" ? connectAll : saved.applied[key]]));
-      problems = saved.problems.map(problem => ({ ...problem, connectAll }));
+      const easyOneStroke = saved.applied.easyOneStroke ?? G.DEFAULTS.easyOneStroke;
+      applied = Object.fromEntries(generationKeys.map(key => [key, key === "connectAll" ? connectAll : key === "easyOneStroke" ? easyOneStroke : saved.applied[key]]));
+      problems = saved.problems.map(problem => ({ ...problem, connectAll, easyOneStroke }));
       for (const key of generationKeys) {
         if (els[key].type === "checkbox") els[key].checked = legacy && key === "connectAll" ? G.DEFAULTS.connectAll : applied[key];
         else els[key].value = String(applied[key]);
@@ -266,7 +268,7 @@
       })();
     }
     return new Promise((resolve, reject) => {
-      const worker = new Worker("worker.js?v=20261015-7");
+      const worker = new Worker("worker.js?v=20261015-8");
       activeWorker = worker;
       let finished = false;
       const onAbort = () => finish(new DOMException("作成を中止しました。", "AbortError"));
@@ -323,6 +325,7 @@
     els[key].min = String(range[0]); els[key].max = String(range[1]); els[key].value = String(G.DEFAULTS[key]);
   }
   els.level.value = String(G.DEFAULTS.level); els.oneStroke.checked = G.DEFAULTS.oneStroke;
+  els.easyOneStroke.checked = G.DEFAULTS.easyOneStroke;
   els.connectAll.checked = G.DEFAULTS.connectAll;
   for (const key of hintKeys) els[key].checked = G.DEFAULTS[key];
   for (const count of G.LIMITS.perPage) {
