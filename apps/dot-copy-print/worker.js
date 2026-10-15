@@ -1,5 +1,5 @@
 "use strict";
-importScripts("generator.js?v=20261015-4");
+importScripts("generator.js?v=20261015-7");
 self.onmessage = ({ data }) => {
   try {
     const problems = [];

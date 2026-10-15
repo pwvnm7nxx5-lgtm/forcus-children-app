@@ -39,13 +39,37 @@ button:disabled { opacity: .55; cursor: default; }
 .dot-model-line { stroke: #111; stroke-width: .55; stroke-linecap: round; fill: none; }
 .dot-trace-line { stroke: #888; stroke-width: .4; stroke-dasharray: 1.2 1.5; stroke-linecap: round; fill: none; }
 .dot-start-ring { stroke: #111; stroke-width: .4; fill: none; }
+.dot-goal-mark { stroke: #111; stroke-width: .4; fill: none; }
 .reroll-btn { position: absolute; top: 1mm; right: 2mm; min-height: 24px; padding: 0 8px; font-size: 11px; }
+.manual-edit-btn { position: absolute; top: 1mm; left: 2mm; min-height: 24px; padding: 0 8px; font-size: 11px; }
 .dot-sheet-footer { flex: 0 0 5mm; height: 5mm; font-size: 10px; display: flex; justify-content: space-between; align-items: end; }
+.manual-editor { width: min(760px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 20px; border: 1px solid #b9c5d0; border-radius: 12px; color: var(--ink); overflow: auto; overscroll-behavior: contain; }
+.manual-editor::backdrop { background: rgb(20 30 40 / .45); }
+.manual-editor h2 { margin: 0 0 8px; font-size: 20px; }
+.manual-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.manual-toolbar button, .manual-footer button { padding: 6px 12px; }
+#manualCount { font-size: 13px; }
+.manual-grid-wrap { background: #f8fbfc; border: 1px solid #d6dde4; border-radius: 8px; display: flex; justify-content: center; }
+#manualGrid { display: block; width: 100%; height: min(48vh, 480px); }
+.manual-line { stroke: #111; stroke-width: 3; stroke-linecap: round; pointer-events: none; }
+.manual-point { cursor: pointer; outline: none; touch-action: manipulation; }
+.manual-hit { fill: transparent; }
+.manual-dot { fill: #111; pointer-events: none; }
+.manual-selection { fill: none; stroke: transparent; stroke-width: 2; pointer-events: none; }
+.manual-point[aria-pressed="true"] .manual-selection { stroke: #0f766e; stroke-width: 3; }
+.manual-point:focus-visible .manual-hit { stroke: #111; stroke-dasharray: 3 3; stroke-width: 1.5; }
+#manualError:empty { display: none; }
+.manual-footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 16px; position: sticky; bottom: 0; background: #fff; padding-top: 12px; z-index: 1; }
+#manualSave { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+@media (max-width: 520px) {
+  .manual-editor { padding: 12px; }
+  .manual-editor h2 { font-size: 17px; }
+}
 
 @page { size: A4 portrait; margin: 0; }
 @media print {
   html, body { margin: 0; padding: 0; background: #fff; min-height: 0; }
-  .controls, .reroll-btn { display: none !important; }
+  .controls, .reroll-btn, .manual-edit-btn, .manual-editor, .manual-editor::backdrop { display: none !important; }
   .app-shell, .preview-wrap, .pages { display: block; margin: 0; padding: 0; overflow: visible; min-height: 0; }
   .print-page { margin: 0; width: 210mm; height: 297mm; min-height: 297mm; padding: 0; box-shadow: none; border: 0; break-after: page; break-inside: avoid; }
   .print-page:last-child { break-after: auto; }

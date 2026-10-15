@@ -144,6 +144,7 @@ test("connected OFF mode still permits branches, cycles and multiple drawing str
 
 test("connected boundaries, opt-out, validation and distinct rerolls", () => {
   assert.equal(G.DEFAULTS.connectAll, true);
+  assert.equal(G.DEFAULTS.hintGoal, false);
   for (const settings of [config({ rows: 1, columns: 12, lineCount: 11 }),
     config({ rows: 12, columns: 1, lineCount: 11 }),
     config({ rows: 2, columns: 2, lineCount: 4, oneStroke: false }),

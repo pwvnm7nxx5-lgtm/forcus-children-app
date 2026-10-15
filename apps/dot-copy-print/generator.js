@@ -8,7 +8,7 @@
   // Defaults, ranges and search limits are intentionally kept in one place.
   const DEFAULTS = Object.freeze({ rows: 5, columns: 5, lineCount: 5, level: 1,
     oneStroke: true, connectAll: true, problemCount: 4, perPage: 4,
-    hintUsed: false, hintTrace: false, hintStart: false });
+    hintUsed: false, hintTrace: false, hintStart: false, hintGoal: false });
   const LIMITS = Object.freeze({ dots: [1, 12], lines: [1, 60], problems: [1, 60],
     perPage: [1, 2, 4], attempts: 40, searchNodes: 24000, durationMs: 350,
     minimumSpacingMm: 7 });
