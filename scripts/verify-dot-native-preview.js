@@ -72,6 +72,8 @@ async function evaluate(client, expression) {
     const target = await until(async () => (await targets()).find(item => item.url.includes("4190/apps/dot-copy-print")), "app target");
     const client = await connect(target.webSocketDebuggerUrl); clients.push(client);
     await until(() => evaluate(client, "document.querySelectorAll('.dot-problem').length === 4 && !document.querySelector('#printBtn').disabled"), "generated problems");
+    await evaluate(client, "for (const [key,value] of Object.entries({rows:3,columns:3,lineCount:2})) document.getElementById(key).value = String(value); document.querySelector('#lineCount').dispatchEvent(new Event('input',{bubbles:true})); true");
+    await until(() => evaluate(client, "!document.querySelector('#printBtn').disabled && JSON.parse(localStorage.getItem('dot-copy-print-state-v1')).applied.rows === 3"), "reported print conditions");
     await evaluate(client, "document.querySelector('#printPunchGuide').value = 'left'; document.querySelector('#printPunchGuide').dispatchEvent(new Event('change')); document.querySelector('#hintStart').checked = true; document.querySelector('#hintStart').dispatchEvent(new Event('change')); true");
     await evaluate(client, "setTimeout(() => document.querySelector('#printBtn').click(), 50); true");
     const printTarget = await until(async () => (await targets()).find(item => /^(chrome|edge):\/\/print/.test(item.url)), "native print preview target");

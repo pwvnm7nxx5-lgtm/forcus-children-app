@@ -11,6 +11,9 @@
   let applied = null;
   let busy = false;
   let activeWorker = null;
+  let activeGeneration = null;
+  let autoTimer = 0;
+  let autoQueued = false;
   const ns = "http://www.w3.org/2000/svg";
 
   function setStatus(message, error = false) {
@@ -32,7 +35,6 @@
   function updateControls() {
     const pending = Boolean(isPending());
     els.pendingNotice.hidden = !pending;
-    els.generationFields.disabled = busy;
     els.regenerateBtn.disabled = busy;
     els.printBtn.disabled = busy || pending || !problems.length;
     els.pages.querySelectorAll(".reroll-btn").forEach(button => { button.disabled = busy || pending; });
@@ -42,6 +44,26 @@
       3: "縦1・横2、または縦2・横1のななめを必ず1本以上含めます。",
     };
     els.levelDescription.textContent = descriptions[els.level.value];
+  }
+  function runAutomaticRegeneration() {
+    autoTimer = 0;
+    if (busy) { autoQueued = true; return; }
+    if (applied && !isPending()) return;
+    regenerate();
+  }
+  function scheduleRegeneration(delay) {
+    window.clearTimeout(autoTimer); autoTimer = 0; autoQueued = false;
+    activeGeneration?.abort();
+    updateControls();
+    if (generationKeys.some(key => els[key].type === "number" && els[key].value === "")) {
+      setStatus("条件の数値を入力すると、自動で問題を作り直します。");
+      return;
+    }
+    const errors = inputErrors(readGeneration());
+    if (errors.length) { setStatus(errors.join("\n"), true); return; }
+    if (applied && !isPending()) { setStatus("現在の条件の問題を表示しています。"); return; }
+    setStatus("条件に合わせて問題を作り直します…");
+    autoTimer = window.setTimeout(runAutomaticRegeneration, delay);
   }
   function save() {
     if (!applied || !problems.length) return;
@@ -145,11 +167,13 @@
     const fragment = document.createDocumentFragment();
     for (let offset = 0; offset < problems.length; offset += perPage) {
       const page = element("section", "print-page");
+      const content = element("div", "dot-page-content");
+      page.append(content);
       if (els.printPunchGuide.value !== "none") {
         const position = els.printPunchGuide.value;
         const guide = element("div", `punch-guide punch-guide-${position}`, position === "left" ? "◀" : "▲");
         guide.setAttribute("aria-hidden", "true");
-        page.append(guide);
+        content.append(guide);
       }
       const header = element("header", "dot-sheet-header");
       const heading = element("div", "dot-heading");
@@ -168,7 +192,7 @@
       const footer = element("footer", "dot-sheet-footer");
       footer.append(element("span", "", `たて${applied.rows}点 × よこ${applied.columns}点 / 線${applied.lineCount}本 / レベル${applied.level}`),
         element("span", "", `${offset / perPage + 1} / ${totalPages}`));
-      page.append(header, list, footer); fragment.append(page);
+      content.append(header, list, footer); fragment.append(page);
     }
     els.pages.replaceChildren(fragment);
     els.pageCount.textContent = `${totalPages}枚`;
@@ -184,7 +208,11 @@
     const available = els.pages.parentElement.clientWidth - 40;
     els.pages.style.zoom = String(Math.min(1, Math.max(0.2, available / firstPage.offsetWidth)));
   }
-  function generateInWorker(config, count, exclude) {
+  function generateInWorker(config, count, exclude, signal) {
+    function checkCancelled() {
+      if (signal.aborted) throw new DOMException("作成を中止しました。", "AbortError");
+    }
+    checkCancelled();
     // The launcher can also be opened directly from disk. File URLs cannot
     // load an external Worker in Chrome/Edge; yield between bounded searches.
     if (location.protocol === "file:" || typeof Worker !== "function") {
@@ -192,6 +220,7 @@
         const result = [];
         for (let i = 0; i < count; i += 1) {
           await new Promise(resolve => window.setTimeout(resolve, 16));
+          checkCancelled();
           result.push(G.generateProblem(config, { exclude: exclude[i] }));
           setStatus(`問題を作成中… ${i + 1} / ${count}問`);
         }
@@ -201,12 +230,20 @@
     return new Promise((resolve, reject) => {
       const worker = new Worker("worker.js?v=20261015-2");
       activeWorker = worker;
+      let finished = false;
+      const onAbort = () => finish(new DOMException("作成を中止しました。", "AbortError"));
       const timeout = window.setTimeout(() => finish(new Error("作成が時間内に終わりませんでした。線を減らすか、点を増やしてお試しください。")), count * (G.LIMITS.durationMs + 200) + 5000);
       function finish(error, result) {
-        window.clearTimeout(timeout); worker.terminate(); activeWorker = null;
+        if (finished) return;
+        finished = true;
+        signal.removeEventListener("abort", onAbort);
+        window.clearTimeout(timeout); worker.terminate();
+        if (activeWorker === worker) activeWorker = null;
         if (error) reject(error); else resolve(result);
       }
+      signal.addEventListener("abort", onAbort, { once: true });
       worker.onmessage = ({ data }) => {
+        if (finished) return;
         if (data.type === "progress") setStatus(`問題を作成中… ${data.completed} / ${data.total}問`);
         if (data.type === "result") finish(null, data.problems);
         if (data.type === "error") finish(new Error(data.message));
@@ -217,21 +254,30 @@
   }
   async function regenerate(index = null) {
     if (busy || (index !== null && isPending())) return;
+    window.clearTimeout(autoTimer); autoTimer = 0; autoQueued = false;
     const config = readGeneration();
     const errors = inputErrors(config);
     if (errors.length) { setStatus(errors.join("\n"), true); updateControls(); return; }
+    const controller = new AbortController();
+    activeGeneration = controller;
     busy = true; updateControls(); setStatus("問題を作成中…");
     try {
       const exclude = index === null ? problems.map(problem => G.fingerprint(problem)) : [G.fingerprint(problems[index])];
       const matching = applied && JSON.stringify(config) === JSON.stringify(applied);
-      const result = await generateInWorker(config, index === null ? config.problemCount : 1, matching ? exclude : []);
+      const result = await generateInWorker(config, index === null ? config.problemCount : 1, matching ? exclude : [], controller.signal);
+      if (controller.signal.aborted) return;
       if (result.some(problem => G.problemErrors(problem, config).length)) throw new Error("問題の検証に失敗しました。もう一度作成してください。");
       if (index === null) { problems = result; applied = config; }
       else problems[index] = result[0];
       render(); save();
       setStatus(index === null ? `${problems.length}問を作成しました。` : `問題${index + 1}だけ作り直しました。`);
-    } catch (error) { setStatus(error.message + (problems.length ? "\n作成済みの問題は残しています。" : ""), true); }
-    finally { busy = false; updateControls(); }
+    } catch (error) {
+      if (!controller.signal.aborted) setStatus(error.message + (problems.length ? "\n作成済みの問題は残しています。" : ""), true);
+    } finally {
+      if (activeGeneration === controller) activeGeneration = null;
+      busy = false; updateControls();
+      if (autoQueued && !autoTimer) { autoQueued = false; runAutomaticRegeneration(); }
+    }
   }
 
   for (const [key, range] of [["rows", G.LIMITS.dots], ["columns", G.LIMITS.dots],
@@ -244,13 +290,22 @@
     const option = element("option", "", `${count}問`); option.value = String(count); els.perPage.append(option);
   }
   els.perPage.value = String(G.DEFAULTS.perPage);
-  for (const key of generationKeys) els[key].addEventListener("input", updateControls);
+  for (const key of generationKeys) {
+    els[key].addEventListener("input", () => scheduleRegeneration(els[key].type === "number" ? 300 : 0));
+    els[key].addEventListener("change", () => {
+      if (autoTimer) { window.clearTimeout(autoTimer); runAutomaticRegeneration(); }
+    });
+  }
   for (const key of [...hintKeys, "perPage", "printPunchGuide"]) els[key].addEventListener("change", () => { render(); save(); });
   for (const key of ["studentName", "worksheetTitle"]) els[key].addEventListener("input", () => { render(); save(); });
   els.regenerateBtn.addEventListener("click", () => regenerate());
   els.printBtn.addEventListener("click", () => { if (!els.printBtn.disabled) window.print(); });
   window.addEventListener("resize", fitPreview);
-  window.addEventListener("pagehide", () => activeWorker?.terminate());
+  window.addEventListener("pagehide", () => {
+    window.clearTimeout(autoTimer); autoTimer = 0; autoQueued = false;
+    activeGeneration?.abort();
+    activeWorker?.terminate();
+  });
   if (restore()) { render(); setStatus("前回の問題を表示しています。"); }
   else regenerate();
 })();
