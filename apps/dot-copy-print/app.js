@@ -2,7 +2,7 @@
   "use strict";
   const G = window.DotCopyGenerator;
   const storageKey = "dot-copy-print-state-v1";
-  const generationKeys = ["rows", "columns", "lineCount", "level", "oneStroke", "problemCount"];
+  const generationKeys = ["rows", "columns", "lineCount", "level", "oneStroke", "connectAll", "problemCount"];
   const hintKeys = ["hintUsed", "hintTrace", "hintStart"];
   const els = Object.fromEntries([...generationKeys, ...hintKeys, "perPage", "printPunchGuide", "worksheetTitle", "studentName",
     "generationFields", "pageCount", "pages", "printBtn", "regenerateBtn", "pendingNotice",
@@ -21,7 +21,7 @@
     els.status.classList.toggle("error", error);
   }
   function readGeneration() {
-    return Object.fromEntries(generationKeys.map(key => [key, key === "oneStroke" ? els[key].checked : Number(els[key].value)]));
+    return Object.fromEntries(generationKeys.map(key => [key, els[key].type === "checkbox" ? els[key].checked : Number(els[key].value)]));
   }
   function isPending() { return applied && JSON.stringify(readGeneration()) !== JSON.stringify(applied); }
   function inputErrors(settings) {
@@ -81,9 +81,14 @@
       if (!saved.applied || inputErrors(saved.applied).length || !Array.isArray(saved.problems) ||
           saved.problems.length !== saved.applied.problemCount ||
           saved.problems.some(problem => G.problemErrors(problem, saved.applied).length)) return false;
-      applied = saved.applied; problems = saved.problems;
+      const legacy = saved.applied.connectAll === undefined;
+      // Keep old shapes when already connected. Otherwise retain the old preview
+      // and display settings until automatic regeneration succeeds with default ON.
+      const connectAll = legacy ? saved.problems.every(problem => G.linesConnected(problem.edges)) : saved.applied.connectAll;
+      applied = Object.fromEntries(generationKeys.map(key => [key, key === "connectAll" ? connectAll : saved.applied[key]]));
+      problems = saved.problems.map(problem => ({ ...problem, connectAll }));
       for (const key of generationKeys) {
-        if (key === "oneStroke") els[key].checked = applied[key];
+        if (els[key].type === "checkbox") els[key].checked = legacy && key === "connectAll" ? G.DEFAULTS.connectAll : applied[key];
         else els[key].value = String(applied[key]);
       }
       for (const key of hintKeys) els[key].checked = saved.hints?.[key] === true;
@@ -228,7 +233,7 @@
       })();
     }
     return new Promise((resolve, reject) => {
-      const worker = new Worker("worker.js?v=20261015-2");
+      const worker = new Worker("worker.js?v=20261015-4");
       activeWorker = worker;
       let finished = false;
       const onAbort = () => finish(new DOMException("作成を中止しました。", "AbortError"));
@@ -285,6 +290,7 @@
     els[key].min = String(range[0]); els[key].max = String(range[1]); els[key].value = String(G.DEFAULTS[key]);
   }
   els.level.value = String(G.DEFAULTS.level); els.oneStroke.checked = G.DEFAULTS.oneStroke;
+  els.connectAll.checked = G.DEFAULTS.connectAll;
   for (const key of hintKeys) els[key].checked = G.DEFAULTS[key];
   for (const count of G.LIMITS.perPage) {
     const option = element("option", "", `${count}問`); option.value = String(count); els.perPage.append(option);
@@ -306,6 +312,10 @@
     activeGeneration?.abort();
     activeWorker?.terminate();
   });
-  if (restore()) { render(); setStatus("前回の問題を表示しています。"); }
+  if (restore()) {
+    render(); setStatus("前回の問題を表示しています。");
+    if (isPending()) scheduleRegeneration(0);
+    else save();
+  }
   else regenerate();
 })();

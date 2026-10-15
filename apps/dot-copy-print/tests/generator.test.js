@@ -7,6 +7,15 @@ function rng(seed) {
 }
 const config = changes => ({ rows: 5, columns: 5, lineCount: 5, level: 1, oneStroke: true, ...changes });
 
+test("connectivity distinguishes a single figure from separate figures, independently of stroke count", () => {
+  assert.equal(G.linesConnected([[0, 1]]), true);
+  assert.equal(G.linesConnected([[0, 1], [1, 2], [1, 5]]), true, "a branching figure is connected");
+  assert.equal(G.linesConnected([[0, 1], [1, 5], [5, 4], [4, 0]]), true, "a closed figure is connected");
+  assert.equal(G.linesConnected([[0, 1], [8, 9]]), false, "separate lines are disconnected");
+  assert.equal(G.linesConnected([[0, 1], [1, 2], [8, 9], [9, 13]]), false, "separate figures are disconnected");
+  assert.equal(G.linesConnected([]), false);
+});
+
 // An independent intersection oracle using parametric segment intersection.
 function forbiddenIntersection(first, second, columns) {
   const xy = id => [id % columns, Math.floor(id / columns)];
@@ -52,6 +61,13 @@ function inspect(problem, settings) {
   }
   const walked = problem.strokes.flatMap(stroke => stroke.slice(1).map((id, i) => key([stroke[i], id])));
   assert.deepEqual(walked.sort(), problem.edges.map(key).sort(), "drawing strokes traverse every edge exactly once");
+  if (settings.connectAll) {
+    // Independent union-find check, rather than relying on the engine's BFS.
+    const parent = new Map([...degree.keys()].map(id => [id, id]));
+    const root = id => parent.get(id) === id ? id : root(parent.get(id));
+    for (const [a, b] of problem.edges) parent.set(root(a), root(b));
+    assert.equal(new Set([...parent.keys()].map(root)).size, 1, "all used points form one component");
+  }
   if (settings.oneStroke) {
     assert.equal(problem.strokes.length, 1);
     const path = problem.strokes[0];
@@ -101,6 +117,53 @@ test("boundary grids and maximum line count preserve conditions", () => {
     config({ rows: 12, columns: 12, lineCount: 60 })]) {
     inspect(G.generateProblem(settings, { rng: rng(57) }), settings);
   }
+});
+
+for (const level of [1, 2, 3]) for (const oneStroke of [true, false]) {
+  test(`connected mode, level ${level}, oneStroke ${oneStroke}: exact counts and geometry over 80 seeds`, () => {
+    for (let seed = 1; seed <= 80; seed += 1) {
+      const settings = config({ connectAll: true, level, oneStroke, rows: 3 + seed % 5,
+        columns: 3 + (seed * 3) % 5, lineCount: 1 + seed % 8 });
+      inspect(G.generateProblem(settings, { rng: rng(seed) }), settings);
+    }
+  });
+}
+
+test("connected OFF mode still permits branches, cycles and multiple drawing strokes", () => {
+  let branch = false, cycle = false, multiple = false;
+  const settings = config({ connectAll: true, rows: 4, columns: 4, lineCount: 10, oneStroke: false });
+  for (let seed = 1; seed <= 100; seed += 1) {
+    const problem = G.generateProblem(settings, { rng: rng(seed) });
+    const degree = inspect(problem, settings);
+    branch ||= [...degree.values()].some(value => value >= 3);
+    cycle ||= problem.edges.length >= degree.size;
+    multiple ||= problem.strokes.length > 1;
+  }
+  assert.ok(branch && cycle && multiple, JSON.stringify({ branch, cycle, multiple }));
+});
+
+test("connected boundaries, opt-out, validation and distinct rerolls", () => {
+  assert.equal(G.DEFAULTS.connectAll, true);
+  for (const settings of [config({ rows: 1, columns: 12, lineCount: 11 }),
+    config({ rows: 12, columns: 1, lineCount: 11 }),
+    config({ rows: 2, columns: 2, lineCount: 4, oneStroke: false }),
+    ...[1, 2, 3].map(level => config({ rows: 12, columns: 12, lineCount: 60, level, oneStroke: false }))]) {
+    const connected = { ...settings, connectAll: true };
+    inspect(G.generateProblem(connected, { rng: rng(57) }), connected);
+  }
+  const settings = config({ oneStroke: false, lineCount: 2, connectAll: true });
+  const disconnected = { ...settings, edges: [[0, 1], [8, 9]], strokes: [[0, 1], [8, 9]] };
+  assert.ok(G.problemErrors(disconnected, settings).some(message => message.includes("ひとまとまり")));
+  assert.deepEqual(G.problemErrors(disconnected, { ...settings, connectAll: false }), []);
+  assert.throws(() => G.generateProblem({ ...settings, connectAll: "true" }), /設定/);
+  const first = G.generateProblem(settings, { rng: rng(10) });
+  const second = G.generateProblem(settings, { rng: rng(10), exclude: G.fingerprint(first) });
+  inspect(second, settings);
+  assert.notEqual(G.fingerprint(first), G.fingerprint(second));
+  const impossible = { ...settings, rows: 1, columns: 2, lineCount: 2 };
+  const started = Date.now();
+  assert.throws(() => G.generateProblem(impossible), /本/);
+  assert.ok(Date.now() - started < 1000);
 });
 
 test("invalid/impossible settings fail explicitly without mutation", () => {

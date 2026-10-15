@@ -7,7 +7,7 @@
 
   // Defaults, ranges and search limits are intentionally kept in one place.
   const DEFAULTS = Object.freeze({ rows: 5, columns: 5, lineCount: 5, level: 1,
-    oneStroke: true, problemCount: 4, perPage: 4,
+    oneStroke: true, connectAll: true, problemCount: 4, perPage: 4,
     hintUsed: false, hintTrace: false, hintStart: false });
   const LIMITS = Object.freeze({ dots: [1, 12], lines: [1, 60], problems: [1, 60],
     perPage: [1, 2, 4], attempts: 40, searchNodes: 24000, durationMs: 350,
@@ -16,6 +16,24 @@
   function point(id, columns) { return { x: id % columns, y: Math.floor(id / columns) }; }
   function edgeKey(edge) { return [...edge].sort((a, b) => a - b).join("-"); }
   function fingerprint(problem) { return problem.edges.map(edgeKey).sort().join(","); }
+  function linesConnected(edges) {
+    if (!edges.length) return false;
+    const adjacency = new Map();
+    for (const [a, b] of edges) {
+      if (!adjacency.has(a)) adjacency.set(a, []);
+      if (!adjacency.has(b)) adjacency.set(b, []);
+      adjacency.get(a).push(b); adjacency.get(b).push(a);
+    }
+    const visited = new Set([edges[0][0]]);
+    const pending = [edges[0][0]];
+    while (pending.length) {
+      for (const next of adjacency.get(pending.pop())) {
+        if (visited.has(next)) continue;
+        visited.add(next); pending.push(next);
+      }
+    }
+    return visited.size === adjacency.size;
+  }
   function edgeLevel(edge, columns) {
     const a = point(edge[0], columns), b = point(edge[1], columns);
     const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y);
@@ -73,6 +91,7 @@
     }
     if (![1, 2, 3].includes(config.level)) errors.push("線のレベルは1〜3で指定してください。");
     if (typeof config.oneStroke !== "boolean") errors.push("一筆書きの設定を確認してください。");
+    if (config.connectAll !== undefined && typeof config.connectAll !== "boolean") errors.push("全ての点を繋げる設定を確認してください。");
     if (errors.length) return errors;
     const pool = candidates(config);
     if (!pool.some(edge => edgeLevel(edge, config.columns) === config.level)) {
@@ -169,6 +188,20 @@
         }
         const result = extend();
         if (result) return result;
+      } else if (config.connectAll) {
+        const edges = [seed], used = new Set(seed);
+        // Grow a single component. Recompute the frontier after each addition:
+        // edges that were separate may become reachable as the figure grows.
+        while (edges.length < config.lineCount && hasBudget()) {
+          const frontier = pool.filter(edge => edge.some(id => used.has(id)) && fits(edge, edges));
+          if (!frontier.length) break;
+          const edge = frontier[Math.floor(rng() * frontier.length)];
+          edges.push(edge); edge.forEach(id => used.add(id));
+        }
+        if (edges.length === config.lineCount) {
+          const result = accept(edges, drawingStrokes(edges));
+          if (result) return result;
+        }
       } else {
         const edges = [seed];
         const order = shuffle(pool, rng);
@@ -218,6 +251,7 @@
       for (const id of edge) degree.set(id, (degree.get(id) || 0) + 1);
     }
     if (!problem.edges.some(edge => edgeLevel(edge, config.columns) === config.level)) errors.push("指定レベルの追加方向がありません。");
+    if (config.connectAll && !linesConnected(problem.edges)) errors.push("使う点と線がひとまとまりに繋がっていません。");
     for (let i = 0; i < problem.edges.length; i += 1) for (let j = 0; j < i; j += 1) {
       if (edgesConflict(problem.edges[i], problem.edges[j], config.columns)) errors.push("線が交差または重複しています。");
     }
@@ -236,6 +270,6 @@
     return errors;
   }
 
-  return { DEFAULTS, LIMITS, point, edgeKey, fingerprint, edgeLevel, candidates, edgesConflict,
+  return { DEFAULTS, LIMITS, point, edgeKey, fingerprint, linesConnected, edgeLevel, candidates, edgesConflict,
     configurationErrors, generateProblem, drawingStrokes, problemErrors };
 });

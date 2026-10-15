@@ -24,7 +24,9 @@
         </div>
         <p id="levelDescription" class="help"></p>
         <div class="check-row"><label><input id="oneStroke" type="checkbox"> 一筆書き</label></div>
-        <p class="help">ON：同じ点を通らない一本道。OFF：分岐・閉じた形・離れた線も作れます。</p>
+        <p class="help">ON：同じ点を通らない一本道。OFF：分岐・閉じた形も作れます。</p>
+        <div class="check-row"><label><input id="connectAll" type="checkbox"> 全ての点を繋げる</label></div>
+        <p class="help">使う点と線をひとまとまりにします。使わない点は残り、線の本数は変わりません。OFFにすると離れた形も作れます。</p>
         <label class="field"><span>作成する問題数</span><input id="problemCount" type="number" step="1" inputmode="numeric"></label>
       </fieldset>
       <fieldset>
@@ -49,7 +51,7 @@
     </aside>
     <main class="preview-wrap" aria-label="印刷プレビュー"><div id="pages" class="pages"></div></main>
   </div>
-  <script src="generator.js?v=20261015-2"></script>
-  <script src="app.js?v=20261015-3"></script>
+  <script src="generator.js?v=20261015-4"></script>
+  <script src="app.js?v=20261015-4"></script>
 </body>
 </html>
