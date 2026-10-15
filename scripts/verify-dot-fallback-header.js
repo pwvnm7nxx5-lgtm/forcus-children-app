@@ -10,6 +10,16 @@ async (page) => {
   await page.reload();
   await page.waitForFunction(() => document.querySelectorAll(".dot-problem").length === 4 && !document.querySelector("#regenerateBtn").disabled);
   if (!await page.evaluate(() => typeof Worker === "undefined")) throw new Error("Worker was not disabled for fallback test");
+  await page.locator("#problemCount").fill("18");
+  await page.waitForFunction(() => document.querySelector("#regenerateBtn").disabled);
+  if (await page.locator("#generationFields").isDisabled()) throw new Error("Conditions locked during generation");
+  await page.locator("#level").selectOption("2");
+  await page.waitForFunction(() => !document.querySelector("#printBtn").disabled);
+  const latest = await page.evaluate(() => JSON.parse(localStorage.getItem("dot-copy-print-state-v1")));
+  if (latest.applied.level !== 2 || latest.problems.length !== 18 || latest.problems.some(problem => problem.level !== 2)) throw new Error("Cancelled fallback overwrote the latest condition");
+  await page.locator("#problemCount").fill("4");
+  await page.locator("#level").selectOption("1");
+  await page.waitForFunction(() => !document.querySelector("#printBtn").disabled);
   await page.locator("#worksheetTitle").fill("点つなぎの練習とても長い教材名を印刷して確かめるテストプリント");
   await page.locator("#studentName").fill("あいうえおかきくけこさしすせそたちつてとなにぬね");
   await page.locator("#hintStart").check();
@@ -31,5 +41,5 @@ async (page) => {
   const pdf = await page.pdf({ path: "output/playwright/dot-copy-fallback-long-header.pdf", preferCSSPageSize: true });
   if (!layout.headerFits || !layout.nameFits) throw new Error(JSON.stringify(layout));
   if ((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) || []).length !== 1) throw new Error("unexpected page count");
-  return { fallbackGenerated: true, fallbackReroll: true, layout };
+  return { fallbackGenerated: true, fallbackReroll: true, latestConditionWhileBusy: true, layout };
 }

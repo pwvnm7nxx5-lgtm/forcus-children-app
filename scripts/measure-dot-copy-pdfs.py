@@ -36,3 +36,21 @@ for file in files:
                 assert item["top"] >= -.1 and item["bottom"] <= page.height + .1, (file.name, index, "vertical clipping")
         assert all_labels == list(range(1, expected_questions + 1)), file.name
     print(f"PASS {file.name}: {expected_pages} A4 pages, {expected_questions} complete problems")
+
+for file in sorted(root.glob("dot-tail-*-*-*.pdf")):
+    match = re.match(r"dot-tail-(chrome|edge)-(4|8)-", file.name)
+    if not match:
+        continue
+    count = int(match.group(2))
+    with pdfplumber.open(file) as pdf:
+        assert len(pdf.pages) == count // 4, (file.name, len(pdf.pages))
+        for index, page in enumerate(pdf.pages):
+            text = page.extract_text() or ""
+            labels = [int(n) for n in re.findall(r"(\d+)\s+おてほん", text)]
+            assert labels == list(range(index * 4 + 1, index * 4 + 5)), (file.name, index, labels)
+            assert "たて3点" in text and "線2本" in text and "レベル1" in text, (file.name, index, "missing footer")
+            dots = [curve for curve in page.curves if curve.get("fill") and not curve.get("stroke")
+                    and isinstance(curve.get("non_stroking_color"), tuple)
+                    and all(component <= .1 for component in curve["non_stroking_color"])]
+            assert len(dots) == 72, (file.name, index, "missing grid dots", len(dots))
+    print(f"PASS {file.name}: all {count} questions, dots and footers preserved")

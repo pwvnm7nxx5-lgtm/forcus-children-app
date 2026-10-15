@@ -10,7 +10,7 @@ async (page) => {
   const snapshot = () => page.evaluate(() => JSON.parse(localStorage.getItem("dot-copy-print-state-v1")));
   const keys = () => page.locator(".dot-problem").evaluateAll(nodes => nodes.map(node => node.dataset.fingerprint));
   const wait = async () => {
-    await page.waitForFunction(() => !document.querySelector("#regenerateBtn").disabled);
+    await page.waitForFunction(() => !document.querySelector("#regenerateBtn").disabled && !document.querySelector("#printBtn").disabled);
     check(!await page.locator("#status").evaluate(node => node.classList.contains("error")), await page.locator("#status").textContent());
   };
   async function settings(values) {
@@ -20,7 +20,7 @@ async (page) => {
       else if (key === "level") await node.selectOption(String(value));
       else await node.fill(String(value));
     }
-    await page.locator("#regenerateBtn").click(); await wait();
+    await wait();
   }
   await page.emulateMedia({ media: null });
   await page.evaluate(() => localStorage.removeItem("dot-copy-print-state-v1"));
@@ -75,23 +75,55 @@ async (page) => {
   await page.locator("#lineCount").fill("6");
   check(await page.locator("#pendingNotice").isVisible(), "missing pending notice");
   check(await page.locator("#printBtn").isDisabled(), "pending print button is enabled");
-  check(JSON.stringify(await keys()) === JSON.stringify(rerolled), "editing condition regenerated problems");
+  await wait();
+  check((await snapshot()).problems.every(problem => problem.edges.length === 6), "line count did not regenerate automatically");
+  for (const [key, value] of [["rows", 6], ["columns", 6], ["level", 2], ["oneStroke", false], ["problemCount", 6]]) {
+    await settings({ [key]: value });
+    const saved = await snapshot();
+    check(saved.applied[key] === value, `${key} did not regenerate automatically`);
+    check(await page.evaluate(() => {
+      const current = JSON.parse(localStorage.getItem("dot-copy-print-state-v1"));
+      return current.problems.every(problem => !window.DotCopyGenerator.problemErrors(problem, current.applied).length);
+    }), "invalid automatic problem");
+  }
+  await settings({ rows: 5, columns: 5, level: 1, oneStroke: true, problemCount: 4 });
   await page.locator("#lineCount").fill("5");
+  await wait();
   check(!await page.locator("#pendingNotice").isVisible(), "restoring condition stays pending");
+  checks.push("all six content settings regenerate automatically without pressing a button");
+
+  // Repeated edits in one number field should create only the final worksheet.
+  await page.evaluate(() => {
+    window.__autoRenders = 0;
+    window.__autoObserver = new MutationObserver(() => { window.__autoRenders += 1; });
+    window.__autoObserver.observe(document.querySelector("#pages"), { childList: true });
+  });
+  for (const value of [7, 8, 9]) await page.locator("#lineCount").fill(String(value));
+  await wait();
+  const debounced = await page.evaluate(() => { window.__autoObserver.disconnect(); return window.__autoRenders; });
+  check(debounced === 1, `rapid edits rendered ${debounced} times`);
+  check((await snapshot()).problems.every(problem => problem.edges.length === 9), "rapid edits did not use the final condition");
+  const beforeEmpty = await keys();
+  await page.locator("#lineCount").fill("");
+  await page.waitForTimeout(350);
+  check(JSON.stringify(await keys()) === JSON.stringify(beforeEmpty), "empty input changed problems");
+  check(await page.locator("#printBtn").isDisabled(), "empty conditions allow printing stale problems");
+  await settings({ lineCount: 5 });
+  const failureBaseline = await keys();
+  checks.push("rapid numeric edits coalesce; empty input preserves existing problems until valid");
 
   for (const values of [{ rows: 1, columns: 1, level: 1, lineCount: 5 }, { rows: 2, columns: 2, level: 3, lineCount: 1 }, { rows: 2, columns: 2, level: 1, lineCount: 4 }]) {
-    for (const [key, value] of Object.entries(values)) {
-      if (key === "level") await page.locator(`#${key}`).selectOption(String(value));
-      else await page.locator(`#${key}`).fill(String(value));
-    }
+    await page.evaluate(values => {
+      for (const [key, value] of Object.entries(values)) document.getElementById(key).value = String(value);
+      document.querySelector("#lineCount").dispatchEvent(new Event("input", { bubbles: true }));
+    }, values);
     const started = Date.now();
-    await page.locator("#regenerateBtn").click();
     check(await page.locator("#status").evaluate(node => node.classList.contains("error")), "impossible condition has no error");
     check(Date.now() - started < 2000, "impossible condition froze UI");
-    check(JSON.stringify(await keys()) === JSON.stringify(rerolled), "failure lost old problems");
+    check(JSON.stringify(await keys()) === JSON.stringify(failureBaseline), "failure lost old problems");
     for (const [key, value] of Object.entries(values)) check(Number(await page.locator(`#${key}`).inputValue()) === value, "silently changed condition");
   }
-  checks.push("pending and impossible conditions: clear reasons, no freezing/mutation/data loss");
+  checks.push("impossible conditions show reasons automatically with no freezing/mutation/data loss");
   await settings({ rows: 1, columns: 2, level: 1, lineCount: 1, problemCount: 1 });
   const onlyShape = await keys();
   await page.locator('[aria-label="問題1だけ作り直す"]').click();
@@ -128,17 +160,19 @@ async (page) => {
         const boxes = [...card.querySelectorAll("svg")].map(svg => svg.getBoundingClientRect());
         const canvases = [...card.querySelectorAll(".dot-canvas")].map(node => node.getBoundingClientRect());
         const page = card.closest(".print-page").getBoundingClientRect();
+        const content = card.closest(".dot-page-content").getBoundingClientRect();
         const rect = card.getBoundingClientRect();
         const one = card.querySelector("svg");
+        const matrix = one.getScreenCTM();
         const dots = one.querySelectorAll(".dot-point");
         const c = JSON.parse(localStorage.getItem("dot-copy-print-state-v1")).applied;
         const stepX = Number(dots[1].getAttribute("cx")) - Number(dots[0].getAttribute("cx"));
         const stepY = Number(dots[c.columns].getAttribute("cy")) - Number(dots[0].getAttribute("cy"));
-        return { square: c.rows === 1 || c.columns === 1 || close(stepX, stepY),
+        return { square: (c.rows === 1 || c.columns === 1 || close(stepX, stepY)) && Math.abs(matrix.a - matrix.d) < .001,
           sameSize: close(boxes[0].width, boxes[1].width) && close(boxes[0].height, boxes[1].height),
           fits: boxes.every((box, i) => box.width <= canvases[i].width + 1 && box.height <= canvases[i].height + 1),
           cardFits: rect.top >= page.top && rect.bottom <= page.bottom && rect.left >= page.left && rect.right <= page.right,
-          pageFits: card.closest(".print-page").scrollHeight <= card.closest(".print-page").clientHeight + 1,
+          pageFits: content.top >= page.top - 1 && content.left >= page.left - 1 && content.bottom <= page.bottom + 1 && content.right <= page.right + 1,
           shape: one.getAttribute("viewBox") };
       });
     });
@@ -171,7 +205,7 @@ async (page) => {
       const guide = page.querySelector(".punch-guide");
       if (position === "none") return !guide;
       if (!guide || getComputedStyle(guide).display === "none") return false;
-      const paper = page.getBoundingClientRect(), mark = guide.getBoundingClientRect();
+      const paper = page.querySelector(".dot-page-content").getBoundingClientRect(), mark = guide.getBoundingClientRect();
       const center = position === "left" ? Math.abs((mark.top + mark.bottom) / 2 - (paper.top + paper.bottom) / 2) :
         Math.abs((mark.left + mark.right) / 2 - (paper.left + paper.right) / 2);
       return center < 1 && mark.left >= paper.left && mark.right <= paper.right && mark.top >= paper.top && mark.bottom <= paper.bottom;
