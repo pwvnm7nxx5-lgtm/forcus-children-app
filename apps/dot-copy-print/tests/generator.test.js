@@ -71,10 +71,16 @@ function inspect(problem, settings) {
   if (settings.oneStroke) {
     assert.equal(problem.strokes.length, 1);
     const path = problem.strokes[0];
-    assert.equal(new Set(path).size, settings.lineCount + 1);
     assert.equal(path.length, settings.lineCount + 1);
-    assert.equal(degree.get(path[0]), 1); assert.equal(degree.get(path.at(-1)), 1);
-    assert.ok([...degree.values()].every(value => value <= 2));
+    const odd = [...degree.keys()].filter(id => degree.get(id) % 2);
+    assert.ok(odd.length === 0 || odd.length === 2);
+    if (odd.length === 0) assert.equal(path[0], path.at(-1));
+    else assert.deepEqual([path[0], path.at(-1)].sort((a,b) => a-b), odd.sort((a,b) => a-b));
+    if (settings.easyOneStroke) {
+      assert.equal(new Set(path).size, settings.lineCount + 1);
+      assert.equal(degree.get(path[0]), 1); assert.equal(degree.get(path.at(-1)), 1);
+      assert.ok([...degree.values()].every(value => value <= 2));
+    }
   }
   assert.deepEqual(G.problemErrors(problem, settings), []);
   return degree;
@@ -114,6 +120,9 @@ test("boundary grids and maximum line count preserve conditions", () => {
     config({ rows: 2, columns: 2, lineCount: 3 }),
     config({ rows: 2, columns: 2, lineCount: 4, oneStroke: false }),
     config({ rows: 12, columns: 12, lineCount: 60, level: 3, oneStroke: false }),
+    config({ rows: 12, columns: 12, lineCount: 60, level: 2 }),
+    config({ rows: 12, columns: 12, lineCount: 60, level: 3 }),
+    config({ rows: 12, columns: 12, lineCount: 60, level: 3, easyOneStroke: true }),
     config({ rows: 12, columns: 12, lineCount: 60 })]) {
     inspect(G.generateProblem(settings, { rng: rng(57) }), settings);
   }
@@ -169,12 +178,47 @@ test("connected boundaries, opt-out, validation and distinct rerolls", () => {
 
 test("invalid/impossible settings fail explicitly without mutation", () => {
   for (const settings of [config({ rows: 1, columns: 1 }), config({ rows: 1, level: 2 }),
-    config({ rows: 2, columns: 2, level: 3 }), config({ rows: 2, columns: 2, lineCount: 4 }),
+    config({ rows: 2, columns: 2, level: 3 }), config({ rows: 2, columns: 2, lineCount: 4, easyOneStroke: true }),
     config({ rows: 1, columns: 2, lineCount: 2, oneStroke: false }), config({ lineCount: 2.5 }), config({ rows: 13 })]) {
     const before = JSON.stringify(settings);
     assert.throws(() => G.generateProblem(settings), /点|整数|レベル|本/);
     assert.equal(JSON.stringify(settings), before);
   }
+});
+
+for (const level of [1,2,3]) {
+  test(`easy one-stroke level ${level} retains the original open simple paths over 80 seeds`, () => {
+    for (let seed=1; seed<=80; seed+=1) {
+      const settings = config({level,easyOneStroke:true,rows:3+seed%5,columns:3+(seed*3)%5,lineCount:1+seed%8});
+      inspect(G.generateProblem(settings,{rng:rng(seed)}),settings);
+    }
+  });
+}
+
+test("ordinary generation actually produces revisits, shared-point branches and closed trails", () => {
+  let revisit=false, branch=false, closed=false;
+  for (let seed=1; seed<=160; seed+=1) {
+    const settings = config({rows:3,columns:3,lineCount:seed%2?6:4,connectAll:false});
+    const problem = G.generateProblem(settings,{rng:rng(seed)});
+    const degree = inspect(problem,settings), path=problem.strokes[0];
+    revisit ||= new Set(path).size < path.length;
+    branch ||= [...degree.values()].some(value=>value>2);
+    closed ||= path[0]===path.at(-1);
+    assert.ok(G.linesConnected(problem.edges), "one-stroke remains connected even when connectAll is OFF");
+  }
+  assert.ok(revisit && branch && closed,JSON.stringify({revisit,branch,closed}));
+});
+
+test("ordinary one-stroke can exceed point-count minus one, but easy mode cannot", () => {
+  assert.equal(G.DEFAULTS.easyOneStroke,false);
+  for (const settings of [config({rows:2,columns:2,lineCount:4}),
+    config({rows:2,columns:2,lineCount:5,level:2}),
+    config({rows:3,columns:3,lineCount:10})]) {
+    inspect(G.generateProblem(settings,{rng:rng(57)}),settings);
+    assert.ok(G.configurationErrors({...settings,easyOneStroke:true}).some(error=>error.includes("やさしい")));
+  }
+  assert.ok(G.configurationErrors(config({easyOneStroke:"true"})).length);
+  inspect(G.generateProblem(config({oneStroke:false,easyOneStroke:true})),config({oneStroke:false,easyOneStroke:true}));
 });
 
 test("search exhaustion is bounded and distinct rerolls never silently repeat", () => {

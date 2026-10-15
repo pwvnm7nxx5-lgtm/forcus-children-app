@@ -112,7 +112,7 @@ async (page) => {
   const failureBaseline = await keys();
   checks.push("rapid numeric edits coalesce; empty input preserves existing problems until valid");
 
-  for (const values of [{ rows: 1, columns: 1, level: 1, lineCount: 5 }, { rows: 2, columns: 2, level: 3, lineCount: 1 }, { rows: 2, columns: 2, level: 1, lineCount: 4 }]) {
+  for (const values of [{ rows: 1, columns: 1, level: 1, lineCount: 5 }, { rows: 2, columns: 2, level: 3, lineCount: 1 }, { rows: 2, columns: 2, level: 1, lineCount: 5 }]) {
     await page.evaluate(values => {
       for (const [key, value] of Object.entries(values)) document.getElementById(key).value = String(value);
       document.querySelector("#lineCount").dispatchEvent(new Event("input", { bubbles: true }));

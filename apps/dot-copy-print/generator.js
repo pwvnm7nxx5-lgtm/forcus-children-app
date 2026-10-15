@@ -7,7 +7,7 @@
 
   // Defaults, ranges and search limits are intentionally kept in one place.
   const DEFAULTS = Object.freeze({ rows: 5, columns: 5, lineCount: 5, level: 1,
-    oneStroke: true, connectAll: true, problemCount: 4, perPage: 4,
+    oneStroke: true, easyOneStroke: false, connectAll: true, problemCount: 4, perPage: 4,
     hintUsed: false, hintTrace: false, hintStart: false, hintGoal: false });
   const LIMITS = Object.freeze({ dots: [1, 12], lines: [1, 60], problems: [1, 60],
     perPage: [1, 2, 4], attempts: 40, searchNodes: 24000, durationMs: 350,
@@ -91,6 +91,7 @@
     }
     if (![1, 2, 3].includes(config.level)) errors.push("線のレベルは1〜3で指定してください。");
     if (typeof config.oneStroke !== "boolean") errors.push("一筆書きの設定を確認してください。");
+    if (config.easyOneStroke !== undefined && typeof config.easyOneStroke !== "boolean") errors.push("やさしい一筆書きの設定を確認してください。");
     if (config.connectAll !== undefined && typeof config.connectAll !== "boolean") errors.push("全ての点を繋げる設定を確認してください。");
     if (errors.length) return errors;
     const pool = candidates(config);
@@ -99,8 +100,8 @@
         config.level === 2 ? "45度の斜め線には縦・横とも2点以上が必要です。" : "線を結ぶには2点以上が必要です。";
       errors.push(`レベル${config.level}では作成できません。${reason}`);
     }
-    if (config.oneStroke && config.lineCount > config.rows * config.columns - 1) {
-      errors.push(`一筆書きでは、${config.rows * config.columns}点に対して線は最大${config.rows * config.columns - 1}本です。同じ点を2度通れません。`);
+    if (config.oneStroke && config.easyOneStroke && config.lineCount > config.rows * config.columns - 1) {
+      errors.push(`やさしい一筆書きでは、${config.rows * config.columns}点に対して線は最大${config.rows * config.columns - 1}本です。同じ点を2度通れません。`);
     }
     const planarBound = config.rows === 1 || config.columns === 1 ? config.rows * config.columns - 1 :
       config.level === 1 ? pool.length : 3 * config.rows * config.columns - 6;
@@ -119,7 +120,31 @@
     return copy;
   }
 
-  // Every edge is consumed once; trails can revisit vertices only in OFF mode.
+  // Hierholzer's algorithm: splice loops into one trail, instead of ending
+  // early when a greedy choice reaches a dead end. Vertex revisits are legal.
+  function eulerTrail(edges) {
+    if (!edges.length || !linesConnected(edges)) return null;
+    const adjacency = new Map();
+    edges.forEach(([a, b], index) => {
+      if (!adjacency.has(a)) adjacency.set(a, []);
+      if (!adjacency.has(b)) adjacency.set(b, []);
+      adjacency.get(a).push({ next: b, index }); adjacency.get(b).push({ next: a, index });
+    });
+    const odd = [...adjacency.keys()].filter(id => adjacency.get(id).length % 2);
+    if (odd.length !== 0 && odd.length !== 2) return null;
+    const used = new Set(), stack = [odd[0] ?? edges[0][0]], path = [];
+    while (stack.length) {
+      const choices = adjacency.get(stack[stack.length - 1]);
+      while (choices.length && used.has(choices[choices.length - 1].index)) choices.pop();
+      if (!choices.length) path.push(stack.pop());
+      else {
+        const edge = choices.pop(); used.add(edge.index); stack.push(edge.next);
+      }
+    }
+    return used.size === edges.length ? path.reverse() : null;
+  }
+
+  // OFF mode can use several trails; every edge is consumed once.
   // These are example drawing strokes, not prescribed student stroke orders.
   function drawingStrokes(edges) {
     const remaining = new Map(edges.map(edge => [edgeKey(edge), edge]));
@@ -164,6 +189,7 @@
       let seed = required[Math.floor(rng() * required.length)];
       if (rng() < 0.5) seed = [seed[1], seed[0]];
       if (config.oneStroke) {
+        const easy = config.easyOneStroke === true;
         const path = [...seed], edges = [seed], used = new Set(path);
         function extend() {
           if (!hasBudget()) return null;
@@ -175,12 +201,13 @@
             return adjacency[end].map(edge => ({ edge, atHead, next: edge[0] === end ? edge[1] : edge[0] }));
           }), rng);
           for (const { edge, atHead, next } of choices) {
-            if (used.has(next) || !fits(edge, edges)) continue;
+            if ((easy && used.has(next)) || !fits(edge, edges)) continue;
             if (atHead) path.unshift(next); else path.push(next);
-            used.add(next); edges.push(edge);
+            if (easy) used.add(next);
+            edges.push(edge);
             const result = extend();
             if (result) return result;
-            edges.pop(); used.delete(next);
+            edges.pop(); if (easy) used.delete(next);
             if (atHead) path.shift(); else path.pop();
             if (nodes > LIMITS.searchNodes || Date.now() > deadline) break;
           }
@@ -263,13 +290,17 @@
     if (walked.sort().join(",") !== problem.edges.map(edgeKey).sort().join(",")) errors.push("描画順が全線を1回ずつ通りません。");
     if (config.oneStroke) {
       const stroke = problem.strokes[0] || [];
-      if (problem.strokes.length !== 1 || new Set(stroke).size !== config.lineCount + 1 ||
-          stroke.length !== config.lineCount + 1 || [...degree.values()].some(value => value > 2) ||
-          degree.get(stroke[0]) !== 1 || degree.get(stroke[stroke.length - 1]) !== 1) errors.push("一筆書きの条件を満たしません。");
+      if (!eulerTrail(problem.edges) || problem.strokes.length !== 1 || stroke.length !== config.lineCount + 1) {
+        errors.push("同じ線を重ねずに一筆で全ての線を描ける形と描画順にしてください。");
+      }
+      if (config.easyOneStroke && (new Set(stroke).size !== config.lineCount + 1 ||
+          [...degree.values()].some(value => value > 2) || degree.get(stroke[0]) !== 1 || degree.get(stroke[stroke.length - 1]) !== 1)) {
+        errors.push("やさしい一筆書きでは、同じ点を2度通らない開いた一本道にしてください。");
+      }
     }
     return errors;
   }
 
   return { DEFAULTS, LIMITS, point, edgeKey, fingerprint, linesConnected, edgeLevel, candidates, edgesConflict,
-    configurationErrors, generateProblem, drawingStrokes, problemErrors };
+    configurationErrors, generateProblem, eulerTrail, drawingStrokes, problemErrors };
 });
