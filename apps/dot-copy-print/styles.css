@@ -1,0 +1,53 @@
+@import "../grade1-common.css";
+
+:root { --accent: #0f766e; }
+fieldset { border: 0; border-top: 1px solid #d6dde4; margin: 16px 0; padding: 14px 0 0; min-width: 0; }
+legend { padding: 0 8px 0 0; font-size: 14px; font-weight: 700; }
+.intro { margin: 0 0 18px; font-size: 14px; line-height: 1.7; }
+.help { font-size: 12px; line-height: 1.7; color: #526070; margin: 0 0 12px; }
+.notice { padding: 10px; border: 1px solid #986c19; border-radius: 6px; background: #fff9e8; font-size: 13px; line-height: 1.7; }
+[hidden] { display: none !important; }
+button:disabled { opacity: .55; cursor: default; }
+.status { line-height: 1.7; white-space: pre-line; }
+.status.error { color: #9b2020; }
+.preview-wrap { min-width: 0; }
+.print-page {
+  width: 210mm; height: 297mm; min-height: 297mm; padding: 12mm;
+  background: #fff; color: #111; display: flex; flex-direction: column;
+  transform: none; margin: 0;
+  position: relative;
+}
+.punch-guide { position: absolute; display: grid; place-items: center; width: 8mm; height: 8mm; font-size: 13px; line-height: 1; font-weight: 700; color: #111; pointer-events: none; }
+.punch-guide-left { left: 1mm; top: 50%; transform: translateY(-50%); }
+.punch-guide-top { left: 50%; top: 1mm; transform: translateX(-50%); }
+.dot-sheet-header { height: 27mm; flex: 0 0 27mm; }
+.dot-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8mm; }
+.dot-heading h2 { font-size: 22px; margin: 0; line-height: 1.5; overflow-wrap: anywhere; max-width: 95mm; }
+.dot-name { font-size: 16px; white-space: nowrap; }
+.dot-name span { display: inline-block; min-width: 50mm; max-width: 70mm; border-bottom: 1px solid #111; overflow: hidden; vertical-align: bottom; }
+.dot-instruction { margin: 3mm 0 0; font-size: 16px; line-height: 1.35; }
+.dot-start-note { font-size: 12px; line-height: 1.25; margin: 1mm 0 0; }
+.dot-problems { display: grid; grid-template-rows: repeat(var(--per-page), 1fr); gap: 3mm; flex: 1; min-height: 0; }
+.dot-problem { border: .25mm solid #b7bcc3; border-radius: 2mm; padding: 3mm; min-height: 0; position: relative; break-inside: avoid; page-break-inside: avoid; }
+.dot-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; height: 100%; }
+.dot-panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; align-items: center; }
+.dot-panel-label { text-align: center; height: 6mm; flex: 0 0 6mm; line-height: 6mm; font-size: 13px; }
+.dot-canvas { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%; }
+.dot-canvas svg { display: block; flex: none; }
+.dot-point { fill: #111; }
+.dot-model-line { stroke: #111; stroke-width: .55; stroke-linecap: round; fill: none; }
+.dot-trace-line { stroke: #888; stroke-width: .4; stroke-dasharray: 1.2 1.5; stroke-linecap: round; fill: none; }
+.dot-start-ring { stroke: #111; stroke-width: .4; fill: none; }
+.reroll-btn { position: absolute; top: 1mm; right: 2mm; min-height: 24px; padding: 0 8px; font-size: 11px; }
+.dot-sheet-footer { flex: 0 0 5mm; height: 5mm; font-size: 10px; display: flex; justify-content: space-between; align-items: end; }
+
+@page { size: A4 portrait; margin: 0; }
+@media print {
+  html, body { margin: 0; padding: 0; background: #fff; min-height: 0; }
+  .controls, .reroll-btn { display: none !important; }
+  .app-shell, .preview-wrap, .pages { display: block; margin: 0; padding: 0; overflow: visible; min-height: 0; }
+  .print-page { margin: 0; width: 210mm; height: 297mm; min-height: 297mm; padding: 12mm; box-shadow: none; border: 0; break-after: page; break-inside: avoid; }
+  .print-page:last-child { break-after: auto; }
+  .pages { zoom: 1 !important; }
+  .dot-problem { box-shadow: none; }
+}
