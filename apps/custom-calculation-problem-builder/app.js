@@ -62,6 +62,7 @@ let sheetSetSignature = "";
 let lastGeneratedSettings = null;
 let manualFocusTarget = null;
 let generationMessage = "";
+let restoredSheetCount = null;
 
 const manualCreationModes = ["auto", "manual", "hybrid"];
 
@@ -876,7 +877,7 @@ function isManualInputActive(settings = getSettings()) {
 }
 
 function hasEnteredManualProblems() {
-  return problems.some((problem) => hasManualInput(problem));
+  return knownProblemSets().some((set) => set.some(hasManualInput));
 }
 
 function isProblemSettingsChanged(previous, next) {
@@ -1646,20 +1647,6 @@ function makeManualProblemsForSettings(settings) {
   return selectProblems(settings);
 }
 
-function getManualFillIndexes() {
-  return problems.reduce((indexes, problem, index) => {
-    if (isManualEntryProblem(problem) && problem.manualSource === "blank") indexes.push(index);
-    return indexes;
-  }, []);
-}
-
-function getManualPreservedIndexes() {
-  return problems.reduce((indexes, problem, index) => {
-    if (isManualEntryProblem(problem) && problem.manualSource === "manual") indexes.push(index);
-    return indexes;
-  }, []);
-}
-
 function generateEditableProblems(settings, count, usedKeys = new Set()) {
   const generatedSettings = { ...settings, count };
   return selectProblems(generatedSettings, usedKeys)
@@ -1684,20 +1671,21 @@ function fillRemainingProblems() {
   const settings = getSettings();
   if (!isManualInputActive(settings) || settings.creationMode !== "hybrid") return;
 
-  const fillIndexes = getManualFillIndexes();
-  if (!fillIndexes.length) {
+  ensureSheetProblemSets(currentSheetCount());
+  const entries = activeProblemEntries();
+  const targets = entries.filter(({ problem }) => isManualEntryProblem(problem) && problem.manualSource === "blank");
+  if (!targets.length) {
     setStatus("自動生成する空の問題がありません。");
     return;
   }
-  const usedKeys = new Set(problems.filter(isCompleteManualProblem).map(problemKey));
-  const generated = generateEditableProblems(settings, fillIndexes.length, usedKeys);
-  fillIndexes.forEach((problemIndex, index) => {
-    problems[problemIndex] = generated[index] || createManualProblem(settings);
+  const usedKeys = new Set(entries.map(({ problem }) => problem).filter(isCompleteManualProblem).map(problemKey));
+  const generated = generateEditableProblems(settings, targets.length, usedKeys);
+  targets.forEach(({ sheetIndex, problemIndex }, index) => {
+    sheetProblemSets[sheetIndex][problemIndex] = generated[index] || createManualProblem(settings);
   });
-  sheetProblemSets = [];
-  sheetSetSignature = "";
+  problems = sheetProblemSets[0];
   render();
-  const incomplete = problems.filter((problem) => !isCompleteManualProblem(problem)).length;
+  const incomplete = activeProblemEntries().filter(({ problem }) => !isCompleteManualProblem(problem)).length;
   setStatus(!generated.length
     ? noSolutionMessage(settings)
     : incomplete ? `${incomplete}問は入力途中です。` : "空の問題を自動生成しました。");
@@ -1715,15 +1703,16 @@ function regenerateProblemsByMode() {
     return;
   }
 
-  const preservedIndexes = new Set(getManualPreservedIndexes());
-  const generatedIndexes = problems.map((_, index) => index).filter((index) => !preservedIndexes.has(index));
-  const usedKeys = new Set([...preservedIndexes].map((index) => problems[index]).filter(isCompleteManualProblem).map(problemKey));
-  const generated = generateEditableProblems(settings, generatedIndexes.length, usedKeys);
-  generatedIndexes.forEach((problemIndex, index) => {
-    problems[problemIndex] = generated[index] || createManualProblem(settings);
+  ensureSheetProblemSets(currentSheetCount());
+  const entries = activeProblemEntries();
+  const targets = entries.filter(({ problem }) => problem.manualSource !== "manual");
+  const usedKeys = new Set(entries.filter(({ problem }) => problem.manualSource === "manual")
+    .map(({ problem }) => problem).filter(isCompleteManualProblem).map(problemKey));
+  const generated = generateEditableProblems(settings, targets.length, usedKeys);
+  targets.forEach(({ sheetIndex, problemIndex }, index) => {
+    sheetProblemSets[sheetIndex][problemIndex] = generated[index] || createManualProblem(settings);
   });
-  sheetProblemSets = [];
-  sheetSetSignature = "";
+  problems = sheetProblemSets[0];
   render();
   setStatus("自動生成の問題を作り直しました。");
 }
@@ -2764,9 +2753,10 @@ function applyGridDensity(list, settings, longDivisionBoardSize = null, multipli
   list.style.setProperty("--blank-h", `${blankHeight}mm`);
 }
 
-function renderPage(kind, showAnswer, pageProblems = problems) {
+function renderPage(kind, showAnswer, pageProblems = problems, sheetIndex = 0) {
   const settings = getSettings();
   const page = els.pageTemplate.content.firstElementChild.cloneNode(true);
+  page.dataset.sheetIndex = String(sheetIndex);
   page.classList.toggle("vertical-layout", settings.layout === "vertical");
   page.classList.toggle("calculation-workspace-layout", settings.layout === "horizontal-workspace");
   page.classList.toggle("answer-page", showAnswer);
@@ -2797,11 +2787,31 @@ function renderPage(kind, showAnswer, pageProblems = problems) {
     const item = document.createElement("li");
     item.className = "problem";
     if (!showAnswer && manualProblemNeedsAttention(problem)) item.classList.add("manual-problem-attention");
-    item.append(makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize, workspaceSize, problemIndex));
+    item.append(makeFormula(problem, showAnswer, settings, verticalDigitCount, longDivisionBoardSize, multiplicationBoardSize, workspaceSize, sheetIndex * settings.count + problemIndex));
     list.append(item);
   });
   fitHorizontalFormulas(list);
   return page;
+}
+
+function currentSheetCount() {
+  return clampNumber(restoredSheetCount ?? window.__printAdjustmentsGetSettings?.().sheetCount
+    ?? document.querySelector("#printSheetCount")?.value ?? 1, 1, 30, 1);
+}
+
+function knownProblemSets() {
+  return sheetProblemSets.length ? sheetProblemSets : [problems];
+}
+
+function activeProblemEntries() {
+  return knownProblemSets().slice(0, currentSheetCount()).flatMap((set, sheetIndex) =>
+    set.map((problem, problemIndex) => ({ problem, sheetIndex, problemIndex })));
+}
+
+function problemAtInputIndex(index) {
+  if (!Number.isInteger(index) || index < 0) return null;
+  const count = getSettings().count;
+  return knownProblemSets()[Math.floor(index / count)]?.[index % count] || null;
 }
 
 function ensureSheetProblemSets(sheetCount) {
@@ -2811,12 +2821,18 @@ function ensureSheetProblemSets(sheetCount) {
     sheetProblemSets = [];
     sheetSetSignature = signature;
   }
-  if (!sheetProblemSets.length) sheetProblemSets.push(problems.length ? problems.slice(0, settings.count) : selectProblems(settings));
+  if (!sheetProblemSets.length) sheetProblemSets.push(problems.length ? problems.slice(0, settings.count) : makeManualProblemsForSettings(settings));
   const usedKeys = new Set(sheetProblemSets.flat().map(problemKey));
-  while (sheetProblemSets.length < sheetCount) sheetProblemSets.push(selectProblems(settings, usedKeys));
-  sheetProblemSets = sheetProblemSets.slice(0, sheetCount);
+  while (sheetProblemSets.length < sheetCount) {
+    sheetProblemSets.push(isManualInputActive(settings) ? createManualProblems(settings) : selectProblems(settings, usedKeys));
+  }
+  if (isManualInputActive(settings)) {
+    sheetProblemSets = sheetProblemSets.map((set) => set.map((problem) =>
+      isManualEntryProblem(problem) ? problem : makeEditableProblem(problem, settings, "auto")));
+  }
   problems = sheetProblemSets[0] || problems;
-  return sheetProblemSets;
+  // Keep temporarily hidden sheets in memory when the visible count decreases.
+  return sheetProblemSets.slice(0, sheetCount);
 }
 
 function renderSheetPages(sheetCount, includeAnswers) {
@@ -2825,8 +2841,8 @@ function renderSheetPages(sheetCount, includeAnswers) {
   const pages = [];
   sets.forEach((set, index) => {
     const suffix = count > 1 ? ` ${index + 1}` : "";
-    pages.push(renderPage(`もんだい${suffix}`, false, set));
-    if (includeAnswers) pages.push(renderPage(`こたえ${suffix}`, true, set));
+    pages.push(renderPage(`もんだい${suffix}`, false, set, index));
+    if (includeAnswers) pages.push(renderPage(`こたえ${suffix}`, true, set, index));
   });
   els.pages.replaceChildren(...pages);
   scheduleHorizontalFormulaFit();
@@ -2846,15 +2862,13 @@ function render() {
     }
   }
   if (problems.length > settings.count) problems = problems.slice(0, settings.count);
-  els.pages.replaceChildren(renderPage("もんだい", false), renderPage("こたえ", true));
-  scheduleHorizontalFormulaFit();
-  els.pageCount.textContent = "2枚";
+  renderSheetPages(currentSheetCount(), els.includeAnswers.checked);
   lastGeneratedSettings = { ...settings };
   saveState();
 }
 
 function getShareState() {
-  return { settings: getSettings(), problems };
+  return { settings: getSettings(), problems, sheetProblemSets: knownProblemSets().slice(0, currentSheetCount()), sheetCount: currentSheetCount() };
 }
 
 function encodeState(state) {
@@ -2888,16 +2902,41 @@ function loadInitialState() {
   const sharedState = encoded ? decodeState(encoded) : null;
   if (sharedState?.settings && Array.isArray(sharedState.problems)) {
     applySettings(sharedState.settings);
-    problems = normalizeProblems(sharedState.problems, getSettings());
+    restoreWorksheetProblems(sharedState);
     return;
   }
   try {
     const saved = JSON.parse(localStorage.getItem(stateStorageKey) || "null");
     if (saved?.settings) applySettings(saved.settings);
-    if (Array.isArray(saved?.problems)) problems = normalizeProblems(saved.problems, getSettings());
+    if (Array.isArray(saved?.problems)) restoreWorksheetProblems(saved);
   } catch {
     // Ignore unavailable or malformed local storage.
   }
+}
+
+function restoreWorksheetProblems(state) {
+  const settings = getSettings();
+  problems = normalizeProblems(state.problems, settings);
+  if (Array.isArray(state.sheetProblemSets) && state.sheetProblemSets.length) {
+    sheetProblemSets = state.sheetProblemSets.slice(0, 30).map((set) => {
+      const normalized = normalizeProblems(set, settings).slice(0, settings.count);
+      while (normalized.length < settings.count) {
+        if (!isManualInputActive(settings)) return selectProblems(settings);
+        normalized.push(createManualProblem(settings));
+      }
+      return normalized;
+    });
+    problems = sheetProblemSets[0];
+    sheetSetSignature = sheetSignature(settings);
+    restoredSheetCount = clampNumber(state.sheetCount ?? sheetProblemSets.length, 1, 30, 1);
+  }
+}
+
+function applyRestoredSheetCount() {
+  if (restoredSheetCount === null || typeof window.__printAdjustmentsApplySettings !== "function") return;
+  const sheetCount = restoredSheetCount;
+  restoredSheetCount = null;
+  window.__printAdjustmentsApplySettings({ sheetCount });
 }
 
 async function copyShareUrl() {
@@ -2926,7 +2965,7 @@ function restoreManualEntryFocus() {
 function updateManualEntry(input, value) {
   const problemIndex = Number(input.dataset.problemIndex);
   const operand = input.dataset.operand;
-  const problem = problems[problemIndex];
+  const problem = problemAtInputIndex(problemIndex);
   if (!problem || !["a", "b"].includes(operand)) return;
 
   const digits = manualExpectedDigits(problem, operand, Number(input.dataset.digits));
@@ -2940,8 +2979,6 @@ function updateManualEntry(input, value) {
     ? "blank"
     : "manual";
   updateManualProblemAnswer(problem);
-  sheetProblemSets = [];
-  sheetSetSignature = "";
   manualFocusTarget = {
     problemIndex,
     operand,
@@ -2978,8 +3015,8 @@ function handleManualEntryPointerDown(event) {
 
 function incompleteManualProblemNumbers(settings = getSettings()) {
   if (!isManualInputActive(settings)) return [];
-  return problems.reduce((numbers, problem, index) => {
-    if (!isCompleteManualProblem(problem)) numbers.push(index + 1);
+  return activeProblemEntries().reduce((numbers, { problem, sheetIndex, problemIndex }) => {
+    if (!isCompleteManualProblem(problem)) numbers.push(sheetIndex * settings.count + problemIndex + 1);
     return numbers;
   }, []);
 }
@@ -3021,7 +3058,7 @@ function handleProblemCountInput() {
     return;
   }
 
-  if (settings.count < problems.length && problems.slice(settings.count).some(hasManualInput)) {
+  if (knownProblemSets().some((set) => set.slice(settings.count).some(hasManualInput))) {
     const confirmed = window.confirm("減らした問題数より後ろの入力内容が削除されます。続けますか？");
     if (!confirmed) {
       els.problemCount.value = String(lastGeneratedSettings?.count || problems.length);
@@ -3029,10 +3066,13 @@ function handleProblemCountInput() {
       return;
     }
   }
-  problems = problems.slice(0, settings.count);
-  while (problems.length < settings.count) problems.push(createManualProblem(settings));
-  sheetProblemSets = [];
-  sheetSetSignature = "";
+  sheetProblemSets = knownProblemSets().map((set) => {
+    const resized = set.slice(0, settings.count);
+    while (resized.length < settings.count) resized.push(createManualProblem(settings));
+    return resized;
+  });
+  problems = sheetProblemSets[0];
+  sheetSetSignature = sheetSignature(settings);
   render();
 }
 
@@ -3041,7 +3081,8 @@ function handlePrint() {
   const incomplete = incompleteManualProblemNumbers(settings);
   if (incomplete.length) {
     incomplete.forEach((number) => {
-      if (problems[number - 1]) problems[number - 1].manualErrorVisible = true;
+      const problem = problemAtInputIndex(number - 1);
+      if (problem) problem.manualErrorVisible = true;
     });
     render();
     setStatus(`${incomplete.join("、")}番の問題を確認してください。`);
@@ -3067,7 +3108,8 @@ function handlePrintShortcutCapture(event) {
   event.preventDefault();
   event.stopImmediatePropagation();
   incomplete.forEach((number) => {
-    if (problems[number - 1]) problems[number - 1].manualErrorVisible = true;
+    const problem = problemAtInputIndex(number - 1);
+    if (problem) problem.manualErrorVisible = true;
   });
   render();
   setStatus(`${incomplete.join("、")}番の問題を確認してください。`);
@@ -3127,6 +3169,8 @@ function getLibraryState() {
   return {
     settings,
     problems: cloneStateValue(problems) || [],
+    sheetProblemSets: cloneStateValue(knownProblemSets().slice(0, currentSheetCount())) || [],
+    sheetCount: currentSheetCount(),
   };
 }
 
@@ -3144,11 +3188,13 @@ function applyLibraryState(state) {
   applySettings(settings);
   sheetProblemSets = [];
   sheetSetSignature = "";
+  restoredSheetCount = null;
   generationMessage = "";
 
   if (Array.isArray(state.problems)) {
-    problems = normalizeProblems(cloneStateValue(state.problems) || [], getSettings());
+    restoreWorksheetProblems(cloneStateValue(state));
     render();
+    applyRestoredSheetCount();
   } else {
     problems = [];
     generateProblems();
@@ -3171,3 +3217,4 @@ window.__printAdjustmentsGenerateSheets = ({ sheetCount, includeAnswers }) => {
 };
 if (!problems.length) generateProblems();
 else render();
+document.addEventListener("DOMContentLoaded", () => window.requestAnimationFrame(applyRestoredSheetCount), { once: true });

@@ -122,6 +122,8 @@
         date: "",
       },
       problems: kind === "worksheet" ? clone(current.problems) : null,
+      sheetProblemSets: kind === "worksheet" ? clone(current.sheetProblemSets) : null,
+      sheetCount: current.sheetCount,
       printAdjustments: clone(window.__printAdjustmentsGetSettings?.() || {}),
     };
     const now = new Date().toISOString();
@@ -142,6 +144,10 @@
     if (!state || typeof state.settings !== "object") return null;
     state.settings.name = "";
     state.settings.date = "";
+    if (Array.isArray(state.sheetProblemSets)) {
+      state.sheetProblemSets = state.sheetProblemSets.slice(0, 30).map((set) =>
+        Array.isArray(set) ? set.map(normalizeSavedProblem).filter(Boolean) : []);
+    }
     if (Array.isArray(state.problems)) {
       state.problems = state.problems.map(normalizeSavedProblem).filter(Boolean);
     } else {
