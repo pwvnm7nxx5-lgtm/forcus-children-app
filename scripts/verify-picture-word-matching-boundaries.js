@@ -5,10 +5,10 @@ async(page)=>{
  try{
   const p=await context.newPage();await p.goto('http://127.0.0.1:4192/apps/picture-word-matching/');
   const settle=()=>p.evaluate(async()=>{for(let i=0;i<4;i++)await new Promise(requestAnimationFrame);await Promise.all([...document.querySelectorAll('#pages img')].map(i=>i.decode()));});
-  // Only a generic fish and a puffer fish: enough words but no unambiguous worksheet.
+  // A general clock and a wristwatch must not compete as ambiguous answers.
   await p.locator('#pairCount').selectOption('2');await p.locator('#wordBank').evaluate(el=>{el.open=true;});await settle();
   await p.locator('#excludeVisible').click();
-  for(const word of ['さかな','ふぐ']){
+  for(const word of ['とけい','うでどけい']){
    await p.locator('#wordSearch').fill(word);
    await p.locator('.bank-word').filter({hasText:new RegExp(`^${word}$`)}).locator('input').check();
   }await settle();

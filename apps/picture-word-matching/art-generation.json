@@ -1,0 +1,27 @@
+{
+  "tool": "built-in image_gen",
+  "purpose": "240 concrete word illustrations in twenty atlas assets",
+  "commonPrompt": "Use case: scientific-educational. Production asset: ONE high-resolution colour illustration SPRITE ATLAS for a Japanese elementary-school special-education picture-to-word worksheet. Canvas 2048 x 1536, exactly FOUR equal columns and THREE equal rows, twelve equal cells, row-major order. No visible grid lines or borders. Each cell is a pure white square with exactly the listed object, centred within the central 76 percent of the cell with generous white padding on every side. ALL twelve subjects must be complete, accurately formed, and fully contained in their own cell with no cropping and no cross-cell overlap. Style matches a polished realistic educational picture dictionary: carefully observed true-to-life proportions, rich natural colour, gently shaded surfaces, crisp clear silhouettes and material detail, like fine coloured-pencil / gouache textbook illustrations. NOT emoji, NOT simplified flat vector icons, NOT baby cartoons. Readable as 4cm printed pictures. No anthropomorphic faces on objects. No labels, captions, readable words, letters, logos, watermarks, scenery, decorative stars or unlisted props. Animals have natural anatomy and correct limb counts. The subject list is mandatory, not suggestions. Arrange EXACTLY in row-major order from upper left. ",
+  "sourceFiles": {
+    "animals-home": "exec-4270f2df-33d6-4944-ba1b-a9f15e97e8a2.png",
+    "animals-zoo": "exec-1d63af8d-cbdd-4e35-a12d-9500860fada1.png",
+    "animals-birds-water": "exec-c4fd6114-fcef-45fd-80c5-cdf6ae1c6ddd.png",
+    "animals-small": "exec-5f2c6dbe-ef88-48fa-96a4-fbaf1498c590.png",
+    "food-fruit": "exec-9a1fdaa0-61db-4850-bf5d-43cc0244a38f.png",
+    "food-vegetables": "exec-b696c7d1-c65b-4cba-bc34-20de61688309.png",
+    "food-meals": "exec-8a17afd4-33e3-4944-9728-41fb8ebe2a9d.png",
+    "food-dishes": "exec-c1c25907-e2cd-4d8e-bf09-9a1300e308fd.png",
+    "food-snacks": "exec-84c6948f-550a-48f2-8495-f5751a8dc377.png",
+    "daily-clothes": "exec-d41e2d01-9fb8-48f8-ae02-6af7663d08a2.png",
+    "daily-personal": "exec-c98c37dc-729b-4baf-ab19-d640c24859a7.png",
+    "daily-kitchen": "exec-9335ca9a-f4e4-4f2f-bb26-074f47963c73.png",
+    "daily-room": "exec-49e0be4e-e9ae-49c2-8887-ed925a98fdd1.png",
+    "daily-cleaning": "exec-ea5993f5-9913-4400-bd3e-d71b28a86da0.png",
+    "school-stationery": "exec-8e09bd2f-5762-47e9-b392-e9bb8901ff6f.png",
+    "school-tools-music": "exec-55eb5645-363b-4393-891f-8cec90d658b8.png",
+    "transport-vehicles": "exec-cc2893f0-0d47-4440-8654-225797984ac5.png",
+    "transport-town": "exec-3a32b14f-e673-48fc-b888-903923bc3dcb.png",
+    "nature": "exec-f05f32bc-1955-41de-b68d-4f455b4d3922.png",
+    "play": "exec-14893da6-a24c-4725-9668-95a711bfedd9.png"
+  }
+}

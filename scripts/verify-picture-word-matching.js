@@ -38,6 +38,11 @@ async(page)=>{
  async function geometry(){
   return page.evaluate(()=>{
    const issues=[];
+   document.querySelectorAll('#pages .illustration').forEach(frame=>{
+    const img=frame.querySelector('img'),r=img.getBoundingClientRect(),box=frame.getBoundingClientRect();
+    if(box.width<20||box.height<20)issues.push('empty illustration window');
+    if(Math.abs(r.width/r.height-img.naturalWidth/img.naturalHeight)>.015)issues.push('distorted illustration');
+   });
    document.querySelectorAll('.word-frame span').forEach(span=>{const r=span.getBoundingClientRect(),p=span.parentElement.getBoundingClientRect();if(r.width>p.width+1||r.height>p.height+1)issues.push('word clipping');});
    document.querySelectorAll('.answer-connection').forEach(line=>{
     const board=line.closest('.matching-board');

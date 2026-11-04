@@ -18,7 +18,7 @@ async(page)=>{
   await p.reload();await settle();
   if(await p.locator('.print-page').count()!==4)throw Error('malformed saved state did not recover');
   // Failed image downloads must not produce an incomplete printed worksheet.
-  await p.route('**/assets/*.svg',route=>route.abort());
+  await p.route('**/assets/illustrations/*.webp',route=>route.abort());
   await p.reload();await p.waitForFunction(()=>document.querySelector('#printBtn').disabled&&document.querySelector('#status').textContent.includes('絵を読み込めません'));
   await p.keyboard.press('Control+p');
   if(await p.evaluate(()=>window.__nativePrintCalls)!==0)throw Error('missing images reached native print');

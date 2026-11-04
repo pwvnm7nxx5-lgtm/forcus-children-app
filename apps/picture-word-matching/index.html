@@ -3,16 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="app-release" content="20261104-1">
+  <meta name="app-release" content="20261104-2">
   <title>絵とことばのマッチング作成</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="styles.css?v=20261104-1">
+  <link rel="stylesheet" href="styles.css?v=20261104-2">
 </head>
 <body>
   <div class="app-shell">
     <aside class="controls" aria-label="プリント設定">
       <div class="brand"><h1>絵とことばの<br>マッチング作成</h1><div class="brand-actions"><a class="home-link" href="../../index.html">入口に戻る</a><span id="pageCount">0枚</span></div></div>
       <p class="intro">絵に合うことばを線で結ぶプリントです。</p>
+      <p id="catalogNotice" class="help" hidden>絵とことばを身近な240種類に更新しました。旧データで対応できない問題は作り直しています。</p>
       <label class="field"><span>プリント名</span><input id="worksheetTitle" type="text" value="せんで むすぼう" maxlength="30"></label>
       <div class="row-fields"><label class="field"><span>名前</span><input id="studentName" type="text" maxlength="30" autocomplete="off"></label><label class="field"><span>日付</span><input id="worksheetDate" type="text" maxlength="20" autocomplete="off"></label></div>
       <fieldset>
@@ -36,13 +37,16 @@
       <div class="actions"><button id="printBtn" type="button" data-print-adjust-managed="true">印刷 / PDF保存</button><button id="regenerateBtn" type="button">全ページを作り直す</button></div>
       <p id="status" class="status" role="status" aria-live="polite"></p>
       <p class="help">絵はカラーです。印刷時にもカラーを選んでください。印刷や文字サイズの変更では問題は変わりません。</p>
-      <p class="credits">絵：<a href="https://openmoji.org/" target="_blank" rel="noreferrer">OpenMoji</a>（<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a>）<br><a href="ATTRIBUTION.md" target="_blank">素材と利用条件</a></p>
+      <p class="credits">絵：教材用に制作したカラーイラスト<br><a href="ATTRIBUTION.md" target="_blank">素材について</a></p>
     </aside>
     <main class="preview-wrap" aria-label="印刷プレビュー"><div id="pages" class="pages"></div></main>
   </div>
-  <script src="vocabulary.js?v=20261104-1"></script>
+  <script src="art-catalog.js?v=20261104-2"></script>
+  <script src="art-manifest.js?v=20261104-2"></script>
+  <script src="legacy-ids.js?v=20261104-2"></script>
+  <script src="vocabulary.js?v=20261104-2"></script>
   <script src="generator.js?v=20261104-1"></script>
-  <script src="app.js?v=20261104-1"></script>
+  <script src="app.js?v=20261104-2"></script>
   <script>window.__printAdjustmentsOptions = { autoFit: false, paperAreaAutoFit: true };</script>
   <script src="../shared/print-adjustments.js?v=20260928-1"></script>
 </body>

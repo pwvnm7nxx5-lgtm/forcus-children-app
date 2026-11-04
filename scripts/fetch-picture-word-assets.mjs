@@ -3,6 +3,10 @@ import fs from 'node:fs/promises';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { vocabulary } = require('../apps/picture-word-matching/vocabulary.js');
+if(vocabulary.some(word=>word.art)){
+ console.log('現在の教材は生成画像です。旧OpenMoji素材の取得は行いません。新しい画像の取り込みには scripts/import-matching-art.mjs を使ってください。');
+ process.exit(0);
+}
 const commit = '626bdc684b85738ebdba73ad83c499c2eb88c5dd';
 const folder = new URL('../apps/picture-word-matching/assets/', import.meta.url);
 await fs.mkdir(folder, { recursive: true });
