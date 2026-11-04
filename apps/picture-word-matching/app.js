@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   const { vocabulary, categories } = window.PictureWordVocabulary;
+  const legacyIds = window.PictureWordLegacyIds;
   const G = window.PictureWordGenerator;
   const byId = new Map(vocabulary.map(word => [word.id, word]));
   const key = 'picture-word-matching:v1';
@@ -16,7 +17,7 @@
   function signature() { return JSON.stringify([$('category').value, Number($('pairCount').value), [...excluded].sort()]); }
   function setStatus(text, error = false) { $('status').textContent = text; $('status').classList.toggle('error', error); }
   function save() {
-    try { localStorage.setItem(key, JSON.stringify({ settings: settings(), excluded: [...excluded], sheets })); }
+    try { localStorage.setItem(key, JSON.stringify({ catalogVersion: 2, settings: settings(), excluded: [...excluded], sheets })); }
     catch { setStatus('このブラウザでは保存できません。画面を閉じると問題が失われます。', true); }
   }
   function restore() {
@@ -30,9 +31,18 @@
           if ([...field.options].some(option => option.value === value)) field.value = value;
         } else field.value = value.slice(0, Number(field.maxLength));
       });
-      excluded = new Set(Array.isArray(stored.excluded) ? stored.excluded.filter(id => byId.has(id)) : []);
+      const resolve = id => typeof id === 'string' ? (byId.has(id) ? id : Object.hasOwn(legacyIds, id) ? legacyIds[id] : null) : null;
+      excluded = new Set(Array.isArray(stored.excluded) ? stored.excluded.map(resolve).filter(Boolean) : []);
       const allowed = new Set(pool().map(word => word.id));
-      sheets = Array.isArray(stored.sheets) ? stored.sheets.slice(0, 30).filter(sheet => G.validSheet(sheet, allowed, Number($('pairCount').value))) : [];
+      const drafts = Array.isArray(stored.sheets) ? stored.sheets.slice(0, 30).map(sheet => ({
+        ids: Array.isArray(sheet?.ids) ? sheet.ids.map(resolve) : [],
+        words: Array.isArray(sheet?.words) ? sheet.words.map(resolve) : [],
+      })) : [];
+      const valid = sheet => G.validSheet(sheet, allowed, Number($('pairCount').value))
+        && sheet.ids.every(id => byId.get(id).conflicts.every(other => !sheet.ids.includes(other)));
+      const used = new Set(drafts.filter(valid).flatMap(sheet => sheet.ids));
+      sheets = drafts.map(sheet => valid(sheet) ? sheet : G.makeSheet(pool(), Number($('pairCount').value), used));
+      $('catalogNotice').hidden = stored.catalogVersion === 2;
       loadedSignature = signature();
     } catch { /* Invalid or unavailable storage starts a fresh worksheet. */ }
   }
@@ -51,13 +61,24 @@
     return node;
   }
   function picture(word, lazy = false) {
-    const img = element('img'); img.src = word.image; img.alt = word.hiragana; img.width = 128; img.height = 128;
+    const art = word.art;
+    const tileWidth = art.width / art.columns, tileHeight = art.height / art.rows;
+    const cropWidth = tileWidth * (1 + art.leftBleed - art.rightTrim), cropX = tileWidth * (art.column - art.leftBleed);
+    const frame = element('span', 'illustration');
+    frame.style.setProperty('--art-aspect', cropWidth / tileHeight);
+    frame.dataset.illustrationId = word.id;
+    const img = element('img'); img.src = word.image; img.alt = word.hiragana; img.width = art.width; img.height = art.height; img.decoding = 'async';
+    img.style.width = `${art.width / cropWidth * 100}%`;
+    img.style.height = `${art.rows * 100}%`;
+    img.style.left = `${-cropX / cropWidth * 100}%`;
+    img.style.top = `${-art.row * 100}%`;
     if (lazy) img.loading = 'lazy';
     img.addEventListener('error', () => {
       failedImages.add(word.id); $('printBtn').disabled = true;
       setStatus('絵を読み込めませんでした。再読み込みしてから印刷してください。', true);
     });
-    return img;
+    frame.append(img);
+    return frame;
   }
   function pageFor(sheet, index, answer) {
     const page = element('section', `print-page${answer ? ' answer-page' : ''}`);
@@ -104,7 +125,7 @@
     });
     board.append(connections, pics, words);
     const footer = element('footer', 'print-footer');
-    footer.append(element('span', '', `${count}くみ`), element('span', '', 'Illustrations: OpenMoji · CC BY-SA 4.0 · openmoji.org'));
+    footer.append(element('span', '', `${count}くみ`), element('span', '', '絵とことばのマッチング'));
     const content = element('div', 'print-page-content');
     content.append(header, instructions, label, board, footer);
     page.append(content);

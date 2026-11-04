@@ -1,0 +1,148 @@
+{
+  "version": 2,
+  "format": "webp",
+  "columns": 4,
+  "rows": 3,
+  "atlases": {
+    "animals-home": {
+      "image": "assets/illustrations/animals-home.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-4270f2df-33d6-4944-ba1b-a9f15e97e8a2.png",
+      "sourceSha256": "880b2719ea313f9dca41c51fb68ed175708f0f1f83d15374504dc17e60be0c20"
+    },
+    "animals-zoo": {
+      "image": "assets/illustrations/animals-zoo.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-1d63af8d-cbdd-4e35-a12d-9500860fada1.png",
+      "sourceSha256": "15b5dd227cb418f88b2a78ea9aa2dd7939ab9b84e063210652fa09b04a1ebfaf"
+    },
+    "animals-birds-water": {
+      "image": "assets/illustrations/animals-birds-water.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-c4fd6114-fcef-45fd-80c5-cdf6ae1c6ddd.png",
+      "sourceSha256": "81e75f7eabfaff051654189ac2e6183029754891b6156bed153c70f5261ef2aa"
+    },
+    "animals-small": {
+      "image": "assets/illustrations/animals-small.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-5f2c6dbe-ef88-48fa-96a4-fbaf1498c590.png",
+      "sourceSha256": "f0c865929f138325f5da2c85c4dc49a28cf93968c6263b42439fb363f6c69386"
+    },
+    "food-fruit": {
+      "image": "assets/illustrations/food-fruit.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-9a1fdaa0-61db-4850-bf5d-43cc0244a38f.png",
+      "sourceSha256": "2e49d0a1e6d9a959e806438e7aa2e257f1496dd493e572ad321401fa8a05cf5e"
+    },
+    "food-vegetables": {
+      "image": "assets/illustrations/food-vegetables.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-b696c7d1-c65b-4cba-bc34-20de61688309.png",
+      "sourceSha256": "a60e8263ac288ce5fe7dbc60ab0296d1e344ba04cedc09086d170f039479e1bc"
+    },
+    "food-meals": {
+      "image": "assets/illustrations/food-meals.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-8a17afd4-33e3-4944-9728-41fb8ebe2a9d.png",
+      "sourceSha256": "f5c59cd022d866654a40b5f088e7ba62f400f9968681d036ba5d5d28897335ee"
+    },
+    "food-dishes": {
+      "image": "assets/illustrations/food-dishes.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-c1c25907-e2cd-4d8e-bf09-9a1300e308fd.png",
+      "sourceSha256": "d8bbf30ea480b56ee1d558a083385f21d2065b5cecc16773dc7ad6f00093f267"
+    },
+    "food-snacks": {
+      "image": "assets/illustrations/food-snacks.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-84c6948f-550a-48f2-8495-f5751a8dc377.png",
+      "sourceSha256": "1eb9069f2f543ab1d3d55250c481aa3222a9e942d05c766799991a79c6689643"
+    },
+    "daily-clothes": {
+      "image": "assets/illustrations/daily-clothes.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-d41e2d01-9fb8-48f8-ae02-6af7663d08a2.png",
+      "sourceSha256": "93cf38dbb3d54292960f1400acef49e4ae876fd3c7cd8fdb33251a6a9eaa8232"
+    },
+    "daily-personal": {
+      "image": "assets/illustrations/daily-personal.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-c98c37dc-729b-4baf-ab19-d640c24859a7.png",
+      "sourceSha256": "178f5044d1fad5bfc889273d1f4c7ceffee34611b4f7e66c2da6b88a815d9481"
+    },
+    "daily-kitchen": {
+      "image": "assets/illustrations/daily-kitchen.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-9335ca9a-f4e4-4f2f-bb26-074f47963c73.png",
+      "sourceSha256": "8032f3ff2e447c76b93833cbe5467907108ca05b562a90126394e4d5eb5f9f90"
+    },
+    "daily-room": {
+      "image": "assets/illustrations/daily-room.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-49e0be4e-e9ae-49c2-8887-ed925a98fdd1.png",
+      "sourceSha256": "7a5d0635da9e8bfd2ea15fa60dd51c9567ff9b830378c56a2d0216dab242174d"
+    },
+    "daily-cleaning": {
+      "image": "assets/illustrations/daily-cleaning.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-ea5993f5-9913-4400-bd3e-d71b28a86da0.png",
+      "sourceSha256": "e210a844f5a9af68e9fd7c43b700d247902323efe2ffda11a71664e7291d81d1"
+    },
+    "school-stationery": {
+      "image": "assets/illustrations/school-stationery.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-8e09bd2f-5762-47e9-b392-e9bb8901ff6f.png",
+      "sourceSha256": "bf3c210a6cf50e32f996649e565668ed291c66c2d7cfd09ec90b863312684021"
+    },
+    "school-tools-music": {
+      "image": "assets/illustrations/school-tools-music.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-55eb5645-363b-4393-891f-8cec90d658b8.png",
+      "sourceSha256": "f1c8c2483d32752b646a1668234be3d3d463b5903d7a740559c9c332b0e19488"
+    },
+    "transport-vehicles": {
+      "image": "assets/illustrations/transport-vehicles.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-cc2893f0-0d47-4440-8654-225797984ac5.png",
+      "sourceSha256": "3a8c6a779ceaf9f2f39850074a218af34ebdcb716eb2c844f69e5120d4938ea3"
+    },
+    "transport-town": {
+      "image": "assets/illustrations/transport-town.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-3a32b14f-e673-48fc-b888-903923bc3dcb.png",
+      "sourceSha256": "de88124d35de94d698b4dadd7dab4b128958f07d8c172936408deda20473e2fc"
+    },
+    "nature": {
+      "image": "assets/illustrations/nature.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-f05f32bc-1955-41de-b68d-4f455b4d3922.png",
+      "sourceSha256": "e0080c9b7aa367d4e9095c2a3887603c2222fa68055fb8275e292cd665d7387c"
+    },
+    "play": {
+      "image": "assets/illustrations/play.webp",
+      "width": 1448,
+      "height": 1086,
+      "sourceFile": "exec-14893da6-a24c-4725-9668-95a711bfedd9.png",
+      "sourceSha256": "1fbbb423b2707a3076c4f388a531a2d5b94a9e3b8e9a98682cdcb475aebddacb"
+    }
+  }
+}
