@@ -8,7 +8,7 @@
     tags: ["ことば", "絵", "マッチング", "ひらがな", "カタカナ", "印刷"],
     href: "apps/picture-word-matching/index.html",
     actionLabel: "マッチングを作る",
-    status: "開発中",
+    status: "ready",
     accent: "#0d766b",
   },
   {
