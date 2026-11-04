@@ -1,5 +1,10 @@
 window.UPDATE_HISTORY = [
   {
+    date: "11月4日",
+    title: "絵とことばのマッチング作成を開発中として追加",
+    isNew: true,
+  },
+  {
     date: "10月15日",
     title: "お手本を写す「点つなぎ作成」を追加",
     isNew: true,

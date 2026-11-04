@@ -1,5 +1,17 @@
 ﻿window.INTEGRATED_APPS = [
   {
+    id: "picture-word-matching",
+    title: "絵とことばのマッチング作成",
+    description: "カラーの絵とことばを線で結ぶプリントを作成できます。ひらがなとカタカナを選べます。",
+    category: "教材",
+    grades: ["all", "1", "2", "3", "4", "5", "6"],
+    tags: ["ことば", "絵", "マッチング", "ひらがな", "カタカナ", "印刷"],
+    href: "apps/picture-word-matching/index.html",
+    actionLabel: "マッチングを作る",
+    status: "開発中",
+    accent: "#0d766b",
+  },
+  {
     id: "dot-copy-print",
     title: "点つなぎ作成",
     description: "左のお手本を見て、右の同じ点の並びに線を写すプリントを作成できます。",
