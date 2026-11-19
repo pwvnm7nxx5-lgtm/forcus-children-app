@@ -3,6 +3,7 @@ const els = {
   worksheetDate: document.querySelector("#worksheetDate"),
   worksheetTitle: document.querySelector("#worksheetTitle"),
   problemType: document.querySelector("#problemType"),
+  omitMultiplierOne: document.querySelector("#omitMultiplierOne"),
   layoutMode: document.querySelector("#layoutMode"),
   problemCount: document.querySelector("#problemCount"),
   problemCountPreset: document.querySelector("#problemCountPreset"),
@@ -98,6 +99,7 @@ function getSettings() {
     date: els.worksheetDate.value,
     title: els.worksheetTitle.value || "2年生 計算プリント",
     type,
+    omitMultiplierOne: els.omitMultiplierOne.checked,
     layout,
     count: getProblemCount(),
     columns: getColumns(),
@@ -120,6 +122,7 @@ function applySettings(settings) {
   els.problemCountPreset.value = "";
   els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, 3));
   els.showCarryBoxes.checked = settings.showCarryBoxes !== false;
+  els.omitMultiplierOne.checked = settings.omitMultiplierOne === true;
   updateLayoutAvailability();
 }
 
@@ -133,6 +136,7 @@ function setStatus(message) {
 
 function updateLayoutAvailability() {
   const isTimes = els.problemType.value === "times";
+  document.querySelector("#omitMultiplierOneField").hidden = !isTimes;
   els.layoutMode.disabled = isTimes;
   if (isTimes) {
     els.layoutMode.value = "horizontal";
@@ -143,7 +147,7 @@ function updateLayoutAvailability() {
 
 function makeCandidatePool(settings) {
   if (settings.type === "times") {
-    return makeTimesCandidates();
+    return makeTimesCandidates(settings.omitMultiplierOne);
   }
 
   const ops = settings.type === "mix2" ? ["+", "-"] : [settings.type === "add2" ? "+" : "-"];
@@ -178,10 +182,10 @@ function makeSubtractionCandidates() {
   return candidates;
 }
 
-function makeTimesCandidates() {
+function makeTimesCandidates(omitMultiplierOne) {
   const candidates = [];
   for (let a = 1; a <= 9; a += 1) {
-    for (let b = 1; b <= 9; b += 1) {
+    for (let b = omitMultiplierOne ? 2 : 1; b <= 9; b += 1) {
       candidates.push({ a, b, op: "×", answer: a * b });
     }
   }
@@ -204,6 +208,7 @@ function problemKey(problem) {
 function sheetSignature(settings) {
   return JSON.stringify({
     type: settings.type,
+    omitMultiplierOne: settings.omitMultiplierOne,
     layout: settings.layout,
     count: settings.count,
   });
@@ -465,6 +470,9 @@ function applyGridDensity(list, settings) {
 function render() {
   updateLayoutAvailability();
   const settings = getSettings();
+  if (settings.type === "times" && settings.omitMultiplierOne && problems.some((problem) => Number(problem.b) === 1)) {
+    problems = selectProblems(settings);
+  }
   if (!problems.length || problems.length < settings.count) {
     problems = makeCandidatePool(settings).slice(0, settings.count);
   } else if (problems.length > settings.count) {
@@ -557,6 +565,7 @@ function bindEvents() {
   });
 
   els.problemType.addEventListener("change", generateProblems);
+  els.omitMultiplierOne.addEventListener("change", generateProblems);
   els.problemCount.addEventListener("change", generateProblems);
   els.layoutMode.addEventListener("change", () => {
     updateLayoutAvailability();

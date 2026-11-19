@@ -3,6 +3,7 @@ const els = {
   worksheetDate: document.querySelector("#worksheetDate"),
   worksheetTitle: document.querySelector("#worksheetTitle"),
   problemType: document.querySelector("#problemType"),
+  omitMultiplierOne: document.querySelector("#omitMultiplierOne"),
   problemCount: document.querySelector("#problemCount"),
   problemCountPreset: document.querySelector("#problemCountPreset"),
   columns: document.querySelector("#columns"),
@@ -26,8 +27,8 @@ const multiplicationConfig = window.MULTIPLICATION_WORKSHEET_APP || {
   digitWidth: 4,
   types: ["twoByOne", "threeByOne", "twoByTwo", "mixed"],
   ranges: {
-    twoByOne: { aMin: 12, aMax: 99, bMin: 2, bMax: 9 },
-    threeByOne: { aMin: 101, aMax: 999, bMin: 2, bMax: 9 },
+    twoByOne: { aMin: 12, aMax: 99, bMin: 1, bMax: 9 },
+    threeByOne: { aMin: 101, aMax: 999, bMin: 1, bMax: 9 },
     twoByTwo: { aMin: 12, aMax: 99, bMin: 11, bMax: 99 },
   },
 };
@@ -69,6 +70,7 @@ function getSettings() {
     date: els.worksheetDate.value,
     title: els.worksheetTitle.value || multiplicationConfig.title,
     type: clampChoice(els.problemType.value, problemTypes, multiplicationConfig.defaultType),
+    omitMultiplierOne: els.omitMultiplierOne.checked,
     count: getProblemCount(),
     columns: getColumns(),
     showCarryBoxes: els.showCarryBoxes.checked,
@@ -88,6 +90,7 @@ function applySettings(settings) {
   els.problemCountPreset.value = "";
   els.columns.value = String(clampNumber(settings.columns, columnsMin, columnsMax, multiplicationConfig.defaultColumns));
   els.showCarryBoxes.checked = settings.showCarryBoxes !== false;
+  els.omitMultiplierOne.checked = settings.omitMultiplierOne === true;
 }
 
 function setStatus(message) {
@@ -111,11 +114,12 @@ function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function makeProblemForType(type) {
+function makeProblemForType({ type, omitMultiplierOne }) {
   const concreteTypes = problemTypes.filter((value) => value !== "mixed");
   const selectedType = type === "mixed" ? concreteTypes[randomInt(0, concreteTypes.length - 1)] : type;
   const range = multiplicationConfig.ranges[selectedType] || multiplicationConfig.ranges[multiplicationConfig.defaultType];
-  return createProblem(randomInt(range.aMin, range.aMax), randomInt(range.bMin, range.bMax), selectedType);
+  const minMultiplier = omitMultiplierOne ? Math.max(2, range.bMin) : range.bMin;
+  return createProblem(randomInt(range.aMin, range.aMax), randomInt(minMultiplier, range.bMax), selectedType);
 }
 
 function problemKey(problem) {
@@ -125,6 +129,7 @@ function problemKey(problem) {
 function sheetSignature(settings) {
   return JSON.stringify({
     type: settings.type,
+    omitMultiplierOne: settings.omitMultiplierOne,
     count: settings.count,
   });
 }
@@ -135,7 +140,7 @@ function selectProblems(settings, usedKeys = new Set()) {
   let attempts = 0;
   while (selected.length < settings.count && attempts < settings.count * 160) {
     attempts += 1;
-    const problem = makeProblemForType(settings.type);
+    const problem = makeProblemForType(settings);
     const key = problemKey(problem);
     if (!seen.has(key) && !usedKeys.has(key)) {
       selected.push(problem);
@@ -143,7 +148,7 @@ function selectProblems(settings, usedKeys = new Set()) {
       usedKeys.add(key);
     }
   }
-  while (selected.length < settings.count) selected.push(makeProblemForType(settings.type));
+  while (selected.length < settings.count) selected.push(makeProblemForType(settings));
   return selected;
 }
 
@@ -349,8 +354,9 @@ function renderSheetPages(sheetCount, includeAnswers) {
 }
 
 function render() {
-  if (!problems.length) {
-    problems = selectProblems(getSettings());
+  const settings = getSettings();
+  if (!problems.length || (settings.omitMultiplierOne && problems.some((problem) => Number(problem.b) === 1))) {
+    problems = selectProblems(settings);
   }
   els.pages.replaceChildren(renderPage("もんだい", false), renderPage("こたえ", true));
   els.pageCount.textContent = "2枚";
@@ -430,6 +436,7 @@ function bindEvents() {
   });
 
   els.problemType.addEventListener("change", generateProblems);
+  els.omitMultiplierOne.addEventListener("change", generateProblems);
   els.columns.addEventListener("change", render);
   els.columns.addEventListener("input", render);
   els.showCarryBoxes.addEventListener("change", render);

@@ -10,6 +10,7 @@ const els = {
   worksheetDate: document.querySelector("#worksheetDate"),
   worksheetTitle: document.querySelector("#worksheetTitle"),
   operation: document.querySelector("#operation"),
+  omitMultiplierOne: document.querySelector("#omitMultiplierOne"),
   digitsA: document.querySelector("#digitsA"),
   digitsB: document.querySelector("#digitsB"),
   operandALabel: document.querySelector("#operandALabel"),
@@ -343,6 +344,7 @@ function getSettings() {
     date: els.worksheetDate.value,
     title: els.worksheetTitle.value || "計算問題作成",
     operation: getOperation(),
+    omitMultiplierOne: els.omitMultiplierOne.checked,
     digitsA: getOperandDigits("a"),
     digitsB: getOperandDigits("b"),
     decimalDigitA: els.digitsA.value,
@@ -483,6 +485,7 @@ function syncSettingsControls() {
   if (!manualInputVisible) els.creationMode.value = "auto";
   const creationMode = manualInputVisible ? clampChoice(els.creationMode.value, manualCreationModes, "auto") : "auto";
   els.creationMode.value = creationMode;
+  document.querySelector("#omitMultiplierOneField").hidden = !multiplicationVertical || creationMode === "manual";
   els.fillRemainingBtn.hidden = !(manualInputVisible && creationMode === "hybrid");
   els.manualInputHint.hidden = !(manualInputVisible && creationMode !== "auto");
 
@@ -507,6 +510,7 @@ function applySettings(settings) {
   els.decimalPlacesB.value = String(clampNumber(settings.decimalPlacesB, 1, 3, 1));
   els.resultRange.value = clampChoice(settings.resultRange, ["any", "ten"], "any");
   els.carryMode.value = clampChoice(settings.carryMode, ["any", "with", "without"], "any");
+  els.omitMultiplierOne.checked = settings.omitMultiplierOne === true;
   els.layoutMode.value = clampChoice(settings.layout, ["horizontal", "horizontal-workspace", "vertical"], "horizontal");
   els.creationMode.value = clampChoice(settings.creationMode, manualCreationModes, "auto");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, getProblemCountMax(), 30));
@@ -978,7 +982,7 @@ function makeMultiplyCandidates(settings) {
   const bBounds = numberBounds(settings, "b");
   return buildRandomPool(settings, () => {
     const a = randomInt(aBounds.min, aBounds.max);
-    const b = randomInt(bBounds.min, bBounds.max);
+    const b = randomInt(Math.max(bBounds.min, settings.omitMultiplierOne ? 2 : 1), bBounds.max);
     const problem = { a, b, op: "×", answer: a * b };
     return matchesResultRange(problem, settings) ? problem : null;
   });
@@ -1261,6 +1265,7 @@ function makeDecimalCandidates(settings) {
     if (type === "decimalMultiply") {
       const a = randomDecimalScaled(settings, "a", placesA);
       const b = randomDecimalScaled(settings, "b", placesB);
+      if (settings.omitMultiplierOne && b === 10 ** placesB) return null;
       return {
         a: formatDecimal(a, placesA),
         b: formatDecimal(b, placesB),
@@ -1476,6 +1481,7 @@ function bucketBalanceScore(bucket, targets, counts, weight) {
 function sheetSignature(settings) {
   return JSON.stringify({
     operation: settings.operation,
+    omitMultiplierOne: settings.omitMultiplierOne,
     digitsA: settings.digitsA,
     digitsB: settings.digitsB,
     decimalPlacesA: settings.decimalPlacesA,
@@ -1625,9 +1631,18 @@ function normalizeDivisionProblem(problem, settings) {
 }
 
 function normalizeProblems(values, settings) {
-  return Array.isArray(values)
+  const normalized = Array.isArray(values)
     ? values.map((problem) => normalizeDivisionProblem(problem, settings)).filter(Boolean)
     : [];
+  if (!settings.omitMultiplierOne || !normalized.some(isGeneratedTimesOne)) return normalized;
+  if (settings.creationMode === "hybrid") {
+    return normalized.map((problem) => isGeneratedTimesOne(problem) ? createManualProblem(settings) : problem);
+  }
+  return [];
+}
+
+function isGeneratedTimesOne(problem) {
+  return problem.manualSource !== "manual" && problem.op === "×" && Number(problem.b) === 1;
 }
 
 function noSolutionMessage(settings) {
@@ -3049,6 +3064,28 @@ function handleCreationModeChange() {
   generateProblems();
 }
 
+function handleOmitMultiplierOneChange() {
+  const settings = getSettings();
+  if (settings.creationMode !== "hybrid") {
+    generateProblems();
+    return;
+  }
+
+  if (settings.omitMultiplierOne) {
+    const sets = knownProblemSets();
+    const usedKeys = new Set(sets.flat().filter(isCompleteManualProblem).map(problemKey));
+    for (const set of sets) {
+      const targets = set.map((problem, index) => isGeneratedTimesOne(problem) ? index : -1).filter((index) => index >= 0);
+      const replacements = generateEditableProblems(settings, targets.length, usedKeys);
+      targets.forEach((index, offset) => {
+        set[index] = replacements[offset] || createManualProblem(settings);
+      });
+    }
+  }
+  sheetSetSignature = sheetSignature(settings);
+  render();
+}
+
 function handleProblemCountInput() {
   if (els.problemCount.value === "") return;
   syncSettingsControls();
@@ -3126,6 +3163,7 @@ function bindEvents() {
     control.addEventListener("change", handleProblemSettingsChange);
   });
   els.creationMode.addEventListener("change", handleCreationModeChange);
+  els.omitMultiplierOne.addEventListener("change", handleOmitMultiplierOneChange);
   els.showCarryBoxes.addEventListener("change", render);
   els.showWorkspaceDecimalPoint.addEventListener("change", render);
   els.showAnswerDecimalPoint.addEventListener("change", render);

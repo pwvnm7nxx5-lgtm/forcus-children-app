@@ -19,6 +19,7 @@
         <label class="field"><span>列数</span><input id="columns" type="number" min="1" max="6" step="1" value="3" inputmode="numeric"></label>
       </div>
       <div class="check-row">
+        <div id="omitMultiplierOneField" hidden><label><input id="omitMultiplierOne" type="checkbox"> ×1を省く</label></div>
         <label><input id="showCarryBoxes" type="checkbox" checked> 繰り上がり・くり下がりのマスをつける</label>
         <label><input id="includeAnswers" type="checkbox" checked> 答えページをつける</label>
       </div>
@@ -43,7 +44,7 @@
       <ol class="problem-grid" data-problems></ol>
     </section>
   </template>
-  <script src="app.js?v=operator-alignment"></script>
+  <script src="app.js?v=20261119-1"></script>
   <script src="../shared/print-adjustments.js?v=answer-line-none"></script>
 </body>
 </html>
