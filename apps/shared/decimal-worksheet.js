@@ -4,6 +4,7 @@
   const els = {
     studentName: document.querySelector("#studentName"), worksheetDate: document.querySelector("#worksheetDate"),
     worksheetTitle: document.querySelector("#worksheetTitle"), problemType: document.querySelector("#problemType"),
+    omitMultiplierOne: document.querySelector("#omitMultiplierOne"),
     layoutMode: document.querySelector("#layoutMode"), problemCount: document.querySelector("#problemCount"),
     problemCountPreset: document.querySelector("#problemCountPreset"), columns: document.querySelector("#columns"),
     showCarryBoxes: document.querySelector("#showCarryBoxes"), showAnswerDecimalPoint: document.querySelector("#showAnswerDecimalPoint"),
@@ -47,6 +48,7 @@
     return {
       name: els.studentName.value, date: els.worksheetDate.value, title: els.worksheetTitle.value || app.title,
       type,
+      omitMultiplierOne: els.omitMultiplierOne?.checked === true,
       layout,
       count: clampNumber(els.problemCount.value, 1, getProblemCountMax(type, layout), app.defaultCount || 24),
       columns: clampNumber(els.columns.value, 1, getColumnsMax(type, layout), app.defaultColumns || 3),
@@ -57,6 +59,9 @@
   function verticalAllowed(type) { return verticalTypes.includes(type); }
   function updateLayoutAvailability() {
     const allowed = verticalAllowed(els.problemType.value);
+    if (els.omitMultiplierOne) {
+      document.querySelector("#omitMultiplierOneField").hidden = !app.multiplicationTypes.includes(els.problemType.value);
+    }
     const verticalOption = els.layoutMode.querySelector('option[value="vertical"]');
     verticalOption.disabled = !allowed;
     if (!allowed && els.layoutMode.value === "vertical") els.layoutMode.value = "horizontal";
@@ -78,6 +83,7 @@
     els.problemCount.value = String(clampNumber(settings.count, 1, getProblemCountMax(els.problemType.value, els.layoutMode.value), app.defaultCount || 24));
     els.columns.value = String(clampNumber(settings.columns, 1, getColumnsMax(els.problemType.value, els.layoutMode.value), app.defaultColumns || 3));
     els.showCarryBoxes.checked = settings.showCarryBoxes !== false;
+    if (els.omitMultiplierOne) els.omitMultiplierOne.checked = settings.omitMultiplierOne === true;
     if (els.showAnswerDecimalPoint) els.showAnswerDecimalPoint.checked = settings.showAnswerDecimalPoint !== false;
     updateLayoutAvailability();
   }
@@ -296,7 +302,10 @@
     set.forEach((problem) => { const item = document.createElement("li"); item.className = "problem"; const card = document.createElement("span"); card.className = "problem-card"; card.append(settings.layout === "vertical" ? makeVertical(problem, showAnswer, settings, formulaDigitCount) : makeHorizontal(problem, showAnswer)); item.append(card); list.append(item); });
     return page;
   }
-  function signature(settings) { return JSON.stringify({ type: settings.type, layout: settings.layout, count: settings.count, columns: settings.columns }); }
+  function signature(settings) {
+    const { type, layout, count, columns, omitMultiplierOne } = settings;
+    return JSON.stringify({ type, layout, count, columns, omitMultiplierOne });
+  }
   function ensureSets(count) {
     const settings = getSettings(); const current = signature(settings);
     if (current !== sheetSignature) { sheetSets = []; sheetSignature = current; }
@@ -313,7 +322,8 @@
   function save() { try { localStorage.setItem(storageKey, JSON.stringify(state())); } catch {} }
   function render() {
     updateLayoutAvailability(); const settings = getSettings();
-    if (problems.length !== settings.count) problems = selectProblems(settings);
+    const hasOmittedProblem = settings.omitMultiplierOne && problems.some((problem) => problem.op === "×" && Number(problem.b) === 1);
+    if (problems.length !== settings.count || hasOmittedProblem) problems = selectProblems(settings);
     sheetSets = [problems.slice()]; sheetSignature = signature(settings); renderSheets(1, els.includeAnswers.checked); save();
   }
   function generate() { updateLayoutAvailability(); problems = selectProblems(getSettings()); sheetSets = []; sheetSignature = ""; render(); setStatus("もんだいを作り直しました。"); }
@@ -327,6 +337,7 @@
   function bind() {
     [els.studentName, els.worksheetDate, els.worksheetTitle].forEach((control) => control.addEventListener("input", render));
     els.problemType.addEventListener("change", generate); els.layoutMode.addEventListener("change", generate);
+    els.omitMultiplierOne?.addEventListener("change", generate);
     els.problemCount.addEventListener("input", () => { if (els.problemCount.value !== "") generate(); });
     els.problemCountPreset.addEventListener("change", () => { if (els.problemCountPreset.value) { els.problemCount.value = els.problemCountPreset.value; els.problemCountPreset.value = ""; generate(); } });
     els.columns.addEventListener("input", () => { if (els.columns.value !== "") render(); }); els.showCarryBoxes.addEventListener("change", render);

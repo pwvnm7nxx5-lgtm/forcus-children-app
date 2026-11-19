@@ -1,8 +1,13 @@
-function makeMultiply(randomInt, formatScaled, vertical) {
+function makeMultiply(randomInt, formatScaled, settings) {
+  const vertical = settings.layout === "vertical";
   const aPlaces = randomInt(1, 2);
   const a = randomInt(11, aPlaces === 1 ? 999 : 9999);
   const bPlaces = vertical ? 1 : randomInt(1, 2);
-  const b = vertical ? randomInt(2, 9) : randomInt(2, bPlaces === 1 ? 99 : 999);
+  const one = 10 ** bPlaces;
+  const bMax = vertical ? 9 : bPlaces === 1 ? 99 : 999;
+  const omitOneInRange = settings.omitMultiplierOne && one <= bMax;
+  const sampled = randomInt(2, bMax - Number(omitOneInRange));
+  const b = omitOneInRange && sampled >= one ? sampled + 1 : sampled;
   return {
     a: formatScaled(a, aPlaces),
     b: formatScaled(b, bPlaces),
@@ -52,10 +57,11 @@ window.DECIMAL_WORKSHEET_APP = {
   id: "decimal-print-grade5", title: "5年生 小数のかけ算・わり算", defaultType: "mixed", defaultCount: 18, defaultColumns: 3, digitCount: 8,
   verticalTypes: ["multiply", "divide", "mixed"], verticalLongDivisionTypes: ["divide", "mixed"], longDivisionCountMax: 18, longDivisionColumnsMax: 3,
   types: [{ value: "multiply" }, { value: "divide" }, { value: "mixed" }],
+  multiplicationTypes: ["multiply", "mixed"],
   generate(type, { randomInt, choice, formatScaled }, settings) {
     const selected = type === "mixed" ? choice(settings.layout === "vertical" ? ["multiply", "divide"] : ["multiply", "divide"]) : type;
     return selected === "multiply"
-      ? makeMultiply(randomInt, formatScaled, settings.layout === "vertical")
+      ? makeMultiply(randomInt, formatScaled, settings)
       : makeDivide(randomInt, formatScaled, settings.layout === "vertical");
   },
   getVerticalDigitCount(set, settings) {

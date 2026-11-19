@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="app-release" content="20260905-3">
+  <meta name="app-release" content="20261119-1">
   <title>計算問題集</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="styles.css?v=20260905-3">
@@ -32,6 +32,7 @@
         <label class="field"><span>列数</span><input id="columns" type="number" min="1" max="6" step="1" value="3" inputmode="numeric"></label>
       </div>
       <div class="check-row">
+        <div id="omitMultiplierOneField" hidden><label><input id="omitMultiplierOne" type="checkbox"> ×1を省く</label></div>
         <label><input id="showCarryBoxes" type="checkbox"> 繰り上がり・繰り下がりのマスをつける</label>
         <label class="decimal-setting" hidden><input id="showWorkspaceDecimalPoint" type="checkbox" checked> 計算スペースに小数点をつける</label>
         <label class="decimal-setting" hidden><input id="showAnswerDecimalPoint" type="checkbox" checked> 解答欄に小数点をつける</label>
@@ -61,7 +62,7 @@
     </section>
   </template>
   <script src="release-check.js"></script>
-  <script src="app.js?v=20260905-3"></script>
+  <script src="app.js?v=20261119-1"></script>
   <script src="../shared/print-adjustments.js?v=20260905-3"></script>
 </body>
 </html>

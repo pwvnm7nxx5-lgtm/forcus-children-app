@@ -11,6 +11,7 @@ const els = {
   worksheetTitle: document.querySelector("#worksheetTitle"),
   grade: document.querySelector("#grade"),
   operation: document.querySelector("#operation"),
+  omitMultiplierOne: document.querySelector("#omitMultiplierOne"),
   difficultyField: document.querySelector("#difficultyField"),
   difficulty: document.querySelector("#difficulty"),
   digitsField: document.querySelector("#digitsField"),
@@ -270,6 +271,7 @@ function getSettings() {
     title: els.worksheetTitle.value || "計算問題集",
     grade: getGrade(),
     operation: getOperation(),
+    omitMultiplierOne: els.omitMultiplierOne.checked,
     difficulty,
     digits,
     ...(difficulty === "multiplication-table" && standardDigits ? { standardDigits } : {}),
@@ -298,6 +300,9 @@ function replaceOptions(select, options, selectedValue) {
 function syncSettingsControls() {
   const currentOperation = els.operation.value;
   replaceOptions(els.operation, operationOptions[getGrade()], currentOperation);
+  document.querySelector("#omitMultiplierOneField").hidden = ![
+    "multiply", "decimalMultiplyInteger", "decimalMultiply",
+  ].includes(getOperation());
 
   const difficultySupported = supportsTableDivisionDifficulty();
   els.difficultyField.hidden = !difficultySupported;
@@ -384,6 +389,7 @@ function applySettings(settings) {
   }
   els.resultRange.value = clampChoice(settings.resultRange, ["any", "ten"], "any");
   els.carryMode.value = clampChoice(settings.carryMode, ["any", "with", "without"], "any");
+  els.omitMultiplierOne.checked = settings.omitMultiplierOne === true;
   els.layoutMode.value = clampChoice(settings.layout, ["horizontal", "horizontal-workspace", "vertical"], "horizontal");
   els.problemCount.value = String(clampNumber(settings.count, problemCountMin, getProblemCountMax(), 30));
   els.columns.value = String(clampNumber(settings.columns, columnsMin, getColumnsMax(), 3));
@@ -500,7 +506,7 @@ function makeMultiplyCandidates(settings) {
     const max = settings.difficulty === "easy" ? 5 : 9;
     return buildRandomPool(settings, () => {
       const a = randomInt(1, max);
-      const b = randomInt(1, max);
+      const b = randomInt(settings.omitMultiplierOne ? 2 : 1, max);
       const problem = { a, b, op: "×", answer: a * b };
       return matchesResultRange(problem, settings) ? problem : null;
     });
@@ -510,6 +516,7 @@ function makeMultiplyCandidates(settings) {
   return buildRandomPool(settings, () => {
     const a = randomInt(aBounds.min, aBounds.max);
     const b = randomInt(bBounds.min, bBounds.max);
+    if (settings.omitMultiplierOne && b === 1) return null;
     const problem = { a, b, op: "×", answer: a * b };
     return matchesResultRange(problem, settings) ? problem : null;
   });
@@ -744,7 +751,7 @@ function makeDecimalCandidates(settings) {
 
     if (type === "decimalMultiplyInteger") {
       const a = randomInt(10, max);
-      const b = randomInt(2, easy ? 5 : 9);
+      const b = randomInt(settings.omitMultiplierOne ? 2 : 1, easy ? 5 : 9);
       return {
         a: formatDecimal(a, places),
         b: String(b),
@@ -758,6 +765,7 @@ function makeDecimalCandidates(settings) {
       const bPlaces = settings.layout !== "horizontal" ? 1 : randomInt(1, 2);
       const bMax = bPlaces === 1 ? (easy ? 49 : 99) : (easy ? 499 : 999);
       const b = randomInt(2, bMax);
+      if (settings.omitMultiplierOne && b === 10 ** bPlaces) return null;
       return {
         a: formatDecimal(a, places),
         b: formatDecimal(b, bPlaces),
@@ -876,6 +884,7 @@ function sheetSignature(settings) {
   return JSON.stringify({
     grade: settings.grade,
     operation: settings.operation,
+    omitMultiplierOne: settings.omitMultiplierOne,
     digits: settings.digits,
     resultRange: settings.resultRange,
     carryMode: settings.carryMode,
@@ -941,6 +950,9 @@ function normalizeProblems(values, settings) {
   const normalized = Array.isArray(values)
     ? values.map((problem) => normalizeDivisionProblem(problem, settings)).filter(Boolean)
     : [];
+  if (settings?.omitMultiplierOne && normalized.some((problem) => problem.op === "×" && Number(problem.b) === 1)) {
+    return [];
+  }
   if (settings?.difficulty === "multiplication-table" && ["divide", "divideRemainder"].includes(settings.operation)) {
     const valid = normalized.every((problem) => {
       const dividend = Number(problem?.a);
@@ -1810,7 +1822,7 @@ function bindEvents() {
   els.layoutMode.addEventListener("change", () => {
     if (isLongDivisionLayout() && Number(els.columns.value) === 2) els.columns.value = "3";
   });
-  [els.grade, els.operation, els.difficulty, els.digits, els.resultRange, els.carryMode, els.layoutMode].forEach((control) => {
+  [els.grade, els.operation, els.difficulty, els.digits, els.resultRange, els.carryMode, els.layoutMode, els.omitMultiplierOne].forEach((control) => {
     control.addEventListener("change", generateProblems);
   });
   els.showCarryBoxes.addEventListener("change", render);
